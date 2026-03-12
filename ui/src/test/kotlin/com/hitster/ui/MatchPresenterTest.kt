@@ -8,9 +8,16 @@ import com.hitster.core.model.PlaybackReference
 import com.hitster.core.model.PlayerId
 import com.hitster.core.model.PlaylistEntry
 import com.hitster.core.model.SessionId
+import com.hitster.playback.api.PlaybackCommandResult
+import com.hitster.playback.api.PlaybackController
+import com.hitster.playback.api.PlaybackEventListener
+import com.hitster.playback.api.PlaybackIssue
+import com.hitster.playback.api.PlaybackIssueCode
+import com.hitster.playback.api.PlaybackSessionState
 import com.hitster.playback.api.NoOpPlaybackController
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
 
 class MatchPresenterTest {
     private val reducer = HostGameReducer()
@@ -44,6 +51,33 @@ class MatchPresenterTest {
         assertEquals("Only the active player can draw a card.", presenter.lastError)
     }
 
+    @Test
+    fun `presenter receives asynchronous playback issues from the controller listener`() {
+        val playbackController = FakePlaybackController()
+        val presenter = MatchPresenter(
+            reducer = reducer,
+            playbackController = playbackController,
+            hostId = hostId,
+            localPlayerId = hostId,
+            initialState = lobbyWithGuest(
+                listOf(
+                    entry("seed-host", 1980),
+                    entry("seed-guest", 2000),
+                    entry("draw-host", 1990),
+                    entry("draw-guest", 2010),
+                ),
+            ),
+        )
+        val expectedIssue = PlaybackIssue(
+            code = PlaybackIssueCode.NOT_AUTHENTICATED,
+            message = "Spotify login expired.",
+        )
+
+        playbackController.dispatchIssue(expectedIssue)
+
+        assertSame(expectedIssue, presenter.lastPlaybackIssue)
+    }
+
     private fun lobbyWithGuest(entries: List<PlaylistEntry>) =
         acceptedState(
             reducer.reduce(
@@ -69,4 +103,22 @@ class MatchPresenterTest {
         releaseYear = year,
         playbackReference = PlaybackReference("spotify:track:$id"),
     )
+
+    private class FakePlaybackController : PlaybackController {
+        private var listener: PlaybackEventListener? = null
+
+        override fun playTrack(reference: PlaybackReference): PlaybackCommandResult = PlaybackCommandResult.Success
+
+        override fun pause(): PlaybackCommandResult = PlaybackCommandResult.Success
+
+        override fun currentState(): PlaybackSessionState = PlaybackSessionState.Idle
+
+        override fun setListener(listener: PlaybackEventListener?) {
+            this.listener = listener
+        }
+
+        fun dispatchIssue(issue: PlaybackIssue?) {
+            listener?.onIssue(issue)
+        }
+    }
 }

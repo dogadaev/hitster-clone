@@ -6,6 +6,7 @@ serialization = "1.7.3"
 androidx-core = "1.15.0"
 androidx-activity = "1.9.3"
 androidx-appcompat = "1.7.0"
+gson = "2.11.0"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -21,3 +22,4 @@ gdx-freetype = { module = "com.badlogicgames.gdx:gdx-freetype", version.ref = "g
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "androidx-activity" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidx-appcompat" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }

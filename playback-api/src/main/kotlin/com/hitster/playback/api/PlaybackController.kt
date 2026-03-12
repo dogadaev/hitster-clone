@@ -8,6 +8,14 @@ interface PlaybackController {
     fun pause(): PlaybackCommandResult
 
     fun currentState(): PlaybackSessionState
+
+    fun setListener(listener: PlaybackEventListener?)
+}
+
+interface PlaybackEventListener {
+    fun onSessionStateChanged(sessionState: PlaybackSessionState) = Unit
+
+    fun onIssue(issue: PlaybackIssue?) = Unit
 }
 
 sealed interface PlaybackSessionState {
@@ -36,22 +44,34 @@ enum class PlaybackIssueCode {
     NOT_AUTHENTICATED,
     PLAYBACK_UNAVAILABLE,
     MISSING_METADATA,
+    MISSING_CONFIGURATION,
     PLATFORM_RESTRICTION,
     UNKNOWN,
 }
 
 class NoOpPlaybackController : PlaybackController {
     private var state: PlaybackSessionState = PlaybackSessionState.Idle
+    private var listener: PlaybackEventListener? = null
 
     override fun playTrack(reference: PlaybackReference): PlaybackCommandResult {
         state = PlaybackSessionState.Playing(reference.spotifyUri)
+        listener?.onIssue(null)
+        listener?.onSessionStateChanged(state)
         return PlaybackCommandResult.Success
     }
 
     override fun pause(): PlaybackCommandResult {
         state = PlaybackSessionState.Idle
+        listener?.onIssue(null)
+        listener?.onSessionStateChanged(state)
         return PlaybackCommandResult.Success
     }
 
     override fun currentState(): PlaybackSessionState = state
+
+    override fun setListener(listener: PlaybackEventListener?) {
+        this.listener = listener
+        listener?.onIssue(null)
+        listener?.onSessionStateChanged(state)
+    }
 }

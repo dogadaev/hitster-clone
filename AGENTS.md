@@ -440,6 +440,7 @@ When implementing features:
 - do not accidentally redesign the app into a shared-board UI
 - keep core game logic independent from platform SDKs
 - keep Spotify integration behind abstractions
+- keep Spotify client credentials and redirect configuration in ignored local developer config such as `local.properties`; do not hardcode or commit environment-specific secrets
 - a device must render and act only as its own local player; do not implement hotseat-style timeline switching or command impersonation based on the active turn
 - prefer modular, testable, maintainable code
 - prefer simple implementations that preserve future extensibility

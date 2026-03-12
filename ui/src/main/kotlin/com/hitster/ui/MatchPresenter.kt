@@ -10,7 +10,9 @@ import com.hitster.networking.GameStateDto
 import com.hitster.networking.GameStateMapper
 import com.hitster.playback.api.PlaybackCommandResult
 import com.hitster.playback.api.PlaybackController
+import com.hitster.playback.api.PlaybackEventListener
 import com.hitster.playback.api.PlaybackIssue
+import com.hitster.playback.api.PlaybackSessionState
 
 class MatchPresenter(
     private val reducer: HostGameReducer,
@@ -33,6 +35,18 @@ class MatchPresenter(
 
     val localPlayer: com.hitster.core.model.PlayerState?
         get() = state.requirePlayer(localPlayerId)
+
+    init {
+        playbackController.setListener(
+            object : PlaybackEventListener {
+                override fun onSessionStateChanged(sessionState: PlaybackSessionState) = Unit
+
+                override fun onIssue(issue: PlaybackIssue?) {
+                    lastPlaybackIssue = issue
+                }
+            },
+        )
+    }
 
     fun startMatch() {
         dispatch(GameCommand.StartGame(actorId = hostId))

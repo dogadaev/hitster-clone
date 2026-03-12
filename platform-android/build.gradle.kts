@@ -1,7 +1,29 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
 }
+
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use(::load)
+    }
+}
+
+fun readLocalOrEnvironment(name: String, envName: String = name): String {
+    return localProperties.getProperty(name)
+        ?: System.getenv(envName)
+        ?: ""
+}
+
+fun String.toBuildConfigLiteral(): String {
+    return "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+}
+
+val spotifyClientId = readLocalOrEnvironment("spotifyClientId", "SPOTIFY_CLIENT_ID")
+val spotifyRedirectUri = readLocalOrEnvironment("spotifyRedirectUri", "SPOTIFY_REDIRECT_URI")
 
 android {
     namespace = "com.hitster.platform.android"
@@ -13,6 +35,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "SPOTIFY_CLIENT_ID", spotifyClientId.toBuildConfigLiteral())
+        buildConfigField("String", "SPOTIFY_REDIRECT_URI", spotifyRedirectUri.toBuildConfigLiteral())
     }
 
     buildTypes {
@@ -29,12 +53,17 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {
     implementation(project(":core-model"))
     implementation(project(":playback-api"))
     implementation(project(":ui"))
+    implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))
     implementation(libs.gdx.core)
     implementation(libs.gdx.android)
     implementation(libs.gdx.freetype)
@@ -45,4 +74,5 @@ dependencies {
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.gson)
 }

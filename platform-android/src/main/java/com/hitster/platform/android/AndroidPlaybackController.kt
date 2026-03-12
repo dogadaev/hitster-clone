@@ -3,6 +3,7 @@ package com.hitster.platform.android
 import com.hitster.core.model.PlaybackReference
 import com.hitster.playback.api.PlaybackCommandResult
 import com.hitster.playback.api.PlaybackController
+import com.hitster.playback.api.PlaybackEventListener
 import com.hitster.playback.api.PlaybackIssue
 import com.hitster.playback.api.PlaybackIssueCode
 import com.hitster.playback.api.PlaybackSessionState
@@ -10,8 +11,6 @@ import com.hitster.playback.api.PlaybackSessionState
 class AndroidPlaybackController(
     private val spotifyBridge: AndroidSpotifyBridge,
 ) : PlaybackController {
-    private var sessionState: PlaybackSessionState = PlaybackSessionState.Idle
-
     override fun playTrack(reference: PlaybackReference): PlaybackCommandResult {
         if (reference.spotifyUri.isBlank()) {
             return PlaybackCommandResult.Failure(
@@ -22,39 +21,52 @@ class AndroidPlaybackController(
             )
         }
 
-        val result = spotifyBridge.play(reference.spotifyUri)
-        if (result is PlaybackCommandResult.Success) {
-            sessionState = PlaybackSessionState.Playing(reference.spotifyUri)
-        }
-        return result
+        return spotifyBridge.play(reference.spotifyUri)
     }
 
-    override fun pause(): PlaybackCommandResult {
-        val result = spotifyBridge.pause()
-        if (result is PlaybackCommandResult.Success) {
-            sessionState = PlaybackSessionState.Idle
-        }
-        return result
-    }
+    override fun pause(): PlaybackCommandResult = spotifyBridge.pause()
 
-    override fun currentState(): PlaybackSessionState = sessionState
+    override fun currentState(): PlaybackSessionState = spotifyBridge.currentState()
+
+    override fun setListener(listener: PlaybackEventListener?) {
+        spotifyBridge.setListener(listener)
+    }
 }
 
 interface AndroidSpotifyBridge {
     fun play(spotifyUri: String): PlaybackCommandResult
 
     fun pause(): PlaybackCommandResult
+
+    fun currentState(): PlaybackSessionState
+
+    fun setListener(listener: PlaybackEventListener?)
+
+    fun disconnect()
 }
 
-class StubAndroidSpotifyBridge : AndroidSpotifyBridge {
+class StubAndroidSpotifyBridge(
+    private val issue: PlaybackIssue = PlaybackIssue(
+        code = PlaybackIssueCode.MISSING_CONFIGURATION,
+        message = "Spotify Android playback is not configured yet.",
+    ),
+) : AndroidSpotifyBridge {
+    private var listener: PlaybackEventListener? = null
+
     override fun play(spotifyUri: String): PlaybackCommandResult {
-        return PlaybackCommandResult.Failure(
-            PlaybackIssue(
-                code = PlaybackIssueCode.NOT_AUTHENTICATED,
-                message = "Spotify SDK bridge is not wired yet on Android.",
-            ),
-        )
+        listener?.onIssue(issue)
+        listener?.onSessionStateChanged(PlaybackSessionState.Idle)
+        return PlaybackCommandResult.Failure(issue)
     }
 
     override fun pause(): PlaybackCommandResult = PlaybackCommandResult.Success
+
+    override fun currentState(): PlaybackSessionState = PlaybackSessionState.Idle
+
+    override fun setListener(listener: PlaybackEventListener?) {
+        this.listener = listener
+        listener?.onSessionStateChanged(PlaybackSessionState.Idle)
+    }
+
+    override fun disconnect() = Unit
 }

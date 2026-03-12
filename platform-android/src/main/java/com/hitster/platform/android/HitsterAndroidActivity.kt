@@ -11,6 +11,7 @@ import com.hitster.ui.HitsterGameApp
 
 class HitsterAndroidActivity : AndroidApplication() {
     private val keepScreenAwakeController = AndroidKeepScreenAwakeController()
+    private lateinit var spotifyBridge: AndroidSpotifyBridge
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -20,11 +21,12 @@ class HitsterAndroidActivity : AndroidApplication() {
         val configuration = AndroidApplicationConfiguration().apply {
             useImmersiveMode = true
         }
+        spotifyBridge = createSpotifyBridge()
 
         initialize(
             HitsterGameApp(
                 playbackController = AndroidPlaybackController(
-                    spotifyBridge = StubAndroidSpotifyBridge(),
+                    spotifyBridge = spotifyBridge,
                 ),
             ),
             configuration,
@@ -43,9 +45,31 @@ class HitsterAndroidActivity : AndroidApplication() {
         }
     }
 
+    override fun onStop() {
+        spotifyBridge.disconnect()
+        super.onStop()
+    }
+
     override fun onDestroy() {
+        spotifyBridge.disconnect()
         keepScreenAwakeController.disable(window)
         super.onDestroy()
+    }
+
+    private fun createSpotifyBridge(): AndroidSpotifyBridge {
+        val configuration = SpotifyAppRemoteConfigurationLoader.load()
+        if (!configuration.isConfigured()) {
+            return StubAndroidSpotifyBridge(
+                issue = com.hitster.playback.api.PlaybackIssue(
+                    code = com.hitster.playback.api.PlaybackIssueCode.MISSING_CONFIGURATION,
+                    message = "Configure spotifyClientId and spotifyRedirectUri in local.properties to enable Spotify playback.",
+                ),
+            )
+        }
+        return SpotifyAppRemoteBridge(
+            activity = this,
+            configuration = configuration,
+        )
     }
 
     private fun enterImmersiveMode() {
