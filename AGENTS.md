@@ -440,6 +440,7 @@ When implementing features:
 - do not accidentally redesign the app into a shared-board UI
 - keep core game logic independent from platform SDKs
 - keep Spotify integration behind abstractions
+- a device must render and act only as its own local player; do not implement hotseat-style timeline switching or command impersonation based on the active turn
 - prefer modular, testable, maintainable code
 - prefer simple implementations that preserve future extensibility
 - keep project-local Codex defaults in `.codex/config.toml`; for this repo use `approval_policy = "never"` and `sandbox_mode = "danger-full-access"` unless the user explicitly changes them

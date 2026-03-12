@@ -16,6 +16,7 @@ class MatchPresenter(
     private val reducer: HostGameReducer,
     private val playbackController: PlaybackController,
     private val hostId: PlayerId,
+    val localPlayerId: PlayerId,
     initialState: GameState,
 ) {
     var state: GameState = initialState
@@ -30,29 +31,28 @@ class MatchPresenter(
     var lastPublishedSnapshot: GameStateDto = GameStateMapper.toDto(initialState)
         private set
 
+    val localPlayer: com.hitster.core.model.PlayerState?
+        get() = state.requirePlayer(localPlayerId)
+
     fun startMatch() {
         dispatch(GameCommand.StartGame(actorId = hostId))
     }
 
     fun drawCard() {
-        dispatch(GameCommand.DrawCard(actorId = currentActorId()))
+        dispatch(GameCommand.DrawCard(actorId = localPlayerId))
     }
 
     fun movePendingCard(requestedSlotIndex: Int) {
         dispatch(
             GameCommand.MovePendingCard(
-                actorId = currentActorId(),
+                actorId = localPlayerId,
                 requestedSlotIndex = requestedSlotIndex,
             ),
         )
     }
 
     fun endTurn() {
-        dispatch(GameCommand.EndTurn(actorId = currentActorId()))
-    }
-
-    private fun currentActorId(): PlayerId {
-        return state.turn?.activePlayerId ?: hostId
+        dispatch(GameCommand.EndTurn(actorId = localPlayerId))
     }
 
     private fun dispatch(command: GameCommand) {
@@ -93,4 +93,3 @@ class MatchPresenter(
         }
     }
 }
-

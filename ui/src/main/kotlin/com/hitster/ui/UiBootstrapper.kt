@@ -19,6 +19,7 @@ object UiBootstrapper {
 
     fun createPresenter(
         playbackController: PlaybackController = NoOpPlaybackController(),
+        localPlayerId: PlayerId = hostId,
     ): MatchPresenter {
         val reducer = HostGameReducer()
         val lobby = GameSessionFactory.createLobby(
@@ -41,6 +42,7 @@ object UiBootstrapper {
             reducer = reducer,
             playbackController = playbackController,
             hostId = hostId,
+            localPlayerId = localPlayerId,
             initialState = withGuest,
         )
     }

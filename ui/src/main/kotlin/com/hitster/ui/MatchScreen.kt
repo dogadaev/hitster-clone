@@ -323,7 +323,7 @@ class MatchScreen(
             )
         }
 
-        val player = displayedPlayer()
+        val player = localPlayer()
         if (presenter.state.status == MatchStatus.LOBBY || player == null) {
             animatedCardLefts.clear()
             animatedPendingCardLeft = null
@@ -424,7 +424,7 @@ class MatchScreen(
     }
 
     private fun updateCelebration(delta: Float) {
-        val resolution = presenter.state.lastResolution
+        val resolution = localResolution()
         if (resolution?.correct == true && presenter.state.revision != celebratedResolutionRevision) {
             spawnConfetti()
             celebratedResolutionRevision = presenter.state.revision
@@ -763,7 +763,7 @@ class MatchScreen(
     }
 
     private fun drawMatchText(includeOverlay: Boolean) {
-        val player = displayedPlayer()
+        val player = localPlayer()
         val toolbarStatus = toolbarStatusText()
         val turnLabelWidth = if (toolbarStatus == null) 170f else 154f
         val turnX = if (showActionButton()) {
@@ -1098,7 +1098,7 @@ class MatchScreen(
 
     private fun toolbarStatusText(): String? {
         presenter.lastError?.let { return it }
-        presenter.state.lastResolution?.let { resolution ->
+        localResolution()?.let { resolution ->
             if (resolution.correct) {
                 return null
             }
@@ -1109,15 +1109,11 @@ class MatchScreen(
 
     private fun toolbarStatusColor(): Color {
         presenter.lastError?.let { return color(0xFFB7ACFF) }
-        return if (presenter.state.lastResolution?.correct == true) {
+        return if (localResolution()?.correct == true) {
             color(0xF4D283FF)
         } else {
             color(0xFFB7ACFF)
         }
-    }
-
-    private fun resolvedTrackTitle(cardId: String): String {
-        return resolvedTrackEntry(cardId)?.title ?: "Unknown Track"
     }
 
     private fun resolvedTrackLabel(cardId: String): String {
@@ -1136,20 +1132,18 @@ class MatchScreen(
 
     private fun showActionButton(): Boolean = canEndTurn()
 
-    private fun displayedPlayer(): PlayerState? {
-        presenter.state.players.firstOrNull { it.pendingCard != null }?.let { return it }
-        presenter.state.lastResolution?.playerId?.let { playerId ->
-            return presenter.state.requirePlayer(playerId)
-        }
-        return presenter.state.activePlayer
-    }
+    private fun localPlayer(): PlayerState? = presenter.localPlayer
 
-    private fun canDraw(): Boolean = presenter.state.turn?.phase == TurnPhase.WAITING_FOR_DRAW
+    private fun localResolution() = presenter.state.lastResolution?.takeIf { it.playerId == presenter.localPlayerId }
 
-    private fun canEndTurn(): Boolean = presenter.state.turn?.phase == TurnPhase.CARD_POSITIONED
+    private fun isLocalPlayersTurn(): Boolean = presenter.state.turn?.activePlayerId == presenter.localPlayerId
+
+    private fun canDraw(): Boolean = isLocalPlayersTurn() && presenter.state.turn?.phase == TurnPhase.WAITING_FOR_DRAW
+
+    private fun canEndTurn(): Boolean = isLocalPlayersTurn() && presenter.state.turn?.phase == TurnPhase.CARD_POSITIONED
 
     private fun requestedSlotIndexFor(x: Float): Int {
-        val player = displayedPlayer() ?: return 0
+        val player = localPlayer() ?: return 0
         val pendingCard = player.pendingCard ?: return timelineLayout.nearestSlotIndex(player.timeline.cards.size, x)
         if (!draggingPendingCard) {
             return timelineLayout.nearestSlotIndex(player.timeline.cards.size, x)
@@ -1331,7 +1325,7 @@ class MatchScreen(
                 return true
             }
 
-            val player = displayedPlayer() ?: return false
+            val player = localPlayer() ?: return false
             if (canDraw() && deckRect.contains(world.x, world.y)) {
                 draggingDeckGhost = true
                 worldTouch.set(world)
