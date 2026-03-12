@@ -78,6 +78,7 @@ class MatchScreen(
     private var draggingDeckGhost = false
     private var draggingPendingCard = false
     private var pendingCardGrabOffsetX = 0f
+    private var pendingCardDragDirectionX = 0f
 
     override fun show() {
         font = createFont()
@@ -346,22 +347,8 @@ class MatchScreen(
                 lerpToward(current, pendingLeftTarget, animationAlpha)
             } ?: pendingLeftTarget
         }
-        val committedTargets = if (draggingPendingCard) {
-            dodgeCommittedCardLefts(
-                baseLefts = arrangement.committedCardLefts,
-                cardWidth = arrangement.cardWidth,
-                pendingLeft = pendingLeft,
-                gap = arrangement.gap,
-            )
-        } else {
-            arrangement.committedCardLefts
-        }
         player.timeline.cards.forEachIndexed { index, card ->
-            val visualLeft = if (draggingPendingCard) {
-                committedTargets[index]
-            } else {
-                animatedLeft(card.id, committedTargets[index], animationAlpha)
-            }
+            val visualLeft = animatedLeft(card.id, arrangement.committedCardLefts[index], animationAlpha)
             animatedCardLefts[card.id] = visualLeft
             visibleCardIds += card.id
             timelineCardVisuals += TimelineCardVisual(
@@ -406,61 +393,6 @@ class MatchScreen(
             return target
         }
         return current + (target - current) * alpha
-    }
-
-    private fun dodgeCommittedCardLefts(
-        baseLefts: List<Float>,
-        cardWidth: Float,
-        pendingLeft: Float,
-        gap: Float,
-    ): List<Float> {
-        if (baseLefts.isEmpty()) {
-            return emptyList()
-        }
-
-        val separation = max(12f, gap * 0.7f)
-        val pendingRight = pendingLeft + cardWidth
-        val adjusted = baseLefts.toMutableList()
-
-        adjusted.indices.forEach { index ->
-            val left = adjusted[index]
-            val right = left + cardWidth
-            adjusted[index] = when {
-                left < pendingLeft && right + separation > pendingLeft -> pendingLeft - cardWidth - separation
-                left >= pendingLeft && left < pendingRight + separation -> pendingRight + separation
-                else -> left
-            }
-        }
-
-        for (index in 1 until adjusted.size) {
-            val minimumLeft = adjusted[index - 1] + cardWidth + separation
-            if (adjusted[index] < minimumLeft) {
-                adjusted[index] = minimumLeft
-            }
-        }
-
-        for (index in adjusted.lastIndex - 1 downTo 0) {
-            val maximumLeft = adjusted[index + 1] - cardWidth - separation
-            if (adjusted[index] > maximumLeft) {
-                adjusted[index] = maximumLeft
-            }
-        }
-
-        val leftOverflow = timelineCardsX - adjusted.first()
-        if (leftOverflow > 0f) {
-            adjusted.indices.forEach { index ->
-                adjusted[index] += leftOverflow
-            }
-        }
-
-        val rightOverflow = adjusted.last() + cardWidth - (timelineCardsX + timelineCardsWidth)
-        if (rightOverflow > 0f) {
-            adjusted.indices.forEach { index ->
-                adjusted[index] -= rightOverflow
-            }
-        }
-
-        return adjusted
     }
 
     // Generate a larger atlas so text stays sharp on high-density phones.
@@ -956,7 +888,13 @@ class MatchScreen(
     }
 
     private fun drawTimelineCardText() {
-        timelineCardVisuals.forEach(::drawCardText)
+        val coveringRect = if (draggingPendingCard) pendingCardVisual?.rect else null
+        timelineCardVisuals.forEach { visual ->
+            if (coveringRect != null && visual.face == CardFace.Revealed && visual.rect.overlaps(coveringRect)) {
+                return@forEach
+            }
+            drawCardText(visual)
+        }
         transientCardVisual?.let(::drawCardText)
     }
 
@@ -1066,7 +1004,27 @@ class MatchScreen(
 
     private fun requestedSlotIndexFor(x: Float): Int {
         val player = activePlayer() ?: return 0
-        return timelineLayout.nearestSlotIndex(player.timeline.cards.size, x)
+        val pendingCard = player.pendingCard ?: return timelineLayout.nearestSlotIndex(player.timeline.cards.size, x)
+        if (!draggingPendingCard) {
+            return timelineLayout.nearestSlotIndex(player.timeline.cards.size, x)
+        }
+
+        val arrangement = timelineLayout.pendingArrangement(
+            existingCardCount = player.timeline.cards.size,
+            pendingSlotIndex = pendingCard.proposedSlotIndex,
+        )
+        val pendingLeft = clamp(
+            x - pendingCardGrabOffsetX,
+            timelineCardsX,
+            timelineCardsX + timelineCardsWidth - arrangement.cardWidth,
+        )
+        val probeRatio = when {
+            pendingCardDragDirectionX > 0f -> 0.74f
+            pendingCardDragDirectionX < 0f -> 0.26f
+            else -> 0.5f
+        }
+        val probeX = pendingLeft + arrangement.cardWidth * probeRatio
+        return timelineLayout.nearestSlotIndex(player.timeline.cards.size, probeX)
     }
 
     private fun drawTextBlock(
@@ -1225,6 +1183,7 @@ class MatchScreen(
                 draggingPendingCard = true
                 worldTouch.set(world)
                 pendingCardGrabOffsetX = world.x - currentPendingCard.rect.x
+                pendingCardDragDirectionX = 0f
                 return true
             }
 
@@ -1237,8 +1196,10 @@ class MatchScreen(
                 return false
             }
 
+            val previousX = worldTouch.x
             viewport.unproject(worldTouch.set(screenX.toFloat(), screenY.toFloat()))
             if (draggingPendingCard) {
+                pendingCardDragDirectionX = worldTouch.x - previousX
                 presenter.movePendingCard(requestedSlotIndexFor(worldTouch.x))
             }
             return true
@@ -1262,6 +1223,7 @@ class MatchScreen(
             draggingDeckGhost = false
             draggingPendingCard = false
             pendingCardGrabOffsetX = 0f
+            pendingCardDragDirectionX = 0f
             return true
         }
     }
