@@ -225,6 +225,7 @@ Turn flow:
 - the active player draws a card from the deck on their own device using drag and drop
 - drawing the card starts playback for the associated track
 - the player must not see song-identifying details such as title, artist, or release year before ending the turn
+- once a card is revealed on the timeline, it should show its song title, artist, and release year
 - the player drags the card to a position on their own timeline
 - the player must be able to place the card:
   - between two existing cards

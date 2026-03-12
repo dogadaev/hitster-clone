@@ -268,8 +268,8 @@ class MatchScreen(
             clamp(worldHeight * 0.11f, 98f, 118f),
         )
 
-        val preferredCardWidth = clamp(timelineTrackRect.width * 0.14f, 126f, 178f)
-        val minCardWidth = clamp(timelineTrackRect.width * 0.10f, 98f, 126f)
+        val preferredCardWidth = clamp(timelineTrackRect.width * 0.18f, 156f, 220f)
+        val minCardWidth = clamp(timelineTrackRect.width * 0.114f, 112f, 140f)
         timelineCardsX = timelineTrackRect.x + panelPadding * 0.28f
         timelineCardsWidth = timelineTrackRect.width - panelPadding * 0.56f
         timelineLayout = TimelineLayoutCalculator(
@@ -281,7 +281,7 @@ class MatchScreen(
             minGap = 14f,
         )
 
-        cardHeight = clamp(timelineTrackRect.height * 0.62f, 176f, 236f)
+        cardHeight = clamp(timelineTrackRect.height * 0.74f, 210f, 278f)
         fontScaleMultiplier = clamp(worldHeight / 960f, 0.98f, 1.08f)
         minimumTextScale = 0.88f
         shadowOffset = clamp(worldHeight * 0.0011f, 1f, 1.6f)
@@ -328,14 +328,16 @@ class MatchScreen(
                 visibleCardIds += card.id
                 timelineCardVisuals += TimelineCardVisual(
                     id = card.id,
-                    rect = Rectangle(animatedLeft, cardBottom, arrangement.cardWidth, cardHeight),
-                    face = CardFace.Revealed,
-                    topColor = 0xF7E9D1FF,
-                    bottomColor = 0xDCC4A6FF,
-                    edgeColor = 0xFFF6E7CA,
-                    primaryText = card.releaseYear.toString(),
-                )
-            }
+                rect = Rectangle(animatedLeft, cardBottom, arrangement.cardWidth, cardHeight),
+                face = CardFace.Revealed,
+                topColor = 0xF7E9D1FF,
+                bottomColor = 0xDCC4A6FF,
+                edgeColor = 0xFFF6E7CA,
+                primaryText = card.title,
+                secondaryText = card.artist,
+                tertiaryText = card.releaseYear.toString(),
+            )
+        }
             animatedPendingCardLeft = null
             animatedCardLefts.keys.retainAll(visibleCardIds)
             return
@@ -368,7 +370,9 @@ class MatchScreen(
                 topColor = 0xF7E9D1FF,
                 bottomColor = 0xDCC4A6FF,
                 edgeColor = 0xFFF6E7CA,
-                primaryText = card.releaseYear.toString(),
+                primaryText = card.title,
+                secondaryText = card.artist,
+                tertiaryText = card.releaseYear.toString(),
             )
         }
         animatedPendingCardLeft = pendingLeft
@@ -937,19 +941,53 @@ class MatchScreen(
     private fun drawCardText(visual: TimelineCardVisual) {
         when (visual.face) {
             CardFace.Revealed -> {
-                val label = visual.primaryText ?: return
+                val title = visual.primaryText ?: return
                 drawTextBlock(
-                    text = label,
-                    x = visual.rect.x,
-                    y = visual.rect.y,
-                    width = visual.rect.width,
-                    height = visual.rect.height,
-                    scale = 1.08f,
+                    text = title,
+                    x = visual.rect.x + 14f,
+                    y = visual.rect.y + visual.rect.height * 0.38f,
+                    width = visual.rect.width - 28f,
+                    height = visual.rect.height * 0.30f,
+                    scale = 0.62f,
                     color = color(0x17120CFF),
                     align = Align.center,
-                    verticalAlign = VerticalTextAlign.Center,
+                    verticalAlign = VerticalTextAlign.Top,
                     shadowColor = color(0xFFF7F0E040),
+                    wrap = true,
+                    insetY = 2f,
+                    enforceMinimumScale = false,
                 )
+                visual.secondaryText?.let { artist ->
+                    drawTextBlock(
+                        text = artist,
+                        x = visual.rect.x + 14f,
+                        y = visual.rect.y + visual.rect.height * 0.16f,
+                        width = visual.rect.width - 28f,
+                        height = visual.rect.height * 0.10f,
+                        scale = 0.50f,
+                        color = color(0x393024FF),
+                        align = Align.center,
+                        verticalAlign = VerticalTextAlign.Center,
+                        shadowColor = color(0xFFF7F0E028),
+                        wrap = true,
+                        enforceMinimumScale = false,
+                    )
+                }
+                visual.tertiaryText?.let { year ->
+                    drawTextBlock(
+                        text = year,
+                        x = visual.rect.x + 12f,
+                        y = visual.rect.y + 10f,
+                        width = visual.rect.width - 24f,
+                        height = visual.rect.height * 0.10f,
+                        scale = 0.56f,
+                        color = color(0x17120CFF),
+                        align = Align.center,
+                        verticalAlign = VerticalTextAlign.Center,
+                        shadowColor = color(0xFFF7F0E040),
+                        enforceMinimumScale = false,
+                    )
+                }
             }
 
             CardFace.Hidden -> {
@@ -1065,8 +1103,10 @@ class MatchScreen(
         insetX: Float = 0f,
         insetY: Float = 0f,
         shadowColor: Color = color(0x02060CB8),
+        enforceMinimumScale: Boolean = true,
     ) {
-        val appliedScale = max(scale, minimumTextScale) * fontScaleMultiplier
+        val baseScale = if (enforceMinimumScale) max(scale, minimumTextScale) else scale
+        val appliedScale = baseScale * fontScaleMultiplier
         val drawX = (x + insetX).roundToInt().toFloat()
         val availableWidth = max(1f, width - insetX * 2f).roundToInt().toFloat()
         val availableHeight = max(1f, height - insetY * 2f)
@@ -1261,6 +1301,7 @@ class MatchScreen(
         val edgeColor: Long,
         val primaryText: String? = null,
         val secondaryText: String? = null,
+        val tertiaryText: String? = null,
     )
 
     private enum class CardFace {
