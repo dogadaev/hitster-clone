@@ -261,20 +261,22 @@ class MatchScreen(
             clamp(timelineTrackRect.height * 0.16f, 68f, 90f),
         )
 
-        val lobbyWidth = clamp(worldWidth * 0.50f, 860f, 1120f)
-        val lobbyHeight = clamp(worldHeight * 0.44f, 400f, 540f)
-        lobbyCardRect.set(
-            (worldWidth - lobbyWidth) / 2f,
-            outerMargin + worldHeight * 0.12f,
-            lobbyWidth,
-            lobbyHeight,
+        val lobbyButtonWidth = clamp(worldWidth * 0.23f, 360f, 500f)
+        val lobbyButtonHeight = clamp(worldHeight * 0.11f, 94f, 118f)
+        startButtonRect.set(
+            (worldWidth - lobbyButtonWidth) / 2f,
+            outerMargin + clamp(worldHeight * 0.04f, 26f, 40f),
+            lobbyButtonWidth,
+            lobbyButtonHeight,
         )
 
-        startButtonRect.set(
-            (worldWidth - clamp(worldWidth * 0.24f, 420f, 540f)) / 2f,
-            lobbyCardRect.y - panelGap - clamp(worldHeight * 0.11f, 98f, 118f),
-            clamp(worldWidth * 0.24f, 420f, 540f),
-            clamp(worldHeight * 0.11f, 98f, 118f),
+        val lobbyStageBottom = startButtonRect.y + startButtonRect.height + clamp(worldHeight * 0.05f, 30f, 48f)
+        val lobbyStageTop = headerRect.y - panelGap
+        lobbyCardRect.set(
+            outerMargin,
+            lobbyStageBottom,
+            worldWidth - outerMargin * 2f,
+            max(1f, lobbyStageTop - lobbyStageBottom),
         )
 
         val preferredCardWidth = clamp(timelineTrackRect.width * 0.18f, 156f, 220f)
@@ -548,100 +550,82 @@ class MatchScreen(
     }
 
     private fun drawLobby() {
-        fillPanel(lobbyCardRect, 0x13254BFF, 0x0D1B37FF, 0x4D67A5FF, 0x3E568DFF, 0xAFC2F044)
         fillButton(startButtonRect, 0xF6B447FF, 0xE4952BFF, 0xFFF0BF66)
 
-        presenter.state.players.forEachIndexed { index, _ ->
-            val rowY = lobbyCardRect.y + lobbyCardRect.height - 218f - index * 62f
-            fillGradientRect(lobbyCardRect.x + 54f, rowY, 298f, 48f, 0x22345DFF, 0x1E2D4FFF, 0x324B80FF, 0x2C4374FF)
-        }
+        val cardWidth = clamp(lobbyCardRect.width * 0.11f, 142f, 176f)
+        val cardHeight = clamp(lobbyCardRect.height * 0.42f, 194f, 238f)
+        val cardCenterX = lobbyCardRect.x + lobbyCardRect.width / 2f
+        val cardBottom = lobbyCardRect.y + lobbyCardRect.height * 0.42f
 
         repeat(3) { index ->
-            val offset = index * 24f
+            val depth = abs(index - 1)
+            val offset = (index - 1) * (cardWidth * 0.33f)
             drawCardSurface(
-                left = lobbyCardRect.x + lobbyCardRect.width - 214f + offset,
-                bottom = lobbyCardRect.y + 56f - offset,
-                width = 142f,
-                height = 200f,
-                topColor = 0xF2D081FF,
-                bottomColor = 0xD8A34BFF,
+                left = cardCenterX - cardWidth / 2f + offset,
+                bottom = cardBottom - depth * 16f,
+                width = cardWidth,
+                height = cardHeight,
+                topColor = if (index == 1) 0xF2D081FF else 0xDFB768FF,
+                bottomColor = if (index == 1) 0xD8A34BFF else 0xC18B43FF,
                 edgeColor = 0xFFF5D4AA,
             )
+        }
+
+        lobbyPlayerBadgeRects().forEach { rect ->
+            drawDropShadow(rect, 12f, 0x01050B38)
+            fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x17284AFF, 0x132342FF, 0x243D6FFF, 0x1B3158FF)
+            drawFrame(rect, 0xAFC3F032, 2f)
         }
     }
 
     private fun drawLobbyTextures() {
-        drawPanelTexture(lobbyCardRect, color(0xCFE0FF18))
         drawPanelTexture(startButtonRect, color(0xFFF5D41E))
+        lobbyPlayerBadgeRects().forEach { rect ->
+            drawPanelTexture(rect, color(0xC7DAFF10))
+        }
     }
 
     private fun drawLobbyText() {
         drawTextBlock(
             text = "Hitster Clone",
-            x = headerRect.x + 32f,
+            x = headerRect.x,
             y = headerRect.y,
-            width = 430f,
+            width = headerRect.width,
             height = headerRect.height,
-            scale = 1.48f,
+            scale = 1.40f,
             color = Color.WHITE,
-            verticalAlign = VerticalTextAlign.Center,
-        )
-        drawTextBlock(
-            text = "Local host session",
-            x = headerRect.x + headerRect.width - 260f,
-            y = headerRect.y,
-            width = 228f,
-            height = headerRect.height,
-            scale = 0.98f,
-            color = color(0xD8E4FDFF),
-            align = Align.right,
+            align = Align.center,
             verticalAlign = VerticalTextAlign.Center,
         )
 
-        drawTextBlock(
-            text = "Ready to Start",
-            x = lobbyCardRect.x + 54f,
-            y = lobbyCardRect.y + lobbyCardRect.height - 96f,
-            width = 360f,
-            height = 54f,
-            scale = 1.20f,
-            color = Color.WHITE,
-        )
-        drawTextBlock(
-            text = "${presenter.state.players.size} players connected",
-            x = lobbyCardRect.x + 54f,
-            y = lobbyCardRect.y + lobbyCardRect.height - 150f,
-            width = 360f,
-            height = 48f,
-            scale = 0.94f,
-            color = color(0xF3CF7BFF),
-        )
-
-        presenter.state.players.forEachIndexed { index, player ->
+        presenter.state.players.zip(lobbyPlayerBadgeRects()).forEach { (player, rect) ->
             drawTextBlock(
                 text = player.displayName,
-                x = lobbyCardRect.x + 70f,
-                y = lobbyCardRect.y + lobbyCardRect.height - 218f - index * 62f,
-                width = 260f,
-                height = 48f,
-                scale = 0.94f,
+                x = rect.x,
+                y = rect.y,
+                width = rect.width,
+                height = rect.height,
+                scale = 0.90f,
                 color = Color.WHITE,
+                align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
             )
         }
 
         drawTextBlock(
-            text = "One phone. One timeline.",
-            x = lobbyCardRect.x + 54f,
-            y = lobbyCardRect.y + 54f,
-            width = lobbyCardRect.width * 0.48f,
-            height = 80f,
-            scale = 0.96f,
-            color = color(0xDDE6FFFF),
+            text = "${presenter.state.players.size} PLAYERS",
+            x = lobbyCardRect.x,
+            y = lobbyCardRect.y + lobbyCardRect.height * 0.18f,
+            width = lobbyCardRect.width,
+            height = 42f,
+            scale = 0.74f,
+            color = color(0xF3CF7BFF),
+            align = Align.center,
+            verticalAlign = VerticalTextAlign.Center,
         )
 
         drawTextBlock(
-            text = "Start Match",
+            text = "START",
             x = startButtonRect.x,
             y = startButtonRect.y,
             width = startButtonRect.width,
@@ -652,6 +636,40 @@ class MatchScreen(
             verticalAlign = VerticalTextAlign.Center,
             shadowColor = color(0xFFF8E29F33),
         )
+    }
+
+    private fun lobbyPlayerBadgeRects(): List<Rectangle> {
+        val playerCount = presenter.state.players.size
+        if (playerCount == 0) {
+            return emptyList()
+        }
+
+        val badgeWidth = clamp(lobbyCardRect.width * 0.16f, 220f, 310f)
+        val badgeHeight = clamp(lobbyCardRect.height * 0.12f, 56f, 70f)
+        val columnGap = clamp(panelGap * 1.05f, 18f, 30f)
+        val rowGap = clamp(panelGap * 0.76f, 16f, 22f)
+        val columns = max(1, min(3, playerCount))
+        val rows = (playerCount + columns - 1) / columns
+        val baseY = lobbyCardRect.y + clamp(lobbyCardRect.height * 0.08f, 18f, 30f)
+        val rects = ArrayList<Rectangle>(playerCount)
+
+        repeat(rows) { row ->
+            val firstIndex = row * columns
+            val rowSize = min(columns, playerCount - firstIndex)
+            val rowWidth = rowSize * badgeWidth + (rowSize - 1) * columnGap
+            val startX = lobbyCardRect.x + (lobbyCardRect.width - rowWidth) / 2f
+            val y = baseY + (rows - 1 - row) * (badgeHeight + rowGap)
+            repeat(rowSize) { column ->
+                rects += Rectangle(
+                    startX + column * (badgeWidth + columnGap),
+                    y,
+                    badgeWidth,
+                    badgeHeight,
+                )
+            }
+        }
+
+        return rects
     }
 
     private fun drawMatch(includeOverlay: Boolean) {
