@@ -104,6 +104,39 @@ class HostGameReducerTest {
     }
 
     @Test
+    fun `correct placement completes match when a player reaches ten cards`() {
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2005),
+                entry("winner", 2022),
+                entry("spare", 2023),
+            ),
+        )
+        state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
+        state = state.copy(
+            players = state.players.mapIndexed { index, player ->
+                if (index == 0) {
+                    player.copy(
+                        timeline = timelineEntries(1980, 1985, 1990, 1993, 1997, 2001, 2005, 2010, 2016),
+                        pendingCard = player.pendingCard?.copy(proposedSlotIndex = 9),
+                    )
+                } else {
+                    player
+                }
+            },
+        )
+
+        val accepted = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.EndTurn(hostId)))
+
+        assertEquals(MatchStatus.COMPLETE, accepted.state.status)
+        assertEquals(TurnPhase.COMPLETE, accepted.state.turn?.phase)
+        assertEquals(10, accepted.state.players.first().timeline.cards.size)
+        assertEquals("Correct placement. Timeline complete.", accepted.state.lastResolution?.message)
+    }
+
+    @Test
     fun `every accepted command increments revision and publishes snapshot`() {
         var state = lobbyWithGuest(
             listOf(
@@ -167,4 +200,10 @@ class HostGameReducerTest {
             playbackReference = PlaybackReference("spotify:track:$id"),
         )
     }
+
+    private fun timelineEntries(vararg years: Int) = com.hitster.core.model.PlayerTimeline(
+        cards = years.mapIndexed { index, year ->
+            entry("timeline-$index-$year", year)
+        },
+    )
 }

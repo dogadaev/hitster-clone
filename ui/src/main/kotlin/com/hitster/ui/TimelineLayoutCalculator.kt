@@ -2,6 +2,7 @@ package com.hitster.ui
 
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
 
 data class TimelineArrangement(
     val cardLefts: List<Float>,
@@ -41,32 +42,62 @@ class TimelineLayoutCalculator(
 
         val metrics = metricsFor(cardCount)
         val startX = trackX + (trackWidth - metrics.totalWidth) / 2f
-        val step = metrics.cardWidth + metrics.gap
-        val lefts = List(cardCount) { index -> startX + index * step }
-        return TimelineArrangement(lefts, metrics.cardWidth, metrics.gap, startX, metrics.totalWidth)
+        val lefts = List(cardCount) { index -> startX + index * metrics.step }
+        return TimelineArrangement(lefts, metrics.cardWidth, metrics.step - metrics.cardWidth, startX, metrics.totalWidth)
     }
 
     fun insertionSlotCenters(existingCardCount: Int): List<Float> {
-        val arrangement = arrangement(existingCardCount + 1)
-        return arrangement.cardLefts.map { left -> left + arrangement.cardWidth / 2f }
+        return List(existingCardCount + 1) { slotIndex ->
+            val arrangement = pendingArrangement(existingCardCount, slotIndex)
+            arrangement.pendingCardLeft + arrangement.cardWidth / 2f
+        }
     }
 
     fun pendingArrangement(existingCardCount: Int, pendingSlotIndex: Int): PendingTimelineArrangement {
         val totalCount = existingCardCount + 1
-        val arrangement = arrangement(totalCount)
+        val metrics = metricsFor(totalCount)
         val clampedSlot = pendingSlotIndex.coerceIn(0, existingCardCount)
-        val committedLefts = List(existingCardCount) { index ->
-            val arrangedIndex = if (index < clampedSlot) index else index + 1
-            arrangement.cardLefts[arrangedIndex]
+        val leftCount = clampedSlot
+        val rightCount = existingCardCount - clampedSlot
+        val clearStep = max(metrics.step, metrics.cardWidth)
+        val compressedStepCount = max(0, leftCount - 1) + max(0, rightCount - 1)
+        val clearStepCount = (if (leftCount > 0) 1 else 0) + (if (rightCount > 0) 1 else 0)
+        val compressedStep = when {
+            compressedStepCount == 0 -> 0f
+            else -> {
+                val available = trackWidth - metrics.cardWidth - clearStep * clearStepCount
+                min(metrics.step, available / compressedStepCount)
+            }
+        }
+        val totalWidth = metrics.cardWidth + compressedStep * compressedStepCount + clearStep * clearStepCount
+        val startX = trackX + (trackWidth - totalWidth) / 2f
+        val committedLefts = MutableList(existingCardCount) { 0f }
+        var cursor = startX
+
+        for (index in 0 until leftCount) {
+            committedLefts[index] = cursor
+            cursor += if (index == leftCount - 1) clearStep else compressedStep
+        }
+
+        val pendingLeft = cursor
+        if (rightCount > 0) {
+            cursor = pendingLeft + clearStep
+        }
+
+        for (index in 0 until rightCount) {
+            committedLefts[leftCount + index] = cursor
+            if (index < rightCount - 1) {
+                cursor += compressedStep
+            }
         }
 
         return PendingTimelineArrangement(
             committedCardLefts = committedLefts,
-            pendingCardLeft = arrangement.cardLefts[clampedSlot],
-            cardWidth = arrangement.cardWidth,
-            gap = arrangement.gap,
-            groupStartX = arrangement.groupStartX,
-            groupWidth = arrangement.groupWidth,
+            pendingCardLeft = pendingLeft,
+            cardWidth = metrics.cardWidth,
+            gap = compressedStep - metrics.cardWidth,
+            groupStartX = startX,
+            groupWidth = totalWidth,
         )
     }
 
@@ -90,37 +121,43 @@ class TimelineLayoutCalculator(
 
     private fun metricsFor(cardCount: Int): LayoutMetrics {
         if (cardCount == 1) {
-            return LayoutMetrics(preferredCardWidth, preferredGap, preferredCardWidth)
+            return LayoutMetrics(
+                cardWidth = preferredCardWidth,
+                step = preferredCardWidth + preferredGap,
+                totalWidth = preferredCardWidth,
+            )
         }
 
-        val idealWidth = totalWidth(cardCount, preferredCardWidth, preferredGap)
+        val idealStep = preferredCardWidth + preferredGap
+        val idealWidth = totalWidth(cardCount, preferredCardWidth, idealStep)
         if (idealWidth <= trackWidth) {
-            return LayoutMetrics(preferredCardWidth, preferredGap, idealWidth)
+            return LayoutMetrics(preferredCardWidth, idealStep, idealWidth)
         }
 
-        val widthWithMinGap = totalWidth(cardCount, preferredCardWidth, minGap)
+        val minGapStep = preferredCardWidth + minGap
+        val widthWithMinGap = totalWidth(cardCount, preferredCardWidth, minGapStep)
         if (widthWithMinGap <= trackWidth) {
-            val gap = (trackWidth - cardCount * preferredCardWidth) / (cardCount - 1)
-            return LayoutMetrics(preferredCardWidth, gap, totalWidth(cardCount, preferredCardWidth, gap))
+            val step = (trackWidth - preferredCardWidth) / (cardCount - 1)
+            return LayoutMetrics(preferredCardWidth, step, totalWidth(cardCount, preferredCardWidth, step))
         }
 
-        val widthWithMinCard = totalWidth(cardCount, minCardWidth, minGap)
-        if (widthWithMinCard >= trackWidth) {
-            val gap = max(4f, (trackWidth - cardCount * minCardWidth) / (cardCount - 1))
-            return LayoutMetrics(minCardWidth, gap, totalWidth(cardCount, minCardWidth, gap))
+        val fittedCardWidth = (trackWidth - (cardCount - 1) * minGap) / cardCount
+        if (fittedCardWidth >= minCardWidth) {
+            val step = fittedCardWidth + minGap
+            return LayoutMetrics(fittedCardWidth, step, totalWidth(cardCount, fittedCardWidth, step))
         }
 
-        val cardWidth = (trackWidth - (cardCount - 1) * minGap) / cardCount
-        return LayoutMetrics(cardWidth, minGap, totalWidth(cardCount, cardWidth, minGap))
+        val overlapStep = (trackWidth - minCardWidth) / (cardCount - 1)
+        return LayoutMetrics(minCardWidth, overlapStep, totalWidth(cardCount, minCardWidth, overlapStep))
     }
 
-    private fun totalWidth(cardCount: Int, cardWidth: Float, gap: Float): Float {
-        return cardCount * cardWidth + (cardCount - 1) * gap
+    private fun totalWidth(cardCount: Int, cardWidth: Float, step: Float): Float {
+        return if (cardCount <= 0) 0f else cardWidth + (cardCount - 1) * step
     }
 
     private data class LayoutMetrics(
         val cardWidth: Float,
-        val gap: Float,
+        val step: Float,
         val totalWidth: Float,
     )
 }

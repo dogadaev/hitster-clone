@@ -51,6 +51,42 @@ class TimelineLayoutCalculatorTest {
     }
 
     @Test
+    fun `allows slight overlap to fit ten committed cards on narrower tracks`() {
+        val overlapCalculator = TimelineLayoutCalculator(
+            trackX = 50f,
+            trackWidth = 900f,
+            preferredCardWidth = 180f,
+            minCardWidth = 110f,
+            preferredGap = 24f,
+            minGap = 12f,
+        )
+
+        val arrangement = overlapCalculator.arrangement(cardCount = 10)
+
+        assertTrue(arrangement.groupWidth <= 900f)
+        assertTrue(arrangement.gap < 0f)
+    }
+
+    @Test
+    fun `keeps the hidden pending card clear of neighboring cards while committed cards can overlap`() {
+        val overlapCalculator = TimelineLayoutCalculator(
+            trackX = 50f,
+            trackWidth = 900f,
+            preferredCardWidth = 180f,
+            minCardWidth = 110f,
+            preferredGap = 24f,
+            minGap = 12f,
+        )
+
+        val arrangement = overlapCalculator.pendingArrangement(existingCardCount = 9, pendingSlotIndex = 5)
+
+        assertTrue(arrangement.groupWidth <= 900f)
+        assertTrue(arrangement.committedCardLefts[1] - arrangement.committedCardLefts[0] < arrangement.cardWidth)
+        assertTrue(arrangement.pendingCardLeft - arrangement.committedCardLefts[4] >= arrangement.cardWidth)
+        assertTrue(arrangement.committedCardLefts[5] - arrangement.pendingCardLeft >= arrangement.cardWidth)
+    }
+
+    @Test
     fun `finds the nearest valid insertion slot`() {
         val slotCenters = calculator.insertionSlotCenters(existingCardCount = 3)
 

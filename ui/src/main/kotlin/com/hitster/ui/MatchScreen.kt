@@ -281,7 +281,7 @@ class MatchScreen(
             minGap = 14f,
         )
 
-        cardHeight = clamp(timelineTrackRect.height * 0.74f, 210f, 278f)
+        cardHeight = clamp(timelineTrackRect.height * 0.80f, 224f, 292f)
         fontScaleMultiplier = clamp(worldHeight / 960f, 0.98f, 1.08f)
         minimumTextScale = 0.88f
         shadowOffset = clamp(worldHeight * 0.0011f, 1f, 1.6f)
@@ -941,30 +941,14 @@ class MatchScreen(
     private fun drawCardText(visual: TimelineCardVisual) {
         when (visual.face) {
             CardFace.Revealed -> {
-                val title = visual.primaryText ?: return
-                drawTextBlock(
-                    text = title,
-                    x = visual.rect.x + 14f,
-                    y = visual.rect.y + visual.rect.height * 0.38f,
-                    width = visual.rect.width - 28f,
-                    height = visual.rect.height * 0.30f,
-                    scale = 0.62f,
-                    color = color(0x17120CFF),
-                    align = Align.center,
-                    verticalAlign = VerticalTextAlign.Top,
-                    shadowColor = color(0xFFF7F0E040),
-                    wrap = true,
-                    insetY = 2f,
-                    enforceMinimumScale = false,
-                )
                 visual.secondaryText?.let { artist ->
                     drawTextBlock(
                         text = artist,
                         x = visual.rect.x + 14f,
-                        y = visual.rect.y + visual.rect.height * 0.16f,
+                        y = visual.rect.y + visual.rect.height * 0.72f,
                         width = visual.rect.width - 28f,
-                        height = visual.rect.height * 0.10f,
-                        scale = 0.50f,
+                        height = visual.rect.height * 0.11f,
+                        scale = 0.46f,
                         color = color(0x393024FF),
                         align = Align.center,
                         verticalAlign = VerticalTextAlign.Center,
@@ -976,11 +960,11 @@ class MatchScreen(
                 visual.tertiaryText?.let { year ->
                     drawTextBlock(
                         text = year,
-                        x = visual.rect.x + 12f,
-                        y = visual.rect.y + 10f,
-                        width = visual.rect.width - 24f,
-                        height = visual.rect.height * 0.10f,
-                        scale = 0.56f,
+                        x = visual.rect.x + 14f,
+                        y = visual.rect.y + visual.rect.height * 0.42f,
+                        width = visual.rect.width - 28f,
+                        height = visual.rect.height * 0.14f,
+                        scale = 0.76f,
                         color = color(0x17120CFF),
                         align = Align.center,
                         verticalAlign = VerticalTextAlign.Center,
@@ -988,6 +972,22 @@ class MatchScreen(
                         enforceMinimumScale = false,
                     )
                 }
+                val title = visual.primaryText ?: return
+                drawTextBlock(
+                    text = title,
+                    x = visual.rect.x + 14f,
+                    y = visual.rect.y + visual.rect.height * 0.12f,
+                    width = visual.rect.width - 28f,
+                    height = visual.rect.height * 0.20f,
+                    scale = 0.54f,
+                    color = color(0x17120CFF),
+                    align = Align.center,
+                    verticalAlign = VerticalTextAlign.Bottom,
+                    shadowColor = color(0xFFF7F0E040),
+                    wrap = true,
+                    insetY = 4f,
+                    enforceMinimumScale = false,
+                )
             }
 
             CardFace.Hidden -> {

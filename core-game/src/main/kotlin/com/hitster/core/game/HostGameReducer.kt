@@ -183,6 +183,7 @@ class HostGameReducer(
         } else {
             activePlayer.copy(pendingCard = null)
         }
+        val reachedWinningTimeline = validation.isValid && resolvedPlayer.timeline.cards.size >= WINNING_TIMELINE_SIZE
 
         val nextDiscardPile = if (validation.isValid) {
             state.discardPile
@@ -196,20 +197,21 @@ class HostGameReducer(
             attemptedSlotIndex = validation.slotIndex,
             correct = validation.isValid,
             releaseYear = pendingCard.entry.releaseYear,
-            message = if (validation.isValid) {
-                "Correct placement."
-            } else {
-                "Incorrect placement. Card was discarded."
+            message = when {
+                reachedWinningTimeline -> "Correct placement. Timeline complete."
+                validation.isValid -> "Correct placement."
+                else -> "Incorrect placement. Card was discarded."
             },
         )
 
         val deckExhausted = state.deck.size == 0
-        val nextActivePlayerIndex = if (deckExhausted) {
+        val matchComplete = reachedWinningTimeline || deckExhausted
+        val nextActivePlayerIndex = if (matchComplete) {
             state.activePlayerIndex
         } else {
             (state.activePlayerIndex + 1) % state.players.size
         }
-        val nextTurn = if (deckExhausted) {
+        val nextTurn = if (matchComplete) {
             turn.copy(phase = TurnPhase.COMPLETE)
         } else {
             TurnState(
@@ -221,7 +223,7 @@ class HostGameReducer(
 
         val nextState = state.copy(
             revision = state.revision + 1,
-            status = if (deckExhausted) MatchStatus.COMPLETE else MatchStatus.ACTIVE,
+            status = if (matchComplete) MatchStatus.COMPLETE else MatchStatus.ACTIVE,
             activePlayerIndex = nextActivePlayerIndex,
             players = state.players.replacePlayer(resolvedPlayer),
             discardPile = nextDiscardPile,
@@ -274,6 +276,10 @@ class HostGameReducer(
         val players: List<PlayerState>,
         val deck: DeckState,
     )
+
+    private companion object {
+        const val WINNING_TIMELINE_SIZE = 10
+    }
 }
 
 private fun List<PlayerState>.replacePlayer(updatedPlayer: PlayerState): List<PlayerState> {

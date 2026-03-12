@@ -231,8 +231,10 @@ Turn flow:
   - between two existing cards
   - to the far left of all existing cards
   - to the far right of all existing cards
+- the first player to complete a timeline of 10 revealed cards wins the match
 - when released, the card snaps to the nearest valid timeline slot
 - after insertion, all cards in the timeline must automatically adjust their positions to make space for the new card
+- the timeline must visually fit up to 10 cards; committed cards may overlap slightly when compressed, but the hidden in-turn card must never overlap adjacent cards
 - after insertion or rearrangement, the full set of cards in the player's timeline must remain visually centered as a group
 - the player confirms the move using an end-turn button
 - ending the turn pauses playback
@@ -422,6 +424,7 @@ The MVP is successful when:
 - the active player can draw a card
 - drawing starts playback through the playback integration layer
 - the player can place the card on their own timeline
+- the first player to reach 10 revealed timeline cards wins
 - the player can insert the card between existing cards or at the far left or far right
 - all timeline cards automatically shift to fit the new card
 - the full timeline remains centered after insertion
