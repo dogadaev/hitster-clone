@@ -6,8 +6,12 @@ import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
+import com.badlogic.gdx.graphics.Pixmap
+import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.Texture.TextureFilter
+import com.badlogic.gdx.graphics.Texture.TextureWrap
 import com.badlogic.gdx.graphics.g2d.BitmapFont
+import com.badlogic.gdx.graphics.g2d.GlyphLayout
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
@@ -32,6 +36,10 @@ class MatchScreen(
     private val shapeRenderer = ShapeRenderer()
     private val batch = SpriteBatch()
     private lateinit var font: BitmapFont
+    private lateinit var grainTexture: Texture
+    private lateinit var glowTexture: Texture
+    private lateinit var vignetteTexture: Texture
+    private val textLayout = GlyphLayout()
     private val worldTouch = Vector2()
 
     private val headerRect = Rectangle()
@@ -63,6 +71,9 @@ class MatchScreen(
 
     override fun show() {
         font = createFont()
+        grainTexture = createGrainTexture()
+        glowTexture = createGlowTexture()
+        vignetteTexture = createVignetteTexture()
         Gdx.input.inputProcessor = MatchInputController()
         updateLayout()
     }
@@ -87,11 +98,19 @@ class MatchScreen(
         shapeRenderer.end()
 
         batch.begin()
+        drawAtmosphereTextures()
         when (presenter.state.status) {
-            MatchStatus.LOBBY -> drawLobbyText()
+            MatchStatus.LOBBY -> {
+                drawLobbyTextures()
+                drawLobbyText()
+            }
+
             MatchStatus.ACTIVE,
             MatchStatus.COMPLETE,
-            -> drawMatchText()
+            -> {
+                drawMatchTextures()
+                drawMatchText()
+            }
         }
         batch.end()
     }
@@ -106,6 +125,15 @@ class MatchScreen(
         batch.dispose()
         if (this::font.isInitialized) {
             font.dispose()
+        }
+        if (this::grainTexture.isInitialized) {
+            grainTexture.dispose()
+        }
+        if (this::glowTexture.isInitialized) {
+            glowTexture.dispose()
+        }
+        if (this::vignetteTexture.isInitialized) {
+            vignetteTexture.dispose()
         }
     }
 
@@ -266,231 +294,390 @@ class MatchScreen(
         }
     }
 
-    private fun drawBackground() {
-        fillRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x04101EFF)
-        fillRect(0f, layoutWorldHeight * 0.70f, layoutWorldWidth, layoutWorldHeight * 0.30f, 0x0B1736FF)
-        fillRect(0f, 0f, layoutWorldWidth, layoutWorldHeight * 0.18f, 0x09152FFF)
-        fillRect(layoutWorldWidth * 0.66f, 0f, layoutWorldWidth * 0.34f, layoutWorldHeight * 0.42f, 0x081327AA)
-        if (headerRect.height > 0f) {
-            fillRect(headerRect.x, headerRect.y, headerRect.width, headerRect.height, 0x2B3868FF)
+    private fun createGrainTexture(): Texture {
+        val size = 96
+        val pixmap = Pixmap(size, size, Pixmap.Format.RGBA8888)
+        for (x in 0 until size) {
+            for (y in 0 until size) {
+                val diagonal = (x + y) % 19 < 2
+                val speck = ((x * 17 + y * 31) % 23) == 0
+                val cross = x % 24 == 0 || y % 24 == 0
+                val alpha = when {
+                    diagonal -> 0.10f
+                    speck -> 0.14f
+                    cross -> 0.04f
+                    else -> 0.015f
+                }
+                pixmap.drawPixel(x, y, Color.rgba8888(1f, 1f, 1f, alpha))
+            }
+        }
+        return Texture(pixmap).also { texture ->
+            pixmap.dispose()
+            texture.setFilter(TextureFilter.Linear, TextureFilter.Linear)
+            texture.setWrap(TextureWrap.Repeat, TextureWrap.Repeat)
         }
     }
 
+    private fun createGlowTexture(): Texture {
+        val size = 192
+        val pixmap = Pixmap(size, size, Pixmap.Format.RGBA8888)
+        val center = (size - 1) / 2f
+        val maxDistance = center * center * 2f
+        for (x in 0 until size) {
+            for (y in 0 until size) {
+                val dx = x - center
+                val dy = y - center
+                val distance = (dx * dx + dy * dy) / maxDistance
+                val alpha = clamp(1f - distance * 2.2f, 0f, 1f)
+                pixmap.drawPixel(x, y, Color.rgba8888(1f, 1f, 1f, alpha * alpha))
+            }
+        }
+        return Texture(pixmap).also { texture ->
+            pixmap.dispose()
+            texture.setFilter(TextureFilter.Linear, TextureFilter.Linear)
+        }
+    }
+
+    private fun createVignetteTexture(): Texture {
+        val size = 192
+        val pixmap = Pixmap(size, size, Pixmap.Format.RGBA8888)
+        val center = (size - 1) / 2f
+        val maxDistance = center * center * 2f
+        for (x in 0 until size) {
+            for (y in 0 until size) {
+                val dx = x - center
+                val dy = y - center
+                val distance = (dx * dx + dy * dy) / maxDistance
+                val alpha = clamp((distance - 0.12f) * 1.4f, 0f, 0.92f)
+                pixmap.drawPixel(x, y, Color.rgba8888(0f, 0f, 0f, alpha))
+            }
+        }
+        return Texture(pixmap).also { texture ->
+            pixmap.dispose()
+            texture.setFilter(TextureFilter.Linear, TextureFilter.Linear)
+        }
+    }
+
+    private fun drawBackground() {
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x030814FF, 0x071327FF, 0x0C1E39FF, 0x08172FFF)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight * 0.28f, 0x06101CFF, 0x0A1530FF, 0x00000000, 0x00000000)
+        fillGradientRect(0f, layoutWorldHeight * 0.68f, layoutWorldWidth, layoutWorldHeight * 0.32f, 0x0B1734D8, 0x081628D8, 0x172C56E4, 0x22396CE4)
+
+        val crownHeight = clamp(layoutWorldHeight * 0.09f, 60f, 76f)
+        fillGradientRect(
+            outerMargin,
+            layoutWorldHeight - outerMargin - crownHeight,
+            layoutWorldWidth - outerMargin * 2f,
+            crownHeight,
+            0x202F58FF,
+            0x1B2A4EFF,
+            0x314A7EFF,
+            0x2A3E6BFF,
+        )
+        fillRect(outerMargin + 8f, layoutWorldHeight - outerMargin - crownHeight + 6f, layoutWorldWidth - outerMargin * 2f - 16f, 2f, 0xFFFFFF18)
+        fillRect(outerMargin + 8f, layoutWorldHeight - outerMargin - 10f, layoutWorldWidth - outerMargin * 2f - 16f, 2f, 0x0000003D)
+
+        if (headerRect.height > 0f) {
+            fillGradientRect(headerRect.x, headerRect.y, headerRect.width, headerRect.height, 0x243768FF, 0x1D315CFF, 0x4260A0FF, 0x334B82FF)
+            drawFrame(headerRect, 0xB7C7EE3F, 2f)
+        }
+    }
+
+    private fun drawAtmosphereTextures() {
+        drawGlow(layoutWorldWidth * 0.52f, layoutWorldHeight * 0.50f, 760f, 540f, color(0x356AA136))
+        drawGlow(-180f, -80f, 860f, 860f, color(0xE39B3826))
+        drawRepeatedTexture(grainTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xDCE6FF0D), layoutWorldWidth / 96f, layoutWorldHeight / 96f)
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x000000C3))
+    }
+
     private fun drawLobby() {
-        fillPanel(lobbyCardRect, 0x101C41FF, 0x3C4F86FF)
-        fillRect(startButtonRect.x, startButtonRect.y, startButtonRect.width, startButtonRect.height, 0xF0A339FF)
+        fillPanel(lobbyCardRect, 0x13254BFF, 0x0D1B37FF, 0x4D67A5FF, 0x3E568DFF, 0xAFC2F044)
+        fillButton(startButtonRect, 0xF6B447FF, 0xE4952BFF, 0xFFF0BF66)
 
         presenter.state.players.forEachIndexed { index, _ ->
-            fillRect(
-                lobbyCardRect.x + 54f,
-                lobbyCardRect.y + lobbyCardRect.height - 194f - index * 58f,
-                290f,
-                44f,
-                0x22315DFF,
-            )
+            val rowY = lobbyCardRect.y + lobbyCardRect.height - 218f - index * 62f
+            fillGradientRect(lobbyCardRect.x + 54f, rowY, 298f, 48f, 0x22345DFF, 0x1E2D4FFF, 0x324B80FF, 0x2C4374FF)
         }
 
         repeat(3) { index ->
             val offset = index * 24f
-            fillRect(
-                lobbyCardRect.x + lobbyCardRect.width - 208f + offset,
-                lobbyCardRect.y + 54f - offset,
-                138f,
-                196f,
-                0xEBC171FF,
+            drawCardSurface(
+                left = lobbyCardRect.x + lobbyCardRect.width - 214f + offset,
+                bottom = lobbyCardRect.y + 56f - offset,
+                width = 142f,
+                height = 200f,
+                topColor = 0xF2D081FF,
+                bottomColor = 0xD8A34BFF,
+                edgeColor = 0xFFF5D4AA,
             )
         }
     }
 
+    private fun drawLobbyTextures() {
+        drawPanelTexture(lobbyCardRect, color(0xCFE0FF18))
+        drawPanelTexture(startButtonRect, color(0xFFF5D41E))
+    }
+
     private fun drawLobbyText() {
-        drawText("Hitster Clone", headerRect.x + 42f, headerRect.y + headerRect.height * 0.67f, 360f, 1.42f, Color.WHITE)
-        drawText(
-            "Local host session",
-            headerRect.x + headerRect.width - 220f,
-            headerRect.y + headerRect.height * 0.66f,
-            180f,
-            0.94f,
-            color(0xCFD8F8FF),
-            Align.right,
+        drawTextBlock(
+            text = "Hitster Clone",
+            x = headerRect.x + 32f,
+            y = headerRect.y,
+            width = 430f,
+            height = headerRect.height,
+            scale = 1.48f,
+            color = Color.WHITE,
+            verticalAlign = VerticalTextAlign.Center,
+        )
+        drawTextBlock(
+            text = "Local host session",
+            x = headerRect.x + headerRect.width - 260f,
+            y = headerRect.y,
+            width = 228f,
+            height = headerRect.height,
+            scale = 0.98f,
+            color = color(0xD8E4FDFF),
+            align = Align.right,
+            verticalAlign = VerticalTextAlign.Center,
         )
 
-        drawText("Ready to Start", lobbyCardRect.x + 54f, lobbyCardRect.y + lobbyCardRect.height - 54f, 300f, 1.20f, Color.WHITE)
-        drawText(
-            "${presenter.state.players.size} players connected",
-            lobbyCardRect.x + 54f,
-            lobbyCardRect.y + lobbyCardRect.height - 108f,
-            320f,
-            0.94f,
-            color(0xF3C76EFF),
+        drawTextBlock(
+            text = "Ready to Start",
+            x = lobbyCardRect.x + 54f,
+            y = lobbyCardRect.y + lobbyCardRect.height - 96f,
+            width = 360f,
+            height = 54f,
+            scale = 1.20f,
+            color = Color.WHITE,
+        )
+        drawTextBlock(
+            text = "${presenter.state.players.size} players connected",
+            x = lobbyCardRect.x + 54f,
+            y = lobbyCardRect.y + lobbyCardRect.height - 150f,
+            width = 360f,
+            height = 48f,
+            scale = 0.94f,
+            color = color(0xF3CF7BFF),
         )
 
         presenter.state.players.forEachIndexed { index, player ->
-            drawText(
+            drawTextBlock(
                 text = player.displayName,
-                x = lobbyCardRect.x + 74f,
-                y = lobbyCardRect.y + lobbyCardRect.height - 160f - index * 58f,
-                width = 244f,
+                x = lobbyCardRect.x + 70f,
+                y = lobbyCardRect.y + lobbyCardRect.height - 218f - index * 62f,
+                width = 260f,
+                height = 48f,
                 scale = 0.94f,
                 color = Color.WHITE,
+                verticalAlign = VerticalTextAlign.Center,
             )
         }
 
-        drawText(
+        drawTextBlock(
             text = "One phone. One timeline.",
             x = lobbyCardRect.x + 54f,
-            y = lobbyCardRect.y + 118f,
+            y = lobbyCardRect.y + 54f,
             width = lobbyCardRect.width * 0.48f,
+            height = 80f,
             scale = 0.96f,
-            color = color(0xD8E0FDFF),
+            color = color(0xDDE6FFFF),
         )
 
-        drawText(
-            "Start Match",
-            startButtonRect.x,
-            startButtonRect.y + startButtonRect.height * 0.62f,
-            startButtonRect.width,
-            1.14f,
-            color(0x1A1308FF),
-            Align.center,
+        drawTextBlock(
+            text = "Start Match",
+            x = startButtonRect.x,
+            y = startButtonRect.y,
+            width = startButtonRect.width,
+            height = startButtonRect.height,
+            scale = 1.16f,
+            color = color(0x1A1308FF),
+            align = Align.center,
+            verticalAlign = VerticalTextAlign.Center,
+            shadowColor = color(0xFFF8E29F33),
         )
     }
 
     private fun drawMatch() {
-        fillRect(heroRect.x, heroRect.y, heroRect.width, heroRect.height, 0x101C41FF)
+        fillHero(heroRect)
         if (showActionButton()) {
-            fillRect(
-                actionButtonRect.x,
-                actionButtonRect.y,
-                actionButtonRect.width,
-                actionButtonRect.height,
-                0xF0A339FF,
-            )
+            fillButton(actionButtonRect, 0xF6B447FF, 0xE6972CFF, 0xFFF2C56C)
         }
 
-        fillPanel(deckPanelRect, 0x101C41FF, 0x334779FF)
-        fillPanel(timelinePanelRect, 0x101C41FF, 0x3C4F86FF)
-        fillRect(timelineTrackRect.x, timelineTrackRect.y, timelineTrackRect.width, timelineTrackRect.height, 0x1D294CFF)
+        fillPanel(deckPanelRect, 0x14264DFF, 0x0D1B37FF, 0x4C67A4FF, 0x3D568DFF, 0xAFC2F040)
+        fillPanel(timelinePanelRect, 0x14264DFF, 0x0D1B37FF, 0x556EABFF, 0x41598FFF, 0xB4C7F144)
+        fillTrack(timelineTrackRect)
 
         repeat(3) { index ->
             val offset = index * 14f
-            fillRect(deckRect.x + offset, deckRect.y - offset, deckRect.width, deckRect.height, 0xE56E4CFF)
+            drawCardSurface(
+                left = deckRect.x + offset,
+                bottom = deckRect.y - offset,
+                width = deckRect.width,
+                height = deckRect.height,
+                topColor = 0xE87853FF,
+                bottomColor = 0xCC5D3EFF,
+                edgeColor = 0xFFD3A28FFF,
+            )
         }
 
         if (showStatusBanner()) {
-            fillRect(statusBannerRect.x, statusBannerRect.y, statusBannerRect.width, statusBannerRect.height, 0x22325EFF)
+            fillBanner(statusBannerRect)
         }
 
         drawTimelineRail()
         drawTransientCard()
     }
 
+    private fun drawMatchTextures() {
+        drawPanelTexture(heroRect, color(0xCFE1FF10))
+        drawPanelTexture(deckPanelRect, color(0xC9DBFF18))
+        drawPanelTexture(timelinePanelRect, color(0xC9DBFF12))
+        drawPanelTexture(timelineTrackRect, color(0xE1E8FF0E))
+        drawRepeatedTexture(
+            grainTexture,
+            timelineTrackRect.x,
+            timelineTrackRect.y,
+            timelineTrackRect.width,
+            timelineTrackRect.height,
+            color(0x99B7EB12),
+            timelineTrackRect.width / 92f,
+            timelineTrackRect.height / 92f,
+        )
+        if (showActionButton()) {
+            drawPanelTexture(actionButtonRect, color(0xFFF2D028))
+        }
+    }
+
     private fun drawMatchText() {
         val player = activePlayer()
-        val turnLabelWidth = 148f
+        val turnLabelWidth = 170f
         val turnX = if (showActionButton()) {
             actionButtonRect.x - panelGap - turnLabelWidth
         } else {
             heroRect.x + heroRect.width - panelPadding - turnLabelWidth
         }
 
-        drawText(
-            player?.displayName ?: "Waiting",
-            heroRect.x + panelPadding,
-            heroRect.y + heroRect.height * 0.64f,
-            heroRect.width * 0.46f,
-            1.08f,
-            Color.WHITE,
+        drawTextBlock(
+            text = player?.displayName ?: "Waiting",
+            x = heroRect.x + panelPadding,
+            y = heroRect.y,
+            width = heroRect.width * 0.46f,
+            height = heroRect.height,
+            scale = 1.12f,
+            color = Color.WHITE,
+            verticalAlign = VerticalTextAlign.Center,
         )
-        drawText(
-            "Turn ${presenter.state.turn?.number ?: 0}",
-            turnX,
-            heroRect.y + heroRect.height * 0.64f,
-            turnLabelWidth,
-            0.90f,
-            color(0xCFD8F8FF),
-            Align.right,
+        drawTextBlock(
+            text = "Turn ${presenter.state.turn?.number ?: 0}",
+            x = turnX,
+            y = heroRect.y,
+            width = turnLabelWidth,
+            height = heroRect.height,
+            scale = 0.92f,
+            color = color(0xD9E4FDFF),
+            align = Align.right,
+            verticalAlign = VerticalTextAlign.Center,
         )
         if (showActionButton()) {
-            drawText(
-                "END TURN",
-                actionButtonRect.x,
-                actionButtonRect.y + actionButtonRect.height * 0.63f,
-                actionButtonRect.width,
-                1.02f,
-                color(0x1A1308FF),
-                Align.center,
+            drawTextBlock(
+                text = "END TURN",
+                x = actionButtonRect.x,
+                y = actionButtonRect.y,
+                width = actionButtonRect.width,
+                height = actionButtonRect.height,
+                scale = 1.06f,
+                color = color(0x1A1308FF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = color(0xFFF7DA9638),
             )
         }
 
-        drawText(
-            "Deck",
-            deckPanelRect.x + panelPadding,
-            deckPanelRect.y + deckPanelRect.height - panelHeaderHeight * 0.54f,
-            120f,
-            1.02f,
-            Color.WHITE,
+        drawTextBlock(
+            text = "Deck",
+            x = deckPanelRect.x,
+            y = deckPanelRect.y + deckPanelRect.height - panelHeaderHeight,
+            width = deckPanelRect.width,
+            height = panelHeaderHeight,
+            scale = 1.02f,
+            color = Color.WHITE,
+            insetX = panelPadding,
+            verticalAlign = VerticalTextAlign.Center,
         )
-        drawText(
-            "${presenter.state.deck.size} left",
-            deckRect.x,
-            deckRect.y + deckRect.height + 58f,
-            deckRect.width,
-            1.20f,
-            Color.WHITE,
-            Align.center,
+        drawTextBlock(
+            text = "${presenter.state.deck.size} left",
+            x = deckRect.x,
+            y = deckRect.y + deckRect.height + 8f,
+            width = deckRect.width,
+            height = 62f,
+            scale = 1.18f,
+            color = Color.WHITE,
+            align = Align.center,
+            verticalAlign = VerticalTextAlign.Center,
         )
 
         val deckHint = deckHint()
         if (deckHint.isNotBlank()) {
-            drawText(
-                deckHint,
-                deckPanelRect.x + panelPadding,
-                deckPanelRect.y + panelPadding + 34f,
-                deckPanelRect.width - panelPadding * 2f,
-                0.92f,
-                color(0xD8E0FDFF),
+            drawTextBlock(
+                text = deckHint,
+                x = deckPanelRect.x + panelPadding,
+                y = deckPanelRect.y + panelPadding - 2f,
+                width = deckPanelRect.width - panelPadding * 2f,
+                height = 64f,
+                scale = 0.92f,
+                color = color(0xDDE7FFFF),
+                verticalAlign = VerticalTextAlign.Bottom,
             )
         }
 
-        drawText(
-            "Timeline",
-            timelinePanelRect.x + panelPadding,
-            timelineHeaderRect.y + timelineHeaderRect.height * 0.60f,
-            220f,
-            1.06f,
-            Color.WHITE,
+        drawTextBlock(
+            text = "Timeline",
+            x = timelinePanelRect.x,
+            y = timelineHeaderRect.y,
+            width = timelineHeaderRect.width * 0.45f,
+            height = timelineHeaderRect.height,
+            scale = 1.06f,
+            color = Color.WHITE,
+            insetX = panelPadding,
+            verticalAlign = VerticalTextAlign.Center,
         )
-        drawText(
-            "Score ${player?.score ?: 0}",
-            timelineHeaderRect.x + timelineHeaderRect.width - 190f,
-            timelineHeaderRect.y + timelineHeaderRect.height * 0.60f,
-            150f,
-            0.94f,
-            color(0xF3C76EFF),
-            Align.right,
+        drawTextBlock(
+            text = "Score ${player?.score ?: 0}",
+            x = timelineHeaderRect.x + timelineHeaderRect.width - 220f,
+            y = timelineHeaderRect.y,
+            width = 184f,
+            height = timelineHeaderRect.height,
+            scale = 0.96f,
+            color = color(0xF4CF79FF),
+            align = Align.right,
+            verticalAlign = VerticalTextAlign.Center,
         )
 
         if (player?.timeline?.cards.isNullOrEmpty() && player?.pendingCard == null && !showStatusBanner()) {
-            drawText(
+            drawTextBlock(
                 text = "Drag from deck to timeline.",
                 x = timelineTrackRect.x,
-                y = timelineTrackRect.y + timelineTrackRect.height * 0.56f,
+                y = timelineTrackRect.y,
                 width = timelineTrackRect.width,
-                scale = 1.04f,
-                color = color(0xD8E0FDFF),
+                height = timelineTrackRect.height,
+                scale = 1.06f,
+                color = color(0xE0E9FFFF),
                 align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
             )
         }
 
         if (showStatusBanner()) {
-            drawText(
+            drawTextBlock(
                 text = statusBannerText(),
                 x = statusBannerRect.x + 18f,
-                y = statusBannerRect.y + statusBannerRect.height * 0.62f,
+                y = statusBannerRect.y + 4f,
                 width = statusBannerRect.width - 36f,
+                height = statusBannerRect.height - 8f,
                 scale = 0.96f,
                 color = statusBannerColor(),
                 align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
                 wrap = true,
             )
         }
@@ -498,16 +685,76 @@ class MatchScreen(
         drawTimelineText(player)
     }
 
-    private fun fillPanel(rect: Rectangle, fillColor: Long, headerColor: Long) {
-        fillRect(rect.x, rect.y, rect.width, rect.height, fillColor)
-        fillRect(rect.x, rect.y + rect.height - panelHeaderHeight, rect.width, panelHeaderHeight, headerColor)
+    private fun fillHero(rect: Rectangle) {
+        drawDropShadow(rect, 18f, 0x01050B40)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x132145FF, 0x101C38FF, 0x1B2C59FF, 0x182955FF)
+        drawFrame(rect, 0xA8C0F138, 2f)
+        fillRect(rect.x + 2f, rect.y + 2f, rect.width - 4f, 1f, 0xFFFFFF12)
+    }
+
+    private fun fillTrack(rect: Rectangle) {
+        drawDropShadow(rect, 18f, 0x01050B3B)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x202D54FF, 0x1C2849FF, 0x283560FF, 0x24305AFF)
+        drawFrame(rect, 0x9CB3E42A, 2f)
+        fillRect(rect.x + 14f, rect.y + rect.height - 18f, rect.width - 28f, 2f, 0xFFFFFF14)
+    }
+
+    private fun fillBanner(rect: Rectangle) {
+        drawDropShadow(rect, 12f, 0x02060C44)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x24335DFF, 0x1F2C50FF, 0x33497BFF, 0x2B3E6BFF)
+        drawFrame(rect, 0xBDD0F248, 2f)
+    }
+
+    private fun fillButton(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
+        drawDropShadow(rect, 16f, 0x1409014B)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, bottomColor, bottomColor, topColor, topColor)
+        fillRect(rect.x + 8f, rect.y + rect.height - 12f, rect.width - 16f, 3f, 0xFFFFFF1A)
+        drawFrame(rect, edgeColor, 2f)
+    }
+
+    private fun fillPanel(rect: Rectangle, bodyTop: Long, bodyBottom: Long, headerTop: Long, headerBottom: Long, edgeColor: Long) {
+        drawDropShadow(rect, 18f, 0x01050B48)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, bodyBottom, bodyBottom, bodyTop, bodyTop)
+        fillGradientRect(rect.x, rect.y + rect.height - panelHeaderHeight, rect.width, panelHeaderHeight, headerBottom, headerBottom, headerTop, headerTop)
+        fillRect(rect.x + 10f, rect.y + rect.height - panelHeaderHeight + 8f, rect.width - 20f, 2f, 0xFFFFFF16)
+        drawFrame(rect, edgeColor, 2f)
+    }
+
+    private fun drawCardSurface(
+        left: Float,
+        bottom: Float,
+        width: Float,
+        height: Float,
+        topColor: Long,
+        bottomColor: Long,
+        edgeColor: Long,
+    ) {
+        drawDropShadow(left, bottom, width, height, 12f, 0x01050B58)
+        fillGradientRect(left, bottom, width, height, bottomColor, bottomColor, topColor, topColor)
+        fillRect(left + 8f, bottom + height - 16f, width - 16f, 3f, 0xFFFFFF1F)
+        fillRect(left + 8f, bottom + 12f, width - 16f, 2f, 0x0000001E)
+        drawFrame(left, bottom, width, height, edgeColor, 2f)
+    }
+
+    private fun drawPanelTexture(rect: Rectangle, tint: Color) {
+        drawRepeatedTexture(
+            grainTexture,
+            rect.x + 2f,
+            rect.y + 2f,
+            rect.width - 4f,
+            rect.height - 4f,
+            tint,
+            max(1f, rect.width / 90f),
+            max(1f, rect.height / 90f),
+        )
     }
 
     private fun drawTimelineRail() {
         val player = activePlayer()
         val slotCenters = timelineLayout.insertionSlotCenters(player?.timeline?.cards?.size ?: 0)
         slotCenters.forEach { center ->
-            fillRect(center - 2f, timelineTrackRect.y + 20f, 4f, timelineTrackRect.height - 40f, 0x6078ABFF)
+            fillRect(center - 1f, timelineTrackRect.y + 24f, 2f, timelineTrackRect.height - 48f, 0x93B4EA30)
+            fillRect(center - 2f, timelineTrackRect.y + 24f, 1f, timelineTrackRect.height - 48f, 0xFFFFFF10)
         }
 
         if (player == null) {
@@ -518,7 +765,15 @@ class MatchScreen(
         if (pendingCard == null) {
             val arrangement = timelineLayout.arrangement(player.timeline.cards.size)
             player.timeline.cards.forEachIndexed { index, _ ->
-                fillRect(arrangement.cardLefts[index], timelineTrackRect.y + 24f, arrangement.cardWidth, cardHeight, 0xF0E1C9FF)
+                drawCardSurface(
+                    left = arrangement.cardLefts[index],
+                    bottom = timelineTrackRect.y + 24f,
+                    width = arrangement.cardWidth,
+                    height = cardHeight,
+                    topColor = 0xF7E9D1FF,
+                    bottomColor = 0xDCC4A6FF,
+                    edgeColor = 0xFFF6E7CA,
+                )
             }
             return
         }
@@ -528,15 +783,25 @@ class MatchScreen(
             pendingSlotIndex = pendingCard.proposedSlotIndex,
         )
         player.timeline.cards.forEachIndexed { index, _ ->
-            fillRect(
-                arrangement.committedCardLefts[index],
-                timelineTrackRect.y + 30f,
-                arrangement.cardWidth,
-                cardHeight - 10f,
-                0xF0E1C9FF,
+            drawCardSurface(
+                left = arrangement.committedCardLefts[index],
+                bottom = timelineTrackRect.y + 30f,
+                width = arrangement.cardWidth,
+                height = cardHeight - 10f,
+                topColor = 0xF7E9D1FF,
+                bottomColor = 0xDCC4A6FF,
+                edgeColor = 0xFFF6E7CA,
             )
         }
-        fillRect(arrangement.pendingCardLeft, timelineTrackRect.y + 14f, arrangement.cardWidth, cardHeight, 0xF0A339FF)
+        drawCardSurface(
+            left = arrangement.pendingCardLeft,
+            bottom = timelineTrackRect.y + 14f,
+            width = arrangement.cardWidth,
+            height = cardHeight,
+            topColor = 0xF5B348FF,
+            bottomColor = 0xD48620FF,
+            edgeColor = 0xFFF1D089,
+        )
     }
 
     private fun drawTimelineText(player: PlayerState?) {
@@ -564,12 +829,45 @@ class MatchScreen(
     }
 
     private fun drawResolvedCard(left: Float, width: Float, year: String) {
-        drawText(year, left, timelineTrackRect.y + cardHeight * 0.61f, width, 1.10f, color(0x15120CFF), Align.center)
+        drawTextBlock(
+            text = year,
+            x = left,
+            y = timelineTrackRect.y + 24f,
+            width = width,
+            height = cardHeight,
+            scale = 1.08f,
+            color = color(0x17120CFF),
+            align = Align.center,
+            verticalAlign = VerticalTextAlign.Center,
+            shadowColor = color(0xFFF7F0E040),
+        )
     }
 
     private fun drawHiddenCard(left: Float, width: Float) {
-        drawText("?", left, timelineTrackRect.y + cardHeight * 0.67f, width, 1.50f, color(0x1A1308FF), Align.center)
-        drawText("LISTEN", left, timelineTrackRect.y + 60f, width, 0.78f, color(0x1A1308FF), Align.center)
+        drawTextBlock(
+            text = "?",
+            x = left,
+            y = timelineTrackRect.y + 14f + cardHeight * 0.16f,
+            width = width,
+            height = cardHeight * 0.56f,
+            scale = 1.54f,
+            color = color(0x1A1308FF),
+            align = Align.center,
+            verticalAlign = VerticalTextAlign.Center,
+            shadowColor = color(0xFFF9E4A84A),
+        )
+        drawTextBlock(
+            text = "LISTEN",
+            x = left,
+            y = timelineTrackRect.y + 18f,
+            width = width,
+            height = 64f,
+            scale = 0.80f,
+            color = color(0x1A1308FF),
+            align = Align.center,
+            verticalAlign = VerticalTextAlign.Center,
+            shadowColor = color(0xFFF9E4A84A),
+        )
     }
 
     private fun drawTransientCard() {
@@ -578,7 +876,15 @@ class MatchScreen(
         }
 
         val ghostWidth = clamp(timelineTrackRect.width * 0.14f, 128f, 178f)
-        fillRect(worldTouch.x - ghostWidth / 2f, worldTouch.y - cardHeight / 2f, ghostWidth, cardHeight, 0xFFD18AFF)
+        drawCardSurface(
+            left = worldTouch.x - ghostWidth / 2f,
+            bottom = worldTouch.y - cardHeight / 2f,
+            width = ghostWidth,
+            height = cardHeight,
+            topColor = 0xFFD18AFF,
+            bottomColor = 0xE8A650FF,
+            edgeColor = 0xFFF3DCAD,
+        )
     }
 
     private fun showStatusBanner(): Boolean {
@@ -598,24 +904,11 @@ class MatchScreen(
     }
 
     private fun statusBannerColor(): Color {
-        presenter.lastError?.let { return color(0xFFB3A2FF) }
+        presenter.lastError?.let { return color(0xFFB7ACFF) }
         return if (presenter.state.lastResolution?.correct == true) {
-            color(0xF3C76EFF)
+            color(0xF4D283FF)
         } else {
-            color(0xFFB3A2FF)
-        }
-    }
-
-    private fun phaseSummary(): String {
-        if (presenter.state.status == MatchStatus.COMPLETE) {
-            return "Final reveal"
-        }
-        return when {
-            presenter.state.lastResolution != null && activePlayer()?.pendingCard == null -> "Placement checked"
-            canEndTurn() -> "Ready to reveal"
-            activePlayer()?.pendingCard != null -> "Move the hidden card"
-            canDraw() -> "Drag from the deck"
-            else -> "Waiting"
+            color(0xFFB7ACFF)
         }
     }
 
@@ -640,31 +933,116 @@ class MatchScreen(
         return timelineLayout.nearestSlotIndex(player.timeline.cards.size, x)
     }
 
-    private fun drawText(
+    private fun drawTextBlock(
         text: String,
         x: Float,
         y: Float,
         width: Float,
+        height: Float,
         scale: Float,
         color: Color,
         align: Int = Align.left,
+        verticalAlign: VerticalTextAlign = VerticalTextAlign.Center,
         wrap: Boolean = false,
+        insetX: Float = 0f,
+        insetY: Float = 0f,
+        shadowColor: Color = color(0x02060CB8),
     ) {
         val appliedScale = max(scale, minimumTextScale) * fontScaleMultiplier
-        val drawX = x.roundToInt().toFloat()
-        val drawY = y.roundToInt().toFloat()
-        val drawWidth = width.roundToInt().toFloat()
+        val drawX = (x + insetX).roundToInt().toFloat()
+        val availableWidth = max(1f, width - insetX * 2f).roundToInt().toFloat()
+        val availableHeight = max(1f, height - insetY * 2f)
 
         font.data.setScale(appliedScale)
-        font.color = color(0x02060CBF)
-        font.draw(batch, text, drawX + shadowOffset, drawY - shadowOffset, drawWidth, align, wrap)
+        textLayout.setText(font, text, color, availableWidth, align, wrap)
+        val drawY = when (verticalAlign) {
+            VerticalTextAlign.Top -> y + height - insetY
+            VerticalTextAlign.Center -> y + insetY + (availableHeight + textLayout.height) / 2f
+            VerticalTextAlign.Bottom -> y + insetY + textLayout.height
+        }.roundToInt().toFloat()
+
+        font.color = shadowColor
+        font.draw(batch, textLayout, drawX + shadowOffset, drawY - shadowOffset)
         font.color = color
-        font.draw(batch, text, drawX, drawY, drawWidth, align, wrap)
+        font.draw(batch, textLayout, drawX, drawY)
+    }
+
+    private fun drawTexture(texture: Texture, x: Float, y: Float, width: Float, height: Float, tint: Color) {
+        batch.color = tint
+        batch.draw(texture, x, y, width, height)
+        batch.setColor(Color.WHITE)
+    }
+
+    private fun drawRepeatedTexture(
+        texture: Texture,
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+        tint: Color,
+        repeatX: Float,
+        repeatY: Float,
+    ) {
+        batch.color = tint
+        batch.draw(texture, x, y, width, height, 0f, 0f, repeatX, repeatY)
+        batch.setColor(Color.WHITE)
+    }
+
+    private fun drawGlow(x: Float, y: Float, width: Float, height: Float, tint: Color) {
+        batch.flush()
+        batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE)
+        batch.color = tint
+        batch.draw(glowTexture, x, y, width, height)
+        batch.flush()
+        batch.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
+        batch.setColor(Color.WHITE)
+    }
+
+    private fun fillGradientRect(x: Float, y: Float, width: Float, height: Float, bottomLeft: Long, bottomRight: Long, topRight: Long, topLeft: Long) {
+        shapeRenderer.rect(
+            x,
+            y,
+            width,
+            height,
+            color(bottomLeft),
+            color(bottomRight),
+            color(topRight),
+            color(topLeft),
+        )
     }
 
     private fun fillRect(x: Float, y: Float, width: Float, height: Float, rgba: Long) {
         shapeRenderer.color = color(rgba)
         shapeRenderer.rect(x, y, width, height)
+    }
+
+    private fun drawFrame(rect: Rectangle, rgba: Long, thickness: Float) {
+        drawFrame(rect.x, rect.y, rect.width, rect.height, rgba, thickness)
+    }
+
+    private fun drawFrame(x: Float, y: Float, width: Float, height: Float, rgba: Long, thickness: Float) {
+        fillRect(x, y, width, thickness, rgba)
+        fillRect(x, y + height - thickness, width, thickness, rgba)
+        fillRect(x, y + thickness, thickness, height - thickness * 2f, rgba)
+        fillRect(x + width - thickness, y + thickness, thickness, height - thickness * 2f, rgba)
+    }
+
+    private fun drawDropShadow(rect: Rectangle, spread: Float, rgba: Long) {
+        drawDropShadow(rect.x, rect.y, rect.width, rect.height, spread, rgba)
+    }
+
+    private fun drawDropShadow(x: Float, y: Float, width: Float, height: Float, spread: Float, rgba: Long) {
+        repeat(4) { layer ->
+            val expansion = spread * (layer + 1) / 4f
+            val alpha = when (layer) {
+                0 -> 0x24L
+                1 -> 0x18L
+                2 -> 0x10L
+                else -> 0x08L
+            }
+            val shadow = (rgba and 0xFFFFFF00) or alpha
+            fillRect(x - expansion, y - expansion * 0.72f, width + expansion * 2f, height + expansion * 1.44f, shadow)
+        }
     }
 
     private fun color(rgba: Long): Color {
@@ -749,6 +1127,12 @@ class MatchScreen(
             draggingPendingCard = false
             return true
         }
+    }
+
+    private enum class VerticalTextAlign {
+        Top,
+        Center,
+        Bottom,
     }
 
     private companion object {
