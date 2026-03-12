@@ -318,7 +318,7 @@ class MatchScreen(
             )
         }
 
-        val player = activePlayer()
+        val player = displayedPlayer()
         if (presenter.state.status == MatchStatus.LOBBY || player == null) {
             animatedCardLefts.clear()
             animatedPendingCardLeft = null
@@ -705,7 +705,7 @@ class MatchScreen(
     }
 
     private fun drawMatchText(includeOverlay: Boolean) {
-        val player = activePlayer()
+        val player = displayedPlayer()
         val turnLabelWidth = 170f
         val turnX = if (showActionButton()) {
             actionButtonRect.x - panelGap - turnLabelWidth
@@ -1046,14 +1046,20 @@ class MatchScreen(
 
     private fun showActionButton(): Boolean = canEndTurn()
 
-    private fun activePlayer(): PlayerState? = presenter.state.activePlayer
+    private fun displayedPlayer(): PlayerState? {
+        presenter.state.players.firstOrNull { it.pendingCard != null }?.let { return it }
+        presenter.state.lastResolution?.playerId?.let { playerId ->
+            return presenter.state.requirePlayer(playerId)
+        }
+        return presenter.state.activePlayer
+    }
 
     private fun canDraw(): Boolean = presenter.state.turn?.phase == TurnPhase.WAITING_FOR_DRAW
 
     private fun canEndTurn(): Boolean = presenter.state.turn?.phase == TurnPhase.CARD_POSITIONED
 
     private fun requestedSlotIndexFor(x: Float): Int {
-        val player = activePlayer() ?: return 0
+        val player = displayedPlayer() ?: return 0
         val pendingCard = player.pendingCard ?: return timelineLayout.nearestSlotIndex(player.timeline.cards.size, x)
         if (!draggingPendingCard) {
             return timelineLayout.nearestSlotIndex(player.timeline.cards.size, x)
@@ -1231,7 +1237,7 @@ class MatchScreen(
                 return true
             }
 
-            val player = activePlayer() ?: return false
+            val player = displayedPlayer() ?: return false
             if (canDraw() && deckRect.contains(world.x, world.y)) {
                 draggingDeckGhost = true
                 worldTouch.set(world)
