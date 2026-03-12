@@ -1,0 +1,41 @@
+{
+  "id": "starter-pack",
+  "name": "Starter Pack",
+  "entries": [
+    {
+      "id": "track-01",
+      "title": "Take On Me",
+      "artist": "a-ha",
+      "releaseYear": 1985,
+      "spotifyUri": "spotify:track:track-01"
+    },
+    {
+      "id": "track-02",
+      "title": "Smells Like Teen Spirit",
+      "artist": "Nirvana",
+      "releaseYear": 1991,
+      "spotifyUri": "spotify:track:track-02"
+    },
+    {
+      "id": "track-03",
+      "title": "Wonderwall",
+      "artist": "Oasis",
+      "releaseYear": 1995,
+      "spotifyUri": "spotify:track:track-03"
+    },
+    {
+      "id": "track-04",
+      "title": "Crazy in Love",
+      "artist": "Beyonce",
+      "releaseYear": 2003,
+      "spotifyUri": "spotify:track:track-04"
+    },
+    {
+      "id": "track-05",
+      "title": "Blinding Lights",
+      "artist": "The Weeknd",
+      "releaseYear": 2019,
+      "spotifyUri": "spotify:track:track-05"
+    }
+  ]
+}
