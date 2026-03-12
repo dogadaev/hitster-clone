@@ -443,6 +443,7 @@ When implementing features:
 - prefer modular, testable, maintainable code
 - prefer simple implementations that preserve future extensibility
 - keep project-local Codex defaults in `.codex/config.toml`; for this repo use `approval_policy = "never"` and `sandbox_mode = "danger-full-access"` unless the user explicitly changes them
+- after creating a commit, push it to the configured remote in the same turn unless the user explicitly says not to
 - do not sacrifice architecture cleanliness for short-term convenience unless explicitly required
 - when a user request materially affects core functionality or future maintainability, update this file carefully so the requirement is preserved
 - treat this file as high-signal project guidance and avoid unnecessary edits or churn
