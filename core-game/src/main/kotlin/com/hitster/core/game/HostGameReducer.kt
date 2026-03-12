@@ -2,6 +2,7 @@ package com.hitster.core.game
 
 import com.hitster.core.model.GameState
 import com.hitster.core.model.MatchStatus
+import com.hitster.core.model.DeckState
 import com.hitster.core.model.PendingCard
 import com.hitster.core.model.PlayerId
 import com.hitster.core.model.PlayerState
@@ -60,15 +61,20 @@ class HostGameReducer(
         if (state.players.size < 2) {
             return reject(state, "At least two players are required to start a match.")
         }
-        if (state.deck.size == 0) {
-            return reject(state, "The deck is empty.")
+        if (state.deck.size <= state.players.size) {
+            return reject(state, "At least one revealed starting card per player and one draw card are required to start.")
         }
 
-        val activePlayerId = state.players.first().id
+        val openingDeal = dealOpeningTimelines(state.players, state.deck)
+            ?: return reject(state, "The deck could not provide starting cards for every player.")
+
+        val activePlayerId = openingDeal.players.first().id
         val nextState = state.copy(
             revision = state.revision + 1,
             status = MatchStatus.ACTIVE,
             activePlayerIndex = 0,
+            players = openingDeal.players,
+            deck = openingDeal.deck,
             turn = TurnState(
                 number = 1,
                 activePlayerId = activePlayerId,
@@ -243,6 +249,31 @@ class HostGameReducer(
         state: GameState,
         reason: String,
     ): ReducerResult = ReducerResult.Rejected(state, reason)
+
+    private fun dealOpeningTimelines(
+        players: List<PlayerState>,
+        deck: DeckState,
+    ): OpeningDeal? {
+        var remainingDeck = deck
+        val seededPlayers = players.map { player ->
+            val draw = remainingDeck.drawTop() ?: return null
+            remainingDeck = draw.nextDeck
+            player.copy(
+                timeline = player.timeline.insertAt(0, draw.card),
+                pendingCard = null,
+            )
+        }
+
+        return OpeningDeal(
+            players = seededPlayers,
+            deck = remainingDeck,
+        )
+    }
+
+    private data class OpeningDeal(
+        val players: List<PlayerState>,
+        val deck: DeckState,
+    )
 }
 
 private fun List<PlayerState>.replacePlayer(updatedPlayer: PlayerState): List<PlayerState> {
@@ -250,4 +281,3 @@ private fun List<PlayerState>.replacePlayer(updatedPlayer: PlayerState): List<Pl
         if (existing.id == updatedPlayer.id) updatedPlayer else existing
     }
 }
-

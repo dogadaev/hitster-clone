@@ -221,6 +221,7 @@ The parser must:
 The gameplay loop should mirror the physical game as closely as practical.
 
 Turn flow:
+- each player begins the match with one random revealed card already placed on their own timeline
 - the active player draws a card from the deck on their own device using drag and drop
 - drawing the card starts playback for the associated track
 - the player must not see song-identifying details such as title, artist, or release year before ending the turn
@@ -415,6 +416,7 @@ The MVP is successful when:
 - one player can host a local session
 - at least one other player can join
 - each player sees only their own normal gameplay UI on their own device
+- each player starts with one revealed random card already on their own timeline
 - the deck is visible and interactive
 - the active player can draw a card
 - drawing starts playback through the playback integration layer

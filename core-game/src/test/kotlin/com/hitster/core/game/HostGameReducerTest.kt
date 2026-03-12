@@ -6,6 +6,7 @@ import com.hitster.core.model.PlaybackReference
 import com.hitster.core.model.PlayerId
 import com.hitster.core.model.PlaylistEntry
 import com.hitster.core.model.SessionId
+import com.hitster.core.model.TurnPhase
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -18,32 +19,73 @@ class HostGameReducerTest {
     private val guestId = PlayerId("guest")
 
     @Test
+    fun `start game seeds one revealed opening card for each player`() {
+        val state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("draw-host", 1990),
+                entry("draw-guest", 2010),
+            ),
+        )
+
+        val accepted = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.StartGame(hostId)))
+
+        assertEquals(MatchStatus.ACTIVE, accepted.state.status)
+        assertEquals(TurnPhase.WAITING_FOR_DRAW, accepted.state.turn?.phase)
+        assertEquals("seed-host", accepted.state.players[0].timeline.cards.single().id)
+        assertEquals("seed-guest", accepted.state.players[1].timeline.cards.single().id)
+        assertEquals(2, accepted.state.deck.size)
+    }
+
+    @Test
+    fun `start game requires enough cards for opening deal and first draw`() {
+        val state = lobbyWithGuest(listOf(entry("seed-host", 1980), entry("seed-guest", 2000)))
+
+        val rejected = assertIs<ReducerResult.Rejected>(reducer.reduce(state, GameCommand.StartGame(hostId)))
+
+        assertEquals("At least one revealed starting card per player and one draw card are required to start.", rejected.reason)
+    }
+
+    @Test
     fun `start draw move and end turn advances game`() {
-        var state = lobbyWithGuest(listOf(entry("a", 1985), entry("b", 1999)))
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("draw-host", 1990),
+                entry("draw-guest", 2010),
+            ),
+        )
 
         state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
         state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
-        state = acceptedState(reducer.reduce(state, GameCommand.MovePendingCard(hostId, 0)))
+        state = acceptedState(reducer.reduce(state, GameCommand.MovePendingCard(hostId, 1)))
         val result = reducer.reduce(state, GameCommand.EndTurn(hostId))
         val accepted = assertIs<ReducerResult.Accepted>(result)
 
         assertEquals(MatchStatus.ACTIVE, accepted.state.status)
         assertEquals(guestId, accepted.state.turn?.activePlayerId)
-        assertEquals(1, accepted.state.players.first().timeline.cards.size)
+        assertEquals(2, accepted.state.players.first().timeline.cards.size)
         assertTrue(accepted.effects.any { it is GameEffect.PausePlayback })
         assertTrue(accepted.effects.any { it is GameEffect.PublishSnapshot })
     }
 
     @Test
     fun `invalid placement discards card and completes match when deck is exhausted`() {
-        var state = lobbyWithGuest(listOf(entry("late", 2010)))
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1990),
+                entry("seed-guest", 2005),
+                entry("late", 2010),
+            ),
+        )
         state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
         state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
         state = state.copy(
             players = state.players.mapIndexed { index, player ->
                 if (index == 0) {
                     player.copy(
-                        timeline = player.timeline.insertAt(0, entry("existing", 1990)),
                         pendingCard = player.pendingCard?.copy(proposedSlotIndex = 0),
                     )
                 } else {
@@ -63,7 +105,14 @@ class HostGameReducerTest {
 
     @Test
     fun `every accepted command increments revision and publishes snapshot`() {
-        var state = lobbyWithGuest(listOf(entry("a", 1985), entry("b", 1999)))
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("draw-host", 1990),
+                entry("draw-guest", 2010),
+            ),
+        )
         val initialRevision = state.revision
 
         val start = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.StartGame(hostId)))

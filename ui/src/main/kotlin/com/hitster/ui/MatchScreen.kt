@@ -23,6 +23,7 @@ import com.hitster.animations.AnimationCatalog
 import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.PlayerState
 import com.hitster.core.model.TurnPhase
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -56,18 +57,27 @@ class MatchScreen(
 
     private var layoutWorldWidth = 0f
     private var layoutWorldHeight = 0f
+    private var layoutStatus: MatchStatus? = null
     private var outerMargin = 28f
     private var panelGap = 22f
     private var panelPadding = 28f
     private var panelHeaderHeight = 84f
     private var cardHeight = 210f
+    private var timelineCardsX = 0f
+    private var timelineCardsWidth = 1f
     private var fontScaleMultiplier = 1.02f
     private var minimumTextScale = 0.88f
     private var shadowOffset = 1.2f
     private var timelineLayout = TimelineLayoutCalculator(trackX = 0f, trackWidth = 1f)
+    private val timelineCardVisuals = mutableListOf<TimelineCardVisual>()
+    private var pendingCardVisual: TimelineCardVisual? = null
+    private var transientCardVisual: TimelineCardVisual? = null
+    private val animatedCardLefts = mutableMapOf<String, Float>()
+    private var animatedPendingCardLeft: Float? = null
 
     private var draggingDeckGhost = false
     private var draggingPendingCard = false
+    private var pendingCardGrabOffsetX = 0f
 
     override fun show() {
         font = createFont()
@@ -80,6 +90,7 @@ class MatchScreen(
 
     override fun render(delta: Float) {
         updateLayout()
+        updateTimelineVisuals(delta)
         viewport.apply()
         Gdx.gl.glClearColor(0.02f, 0.04f, 0.10f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
@@ -140,19 +151,21 @@ class MatchScreen(
     private fun updateLayout() {
         val worldWidth = viewport.worldWidth
         val worldHeight = viewport.worldHeight
-        if (worldWidth == layoutWorldWidth && worldHeight == layoutWorldHeight) {
+        val status = presenter.state.status
+        if (worldWidth == layoutWorldWidth && worldHeight == layoutWorldHeight && status == layoutStatus) {
             return
         }
 
         layoutWorldWidth = worldWidth
         layoutWorldHeight = worldHeight
+        layoutStatus = status
 
         outerMargin = clamp(min(worldWidth, worldHeight) * 0.03f, 24f, 36f)
         panelGap = outerMargin * 0.76f
         panelPadding = clamp(worldHeight * 0.034f, 22f, 34f)
         panelHeaderHeight = clamp(worldHeight * 0.115f, 76f, 96f)
 
-        val isLobby = presenter.state.status == MatchStatus.LOBBY
+        val isLobby = status == MatchStatus.LOBBY
         val headerHeight = if (isLobby) clamp(worldHeight * 0.09f, 60f, 80f) else 0f
         headerRect.set(
             outerMargin,
@@ -246,9 +259,11 @@ class MatchScreen(
 
         val preferredCardWidth = clamp(timelineTrackRect.width * 0.14f, 126f, 178f)
         val minCardWidth = clamp(timelineTrackRect.width * 0.10f, 98f, 126f)
+        timelineCardsX = timelineTrackRect.x + panelPadding * 0.28f
+        timelineCardsWidth = timelineTrackRect.width - panelPadding * 0.56f
         timelineLayout = TimelineLayoutCalculator(
-            trackX = timelineTrackRect.x + panelPadding * 0.28f,
-            trackWidth = timelineTrackRect.width - panelPadding * 0.56f,
+            trackX = timelineCardsX,
+            trackWidth = timelineCardsWidth,
             preferredCardWidth = preferredCardWidth,
             minCardWidth = minCardWidth,
             preferredGap = clamp(timelineTrackRect.width * 0.025f, 20f, 32f),
@@ -259,6 +274,193 @@ class MatchScreen(
         fontScaleMultiplier = clamp(worldHeight / 960f, 0.98f, 1.08f)
         minimumTextScale = 0.88f
         shadowOffset = clamp(worldHeight * 0.0011f, 1f, 1.6f)
+    }
+
+    private fun updateTimelineVisuals(delta: Float) {
+        timelineCardVisuals.clear()
+        pendingCardVisual = null
+        transientCardVisual = null
+
+        if (draggingDeckGhost) {
+            val ghostWidth = clamp(timelineTrackRect.width * 0.14f, 128f, 178f)
+            transientCardVisual = TimelineCardVisual(
+                id = "deck-ghost",
+                rect = Rectangle(
+                    worldTouch.x - ghostWidth / 2f,
+                    timelineCardBottom(cardHeight),
+                    ghostWidth,
+                    cardHeight,
+                ),
+                face = CardFace.Hidden,
+                topColor = 0xFFD18AFF,
+                bottomColor = 0xE8A650FF,
+                edgeColor = 0xFFF3DCAD,
+            )
+        }
+
+        val player = activePlayer()
+        if (presenter.state.status == MatchStatus.LOBBY || player == null) {
+            animatedCardLefts.clear()
+            animatedPendingCardLeft = null
+            return
+        }
+
+        val animationAlpha = clamp(delta * 12f, 0f, 1f)
+        val cardBottom = timelineCardBottom(cardHeight)
+        val visibleCardIds = mutableSetOf<String>()
+
+        val pendingCard = player.pendingCard
+        if (pendingCard == null) {
+            val arrangement = timelineLayout.arrangement(player.timeline.cards.size)
+            player.timeline.cards.forEachIndexed { index, card ->
+                val animatedLeft = animatedLeft(card.id, arrangement.cardLefts[index], animationAlpha)
+                visibleCardIds += card.id
+                timelineCardVisuals += TimelineCardVisual(
+                    id = card.id,
+                    rect = Rectangle(animatedLeft, cardBottom, arrangement.cardWidth, cardHeight),
+                    face = CardFace.Revealed,
+                    topColor = 0xF7E9D1FF,
+                    bottomColor = 0xDCC4A6FF,
+                    edgeColor = 0xFFF6E7CA,
+                    primaryText = card.releaseYear.toString(),
+                )
+            }
+            animatedPendingCardLeft = null
+            animatedCardLefts.keys.retainAll(visibleCardIds)
+            return
+        }
+
+        val arrangement = timelineLayout.pendingArrangement(
+            existingCardCount = player.timeline.cards.size,
+            pendingSlotIndex = pendingCard.proposedSlotIndex,
+        )
+        val pendingLeftTarget = if (draggingPendingCard) {
+            clamp(worldTouch.x - pendingCardGrabOffsetX, timelineCardsX, timelineCardsX + timelineCardsWidth - arrangement.cardWidth)
+        } else {
+            arrangement.pendingCardLeft
+        }
+        val pendingLeft = if (draggingPendingCard) {
+            pendingLeftTarget
+        } else {
+            animatedPendingCardLeft?.let { current ->
+                lerpToward(current, pendingLeftTarget, animationAlpha)
+            } ?: pendingLeftTarget
+        }
+        val committedTargets = if (draggingPendingCard) {
+            dodgeCommittedCardLefts(
+                baseLefts = arrangement.committedCardLefts,
+                cardWidth = arrangement.cardWidth,
+                pendingLeft = pendingLeft,
+                gap = arrangement.gap,
+            )
+        } else {
+            arrangement.committedCardLefts
+        }
+        player.timeline.cards.forEachIndexed { index, card ->
+            val visualLeft = if (draggingPendingCard) {
+                committedTargets[index]
+            } else {
+                animatedLeft(card.id, committedTargets[index], animationAlpha)
+            }
+            animatedCardLefts[card.id] = visualLeft
+            visibleCardIds += card.id
+            timelineCardVisuals += TimelineCardVisual(
+                id = card.id,
+                rect = Rectangle(visualLeft, cardBottom, arrangement.cardWidth, cardHeight),
+                face = CardFace.Revealed,
+                topColor = 0xF7E9D1FF,
+                bottomColor = 0xDCC4A6FF,
+                edgeColor = 0xFFF6E7CA,
+                primaryText = card.releaseYear.toString(),
+            )
+        }
+        animatedPendingCardLeft = pendingLeft
+
+        pendingCardVisual = TimelineCardVisual(
+            id = pendingCard.entry.id,
+            rect = Rectangle(pendingLeft, cardBottom, arrangement.cardWidth, cardHeight),
+            face = CardFace.Hidden,
+            topColor = 0xF5B348FF,
+            bottomColor = 0xD48620FF,
+            edgeColor = 0xFFF1D089,
+            primaryText = "?",
+            secondaryText = "LISTEN",
+        )
+        pendingCardVisual?.let(timelineCardVisuals::add)
+        animatedCardLefts.keys.retainAll(visibleCardIds)
+    }
+
+    private fun timelineCardBottom(height: Float): Float {
+        return timelineTrackRect.y + (timelineTrackRect.height - height) / 2f
+    }
+
+    private fun animatedLeft(cardId: String, target: Float, alpha: Float): Float {
+        val current = animatedCardLefts[cardId]
+        val next = current?.let { lerpToward(it, target, alpha) } ?: target
+        animatedCardLefts[cardId] = next
+        return next
+    }
+
+    private fun lerpToward(current: Float, target: Float, alpha: Float): Float {
+        if (abs(target - current) < 0.5f) {
+            return target
+        }
+        return current + (target - current) * alpha
+    }
+
+    private fun dodgeCommittedCardLefts(
+        baseLefts: List<Float>,
+        cardWidth: Float,
+        pendingLeft: Float,
+        gap: Float,
+    ): List<Float> {
+        if (baseLefts.isEmpty()) {
+            return emptyList()
+        }
+
+        val separation = max(12f, gap * 0.7f)
+        val pendingRight = pendingLeft + cardWidth
+        val adjusted = baseLefts.toMutableList()
+
+        adjusted.indices.forEach { index ->
+            val left = adjusted[index]
+            val right = left + cardWidth
+            adjusted[index] = when {
+                left < pendingLeft && right + separation > pendingLeft -> pendingLeft - cardWidth - separation
+                left >= pendingLeft && left < pendingRight + separation -> pendingRight + separation
+                else -> left
+            }
+        }
+
+        for (index in 1 until adjusted.size) {
+            val minimumLeft = adjusted[index - 1] + cardWidth + separation
+            if (adjusted[index] < minimumLeft) {
+                adjusted[index] = minimumLeft
+            }
+        }
+
+        for (index in adjusted.lastIndex - 1 downTo 0) {
+            val maximumLeft = adjusted[index + 1] - cardWidth - separation
+            if (adjusted[index] > maximumLeft) {
+                adjusted[index] = maximumLeft
+            }
+        }
+
+        val leftOverflow = timelineCardsX - adjusted.first()
+        if (leftOverflow > 0f) {
+            adjusted.indices.forEach { index ->
+                adjusted[index] += leftOverflow
+            }
+        }
+
+        val rightOverflow = adjusted.last() + cardWidth - (timelineCardsX + timelineCardsWidth)
+        if (rightOverflow > 0f) {
+            adjusted.indices.forEach { index ->
+                adjusted[index] -= rightOverflow
+            }
+        }
+
+        return adjusted
     }
 
     // Generate a larger atlas so text stays sharp on high-density phones.
@@ -524,8 +726,7 @@ class MatchScreen(
             fillBanner(statusBannerRect)
         }
 
-        drawTimelineRail()
-        drawTransientCard()
+        drawTimelineCards()
     }
 
     private fun drawMatchTextures() {
@@ -682,7 +883,7 @@ class MatchScreen(
             )
         }
 
-        drawTimelineText(player)
+        drawTimelineCardText()
     }
 
     private fun fillHero(rect: Rectangle) {
@@ -749,142 +950,77 @@ class MatchScreen(
         )
     }
 
-    private fun drawTimelineRail() {
-        val player = activePlayer()
-        val slotCenters = timelineLayout.insertionSlotCenters(player?.timeline?.cards?.size ?: 0)
-        slotCenters.forEach { center ->
-            fillRect(center - 1f, timelineTrackRect.y + 24f, 2f, timelineTrackRect.height - 48f, 0x93B4EA30)
-            fillRect(center - 2f, timelineTrackRect.y + 24f, 1f, timelineTrackRect.height - 48f, 0xFFFFFF10)
-        }
+    private fun drawTimelineCards() {
+        timelineCardVisuals.forEach(::drawCardVisual)
+        transientCardVisual?.let(::drawCardVisual)
+    }
 
-        if (player == null) {
-            return
-        }
+    private fun drawTimelineCardText() {
+        timelineCardVisuals.forEach(::drawCardText)
+        transientCardVisual?.let(::drawCardText)
+    }
 
-        val pendingCard = player.pendingCard
-        if (pendingCard == null) {
-            val arrangement = timelineLayout.arrangement(player.timeline.cards.size)
-            player.timeline.cards.forEachIndexed { index, _ ->
-                drawCardSurface(
-                    left = arrangement.cardLefts[index],
-                    bottom = timelineTrackRect.y + 24f,
-                    width = arrangement.cardWidth,
-                    height = cardHeight,
-                    topColor = 0xF7E9D1FF,
-                    bottomColor = 0xDCC4A6FF,
-                    edgeColor = 0xFFF6E7CA,
+    private fun drawCardVisual(visual: TimelineCardVisual) {
+        drawCardSurface(
+            left = visual.rect.x,
+            bottom = visual.rect.y,
+            width = visual.rect.width,
+            height = visual.rect.height,
+            topColor = visual.topColor,
+            bottomColor = visual.bottomColor,
+            edgeColor = visual.edgeColor,
+        )
+    }
+
+    private fun drawCardText(visual: TimelineCardVisual) {
+        when (visual.face) {
+            CardFace.Revealed -> {
+                val label = visual.primaryText ?: return
+                drawTextBlock(
+                    text = label,
+                    x = visual.rect.x,
+                    y = visual.rect.y,
+                    width = visual.rect.width,
+                    height = visual.rect.height,
+                    scale = 1.08f,
+                    color = color(0x17120CFF),
+                    align = Align.center,
+                    verticalAlign = VerticalTextAlign.Center,
+                    shadowColor = color(0xFFF7F0E040),
                 )
             }
-            return
-        }
 
-        val arrangement = timelineLayout.pendingArrangement(
-            existingCardCount = player.timeline.cards.size,
-            pendingSlotIndex = pendingCard.proposedSlotIndex,
-        )
-        player.timeline.cards.forEachIndexed { index, _ ->
-            drawCardSurface(
-                left = arrangement.committedCardLefts[index],
-                bottom = timelineTrackRect.y + 30f,
-                width = arrangement.cardWidth,
-                height = cardHeight - 10f,
-                topColor = 0xF7E9D1FF,
-                bottomColor = 0xDCC4A6FF,
-                edgeColor = 0xFFF6E7CA,
-            )
-        }
-        drawCardSurface(
-            left = arrangement.pendingCardLeft,
-            bottom = timelineTrackRect.y + 14f,
-            width = arrangement.cardWidth,
-            height = cardHeight,
-            topColor = 0xF5B348FF,
-            bottomColor = 0xD48620FF,
-            edgeColor = 0xFFF1D089,
-        )
-    }
-
-    private fun drawTimelineText(player: PlayerState?) {
-        if (player == null) {
-            return
-        }
-
-        val pendingCard = player.pendingCard
-        if (pendingCard == null) {
-            val arrangement = timelineLayout.arrangement(player.timeline.cards.size)
-            player.timeline.cards.forEachIndexed { index, card ->
-                drawResolvedCard(arrangement.cardLefts[index], arrangement.cardWidth, card.releaseYear.toString())
+            CardFace.Hidden -> {
+                visual.primaryText?.let { hiddenLabel ->
+                    drawTextBlock(
+                        text = hiddenLabel,
+                        x = visual.rect.x,
+                        y = visual.rect.y + visual.rect.height * 0.16f,
+                        width = visual.rect.width,
+                        height = visual.rect.height * 0.56f,
+                        scale = 1.54f,
+                        color = color(0x1A1308FF),
+                        align = Align.center,
+                        verticalAlign = VerticalTextAlign.Center,
+                        shadowColor = color(0xFFF9E4A84A),
+                    )
+                }
+                visual.secondaryText?.let { secondaryLabel ->
+                    drawTextBlock(
+                        text = secondaryLabel,
+                        x = visual.rect.x,
+                        y = visual.rect.y + visual.rect.height * 0.04f,
+                        width = visual.rect.width,
+                        height = visual.rect.height * 0.22f,
+                        scale = 0.80f,
+                        color = color(0x1A1308FF),
+                        align = Align.center,
+                        verticalAlign = VerticalTextAlign.Center,
+                        shadowColor = color(0xFFF9E4A84A),
+                    )
+                }
             }
-            return
         }
-
-        val arrangement = timelineLayout.pendingArrangement(
-            existingCardCount = player.timeline.cards.size,
-            pendingSlotIndex = pendingCard.proposedSlotIndex,
-        )
-        player.timeline.cards.forEachIndexed { index, card ->
-            drawResolvedCard(arrangement.committedCardLefts[index], arrangement.cardWidth, card.releaseYear.toString())
-        }
-        drawHiddenCard(arrangement.pendingCardLeft, arrangement.cardWidth)
-    }
-
-    private fun drawResolvedCard(left: Float, width: Float, year: String) {
-        drawTextBlock(
-            text = year,
-            x = left,
-            y = timelineTrackRect.y + 24f,
-            width = width,
-            height = cardHeight,
-            scale = 1.08f,
-            color = color(0x17120CFF),
-            align = Align.center,
-            verticalAlign = VerticalTextAlign.Center,
-            shadowColor = color(0xFFF7F0E040),
-        )
-    }
-
-    private fun drawHiddenCard(left: Float, width: Float) {
-        drawTextBlock(
-            text = "?",
-            x = left,
-            y = timelineTrackRect.y + 14f + cardHeight * 0.16f,
-            width = width,
-            height = cardHeight * 0.56f,
-            scale = 1.54f,
-            color = color(0x1A1308FF),
-            align = Align.center,
-            verticalAlign = VerticalTextAlign.Center,
-            shadowColor = color(0xFFF9E4A84A),
-        )
-        drawTextBlock(
-            text = "LISTEN",
-            x = left,
-            y = timelineTrackRect.y + 18f,
-            width = width,
-            height = 64f,
-            scale = 0.80f,
-            color = color(0x1A1308FF),
-            align = Align.center,
-            verticalAlign = VerticalTextAlign.Center,
-            shadowColor = color(0xFFF9E4A84A),
-        )
-    }
-
-    private fun drawTransientCard() {
-        if (!draggingDeckGhost && !draggingPendingCard) {
-            return
-        }
-
-        val ghostWidth = clamp(timelineTrackRect.width * 0.14f, 128f, 178f)
-        drawCardSurface(
-            left = worldTouch.x - ghostWidth / 2f,
-            bottom = worldTouch.y - cardHeight / 2f,
-            width = ghostWidth,
-            height = cardHeight,
-            topColor = 0xFFD18AFF,
-            bottomColor = 0xE8A650FF,
-            edgeColor = 0xFFF3DCAD,
-        )
     }
 
     private fun showStatusBanner(): Boolean {
@@ -1080,18 +1216,15 @@ class MatchScreen(
             val player = activePlayer() ?: return false
             if (canDraw() && deckRect.contains(world.x, world.y)) {
                 draggingDeckGhost = true
+                worldTouch.set(world)
                 return true
             }
 
-            val pendingRect = player.pendingCard?.let { pending ->
-                val arrangement = timelineLayout.pendingArrangement(
-                    existingCardCount = player.timeline.cards.size,
-                    pendingSlotIndex = pending.proposedSlotIndex,
-                )
-                Rectangle(arrangement.pendingCardLeft, timelineTrackRect.y + 14f, arrangement.cardWidth, cardHeight)
-            }
-            if (pendingRect?.contains(world.x, world.y) == true) {
+            val currentPendingCard = pendingCardVisual
+            if (currentPendingCard?.rect?.contains(world.x, world.y) == true) {
                 draggingPendingCard = true
+                worldTouch.set(world)
+                pendingCardGrabOffsetX = world.x - currentPendingCard.rect.x
                 return true
             }
 
@@ -1105,6 +1238,9 @@ class MatchScreen(
             }
 
             viewport.unproject(worldTouch.set(screenX.toFloat(), screenY.toFloat()))
+            if (draggingPendingCard) {
+                presenter.movePendingCard(requestedSlotIndexFor(worldTouch.x))
+            }
             return true
         }
 
@@ -1125,8 +1261,25 @@ class MatchScreen(
 
             draggingDeckGhost = false
             draggingPendingCard = false
+            pendingCardGrabOffsetX = 0f
             return true
         }
+    }
+
+    private data class TimelineCardVisual(
+        val id: String,
+        val rect: Rectangle,
+        val face: CardFace,
+        val topColor: Long,
+        val bottomColor: Long,
+        val edgeColor: Long,
+        val primaryText: String? = null,
+        val secondaryText: String? = null,
+    )
+
+    private enum class CardFace {
+        Revealed,
+        Hidden,
     }
 
     private enum class VerticalTextAlign {
