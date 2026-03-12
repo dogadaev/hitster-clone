@@ -54,6 +54,7 @@ class MatchScreen(
     private val statusBannerRect = Rectangle()
     private val lobbyCardRect = Rectangle()
     private val startButtonRect = Rectangle()
+    private val deckFrontCardRect = Rectangle()
 
     private var layoutWorldWidth = 0f
     private var layoutWorldHeight = 0f
@@ -229,11 +230,19 @@ class MatchScreen(
 
         val deckCardWidth = clamp(deckPanelRect.width * 0.60f, 152f, 192f)
         val deckCardHeight = clamp(deckPanelRect.height * 0.44f, 214f, 272f)
+        val deckContentHeight = deckPanelRect.height - panelHeaderHeight - panelPadding * 2f
+        val stackOffset = deckStackOffset()
         deckRect.set(
             deckPanelRect.x + (deckPanelRect.width - deckCardWidth) / 2f,
-            deckPanelRect.y + deckPanelRect.height * 0.26f,
+            deckPanelRect.y + panelPadding + (deckContentHeight - deckCardHeight) / 2f,
             deckCardWidth,
             deckCardHeight,
+        )
+        deckFrontCardRect.set(
+            deckRect.x + stackOffset,
+            deckRect.y - stackOffset,
+            deckRect.width,
+            deckRect.height,
         )
 
         val actionHeight = clamp(heroRect.height * 0.62f, 64f, 80f)
@@ -655,8 +664,8 @@ class MatchScreen(
         fillPanel(timelinePanelRect, 0x14264DFF, 0x0D1B37FF, 0x556EABFF, 0x41598FFF, 0xB4C7F144)
         fillTrack(timelineTrackRect)
 
-        repeat(3) { index ->
-            val offset = index * 14f
+        repeat(DECK_STACK_DEPTH) { index ->
+            val offset = centeredDeckStackOffset(index)
             drawCardSurface(
                 left = deckRect.x + offset,
                 bottom = deckRect.y - offset,
@@ -752,30 +761,17 @@ class MatchScreen(
             verticalAlign = VerticalTextAlign.Center,
         )
         drawTextBlock(
-            text = "${presenter.state.deck.size} left",
-            x = deckRect.x,
-            y = deckRect.y + deckRect.height + 8f,
-            width = deckRect.width,
-            height = 62f,
-            scale = 1.18f,
-            color = Color.WHITE,
+            text = presenter.state.deck.size.toString(),
+            x = deckFrontCardRect.x,
+            y = deckFrontCardRect.y,
+            width = deckFrontCardRect.width,
+            height = deckFrontCardRect.height,
+            scale = 1.34f,
+            color = color(0xFFF5E8D0),
             align = Align.center,
             verticalAlign = VerticalTextAlign.Center,
+            shadowColor = color(0x441A0C99),
         )
-
-        val deckHint = deckHint()
-        if (deckHint.isNotBlank()) {
-            drawTextBlock(
-                text = deckHint,
-                x = deckPanelRect.x + panelPadding,
-                y = deckPanelRect.y + panelPadding - 2f,
-                width = deckPanelRect.width - panelPadding * 2f,
-                height = 64f,
-                scale = 0.92f,
-                color = color(0xDDE7FFFF),
-                verticalAlign = VerticalTextAlign.Bottom,
-            )
-        }
 
         drawTextBlock(
             text = "Timeline",
@@ -1048,14 +1044,6 @@ class MatchScreen(
         }
     }
 
-    private fun deckHint(): String {
-        return if (canDraw()) {
-            "Drag to draw."
-        } else {
-            ""
-        }
-    }
-
     private fun showActionButton(): Boolean = canEndTurn()
 
     private fun activePlayer(): PlayerState? = presenter.state.activePlayer
@@ -1216,6 +1204,14 @@ class MatchScreen(
         return max(minValue, min(value, maxValue))
     }
 
+    private fun centeredDeckStackOffset(index: Int): Float {
+        return index * DECK_STACK_SPREAD - deckStackOffset()
+    }
+
+    private fun deckStackOffset(): Float {
+        return (DECK_STACK_DEPTH - 1) * DECK_STACK_SPREAD / 2f
+    }
+
     private inner class MatchInputController : InputAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             updateLayout()
@@ -1319,5 +1315,7 @@ class MatchScreen(
         const val BASE_WORLD_WIDTH = 1600f
         const val BASE_WORLD_HEIGHT = 900f
         const val FONT_ASSET_PATH = "fonts/droid-sans-bold.ttf"
+        const val DECK_STACK_DEPTH = 3
+        const val DECK_STACK_SPREAD = 14f
     }
 }
