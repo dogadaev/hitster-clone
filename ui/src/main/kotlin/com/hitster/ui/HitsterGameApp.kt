@@ -18,7 +18,8 @@ class HitsterGameApp(
     }
 
     override fun render() {
-        automatedGuestBot?.update(Gdx.graphics.deltaTime)
+        val deltaSeconds = Gdx.graphics.deltaTime
         super.render()
+        automatedGuestBot?.update(deltaSeconds)
     }
 }

@@ -77,7 +77,7 @@ class MatchScreen(
     private val animatedCardLefts = mutableMapOf<String, Float>()
     private var animatedPendingCardLeft: Float? = null
     private val confettiParticles = mutableListOf<ConfettiParticle>()
-    private var celebratedResolutionRevision = -1L
+    private var celebratedResolutionCardId: String? = null
 
     private var draggingDeckGhost = false
     private var draggingPendingCard = false
@@ -425,9 +425,9 @@ class MatchScreen(
 
     private fun updateCelebration(delta: Float) {
         val resolution = localResolution()
-        if (resolution?.correct == true && presenter.state.revision != celebratedResolutionRevision) {
+        if (resolution?.correct == true && resolution.cardId != celebratedResolutionCardId) {
             spawnConfetti()
-            celebratedResolutionRevision = presenter.state.revision
+            celebratedResolutionCardId = resolution.cardId
         }
 
         val iterator = confettiParticles.iterator()
@@ -458,7 +458,7 @@ class MatchScreen(
                 velocityY = 40f + random.nextFloat() * 180f,
                 rotation = random.nextFloat() * 360f,
                 angularVelocity = -240f + random.nextFloat() * 480f,
-                lifeSeconds = 1.15f + random.nextFloat() * 0.70f,
+                lifeSeconds = 2.30f + random.nextFloat() * 0.90f,
                 colorRgba = CONFETTI_COLORS[index % CONFETTI_COLORS.size],
             )
         }
