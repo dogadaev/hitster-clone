@@ -51,7 +51,6 @@ class MatchScreen(
     private val timelinePanelRect = Rectangle()
     private val timelineHeaderRect = Rectangle()
     private val timelineTrackRect = Rectangle()
-    private val statusBannerRect = Rectangle()
     private val lobbyCardRect = Rectangle()
     private val startButtonRect = Rectangle()
     private val deckFrontCardRect = Rectangle()
@@ -252,13 +251,6 @@ class MatchScreen(
             heroRect.y + (heroRect.height - actionHeight) / 2f,
             actionWidth,
             actionHeight,
-        )
-
-        statusBannerRect.set(
-            timelineTrackRect.x + timelineTrackRect.width * 0.27f,
-            timelineTrackRect.y + timelineTrackRect.height * 0.17f,
-            timelineTrackRect.width * 0.46f,
-            clamp(timelineTrackRect.height * 0.16f, 68f, 90f),
         )
 
         val lobbyButtonWidth = clamp(worldWidth * 0.23f, 360f, 500f)
@@ -695,10 +687,6 @@ class MatchScreen(
             )
         }
 
-        if (showStatusBanner()) {
-            fillBanner(statusBannerRect)
-        }
-
         drawTimelineCards(includeOverlay)
     }
 
@@ -724,18 +712,24 @@ class MatchScreen(
 
     private fun drawMatchText(includeOverlay: Boolean) {
         val player = displayedPlayer()
-        val turnLabelWidth = 170f
+        val toolbarStatus = toolbarStatusText()
+        val turnLabelWidth = if (toolbarStatus == null) 170f else 154f
         val turnX = if (showActionButton()) {
             actionButtonRect.x - panelGap - turnLabelWidth
         } else {
             heroRect.x + heroRect.width - panelPadding - turnLabelWidth
+        }
+        val playerWidth = if (toolbarStatus == null) {
+            heroRect.width * 0.46f
+        } else {
+            clamp(heroRect.width * 0.21f, 240f, 320f)
         }
 
         drawTextBlock(
             text = player?.displayName ?: "Waiting",
             x = heroRect.x + panelPadding,
             y = heroRect.y,
-            width = heroRect.width * 0.46f,
+            width = playerWidth,
             height = heroRect.height,
             scale = 1.12f,
             color = Color.WHITE,
@@ -764,6 +758,22 @@ class MatchScreen(
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
                 shadowColor = color(0xFFF7DA9638),
+            )
+        }
+        toolbarStatus?.let { text ->
+            val messageX = heroRect.x + panelPadding + playerWidth + panelGap
+            val messageRight = turnX - panelGap
+            drawTextBlock(
+                text = text,
+                x = messageX,
+                y = heroRect.y,
+                width = max(1f, messageRight - messageX),
+                height = heroRect.height,
+                scale = 0.82f,
+                color = toolbarStatusColor(),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = color(0x02060C8A),
             )
         }
 
@@ -814,7 +824,7 @@ class MatchScreen(
             verticalAlign = VerticalTextAlign.Center,
         )
 
-        if (player?.timeline?.cards.isNullOrEmpty() && player?.pendingCard == null && !showStatusBanner()) {
+        if (player?.timeline?.cards.isNullOrEmpty() && player?.pendingCard == null && toolbarStatus == null) {
             drawTextBlock(
                 text = "Drag from deck to timeline.",
                 x = timelineTrackRect.x,
@@ -825,21 +835,6 @@ class MatchScreen(
                 color = color(0xE0E9FFFF),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-            )
-        }
-
-        if (showStatusBanner()) {
-            drawTextBlock(
-                text = statusBannerText(),
-                x = statusBannerRect.x + 18f,
-                y = statusBannerRect.y + 4f,
-                width = statusBannerRect.width - 36f,
-                height = statusBannerRect.height - 8f,
-                scale = 0.96f,
-                color = statusBannerColor(),
-                align = Align.center,
-                verticalAlign = VerticalTextAlign.Center,
-                wrap = true,
             )
         }
 
@@ -858,12 +853,6 @@ class MatchScreen(
         fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x202D54FF, 0x1C2849FF, 0x283560FF, 0x24305AFF)
         drawFrame(rect, 0x9CB3E42A, 2f)
         fillRect(rect.x + 14f, rect.y + rect.height - 18f, rect.width - 28f, 2f, 0xFFFFFF14)
-    }
-
-    private fun fillBanner(rect: Rectangle) {
-        drawDropShadow(rect, 12f, 0x02060C44)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x24335DFF, 0x1F2C50FF, 0x33497BFF, 0x2B3E6BFF)
-        drawFrame(rect, 0xBDD0F248, 2f)
     }
 
     private fun fillButton(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
@@ -1037,29 +1026,35 @@ class MatchScreen(
         }
     }
 
-    private fun showStatusBanner(): Boolean {
-        return presenter.lastError != null || presenter.state.lastResolution != null
-    }
-
-    private fun statusBannerText(): String {
+    private fun toolbarStatusText(): String? {
         presenter.lastError?.let { return it }
         presenter.state.lastResolution?.let { resolution ->
+            val title = resolvedTrackTitle(resolution.cardId)
             return if (resolution.correct) {
-                "Correct • ${resolution.releaseYear}"
+                "Correct: $title (${resolution.releaseYear})"
             } else {
-                "Incorrect • ${resolution.releaseYear}"
+                "Wrong guess: $title (${resolution.releaseYear})"
             }
         }
-        return ""
+        return null
     }
 
-    private fun statusBannerColor(): Color {
+    private fun toolbarStatusColor(): Color {
         presenter.lastError?.let { return color(0xFFB7ACFF) }
         return if (presenter.state.lastResolution?.correct == true) {
             color(0xF4D283FF)
         } else {
             color(0xFFB7ACFF)
         }
+    }
+
+    private fun resolvedTrackTitle(cardId: String): String {
+        presenter.state.discardPile.asReversed().firstOrNull { it.id == cardId }?.let { return it.title }
+        presenter.state.players.asSequence()
+            .flatMap { it.timeline.cards.asSequence() }
+            .firstOrNull { it.id == cardId }
+            ?.let { return it.title }
+        return "Unknown Track"
     }
 
     private fun showActionButton(): Boolean = canEndTurn()
