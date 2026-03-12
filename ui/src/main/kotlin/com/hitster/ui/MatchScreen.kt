@@ -22,7 +22,9 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.animations.AnimationCatalog
 import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.PlayerState
+import com.hitster.core.model.PlaylistEntry
 import com.hitster.core.model.TurnPhase
+import java.util.Random
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -74,6 +76,8 @@ class MatchScreen(
     private var transientCardVisual: TimelineCardVisual? = null
     private val animatedCardLefts = mutableMapOf<String, Float>()
     private var animatedPendingCardLeft: Float? = null
+    private val confettiParticles = mutableListOf<ConfettiParticle>()
+    private var celebratedResolutionRevision = -1L
 
     private var draggingDeckGhost = false
     private var draggingPendingCard = false
@@ -92,6 +96,7 @@ class MatchScreen(
     override fun render(delta: Float) {
         updateLayout()
         updateTimelineVisuals(delta)
+        updateCelebration(delta)
         viewport.apply()
         Gdx.gl.glClearColor(0.02f, 0.04f, 0.10f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
@@ -134,6 +139,12 @@ class MatchScreen(
             batch.begin()
             drawTimelineCardText(includeOverlay = true)
             batch.end()
+        }
+
+        if (confettiParticles.isNotEmpty()) {
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+            drawConfetti()
+            shapeRenderer.end()
         }
     }
 
@@ -410,6 +421,47 @@ class MatchScreen(
             return target
         }
         return current + (target - current) * alpha
+    }
+
+    private fun updateCelebration(delta: Float) {
+        val resolution = presenter.state.lastResolution
+        if (resolution?.correct == true && presenter.state.revision != celebratedResolutionRevision) {
+            spawnConfetti()
+            celebratedResolutionRevision = presenter.state.revision
+        }
+
+        val iterator = confettiParticles.iterator()
+        while (iterator.hasNext()) {
+            val particle = iterator.next()
+            particle.ageSeconds += delta
+            if (particle.ageSeconds >= particle.lifeSeconds) {
+                iterator.remove()
+                continue
+            }
+            particle.x += particle.velocityX * delta
+            particle.y += particle.velocityY * delta
+            particle.velocityY += CONFETTI_GRAVITY * delta
+            particle.rotation += particle.angularVelocity * delta
+        }
+    }
+
+    private fun spawnConfetti() {
+        confettiParticles.clear()
+        val random = Random(presenter.state.revision)
+        repeat(CONFETTI_COUNT) { index ->
+            confettiParticles += ConfettiParticle(
+                x = -outerMargin + random.nextFloat() * (layoutWorldWidth + outerMargin * 2f),
+                y = layoutWorldHeight * (0.40f + random.nextFloat() * 0.60f),
+                width = 10f + random.nextFloat() * 12f,
+                height = 6f + random.nextFloat() * 7f,
+                velocityX = -260f + random.nextFloat() * 520f,
+                velocityY = 40f + random.nextFloat() * 180f,
+                rotation = random.nextFloat() * 360f,
+                angularVelocity = -240f + random.nextFloat() * 480f,
+                lifeSeconds = 1.15f + random.nextFloat() * 0.70f,
+                colorRgba = CONFETTI_COLORS[index % CONFETTI_COLORS.size],
+            )
+        }
     }
 
     // Generate a larger atlas so text stays sharp on high-density phones.
@@ -841,6 +893,24 @@ class MatchScreen(
         drawTimelineCardText(includeOverlay)
     }
 
+    private fun drawConfetti() {
+        confettiParticles.forEach { particle ->
+            val fade = 1f - particle.ageSeconds / particle.lifeSeconds
+            shapeRenderer.color = colorWithAlpha(particle.colorRgba, fade)
+            shapeRenderer.rect(
+                particle.x,
+                particle.y,
+                particle.width / 2f,
+                particle.height / 2f,
+                particle.width,
+                particle.height,
+                1f,
+                1f,
+                particle.rotation,
+            )
+        }
+    }
+
     private fun fillHero(rect: Rectangle) {
         drawDropShadow(rect, 18f, 0x01050B40)
         fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x132145FF, 0x101C38FF, 0x1B2C59FF, 0x182955FF)
@@ -1029,7 +1099,10 @@ class MatchScreen(
     private fun toolbarStatusText(): String? {
         presenter.lastError?.let { return it }
         presenter.state.lastResolution?.let { resolution ->
-            return resolvedTrackTitle(resolution.cardId)
+            if (resolution.correct) {
+                return null
+            }
+            return resolvedTrackLabel(resolution.cardId)
         }
         return null
     }
@@ -1044,12 +1117,21 @@ class MatchScreen(
     }
 
     private fun resolvedTrackTitle(cardId: String): String {
-        presenter.state.discardPile.asReversed().firstOrNull { it.id == cardId }?.let { return it.title }
+        return resolvedTrackEntry(cardId)?.title ?: "Unknown Track"
+    }
+
+    private fun resolvedTrackLabel(cardId: String): String {
+        val entry = resolvedTrackEntry(cardId) ?: return "Unknown Track"
+        return "${entry.artist} - ${entry.title}"
+    }
+
+    private fun resolvedTrackEntry(cardId: String): PlaylistEntry? {
+        presenter.state.discardPile.asReversed().firstOrNull { it.id == cardId }?.let { return it }
         presenter.state.players.asSequence()
             .flatMap { it.timeline.cards.asSequence() }
             .firstOrNull { it.id == cardId }
-            ?.let { return it.title }
-        return "Unknown Track"
+            ?.let { return it }
+        return null
     }
 
     private fun showActionButton(): Boolean = canEndTurn()
@@ -1214,6 +1296,10 @@ class MatchScreen(
         )
     }
 
+    private fun colorWithAlpha(rgba: Long, alphaMultiplier: Float): Color {
+        return color(rgba).also { it.a *= clamp(alphaMultiplier, 0f, 1f) }
+    }
+
     private fun clamp(value: Float, minValue: Float, maxValue: Float): Float {
         return max(minValue, min(value, maxValue))
     }
@@ -1314,6 +1400,20 @@ class MatchScreen(
         val tertiaryText: String? = null,
     )
 
+    private data class ConfettiParticle(
+        var x: Float,
+        var y: Float,
+        val width: Float,
+        val height: Float,
+        val velocityX: Float,
+        var velocityY: Float,
+        var rotation: Float,
+        val angularVelocity: Float,
+        val lifeSeconds: Float,
+        var ageSeconds: Float = 0f,
+        val colorRgba: Long,
+    )
+
     private enum class CardFace {
         Revealed,
         Hidden,
@@ -1331,5 +1431,15 @@ class MatchScreen(
         const val FONT_ASSET_PATH = "fonts/droid-sans-bold.ttf"
         const val DECK_STACK_DEPTH = 3
         const val DECK_STACK_SPREAD = 14f
+        const val CONFETTI_COUNT = 110
+        const val CONFETTI_GRAVITY = -520f
+        val CONFETTI_COLORS = longArrayOf(
+            0xFF7280FF,
+            0xFFD86161FF,
+            0xFFE7B64CFF,
+            0xFF5EC4A6FF,
+            0xFF72A6FFFF,
+            0xFFE98DD4FF,
+        )
     }
 }
