@@ -447,4 +447,5 @@ When implementing features:
 - after creating a commit, push it to the configured remote in the same turn unless the user explicitly says not to
 - do not sacrifice architecture cleanliness for short-term convenience unless explicitly required
 - when a user request materially affects core functionality or future maintainability, update this file carefully so the requirement is preserved
+- temporary local test automation such as a bot player must remain isolated in separate files/controllers and interact through narrow presenter or player-action APIs rather than UI hotseat switching
 - treat this file as high-signal project guidance and avoid unnecessary edits or churn

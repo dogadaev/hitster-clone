@@ -47,6 +47,17 @@ object UiBootstrapper {
         )
     }
 
+    fun createAutomatedGuestBot(presenter: MatchPresenter): AutomatedGuestPlayerBot? {
+        if (presenter.localPlayerId != hostId) {
+            return null
+        }
+
+        return AutomatedGuestPlayerBot(
+            presenter = presenter,
+            playerId = guestId,
+        )
+    }
+
     private fun loadEntries(): List<PlaylistEntry> {
         val parseResult = PlaylistParser().parseCatalog(SamplePlaylist.json)
         return when (parseResult) {

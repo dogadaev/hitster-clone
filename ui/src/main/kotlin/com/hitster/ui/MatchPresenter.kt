@@ -39,20 +39,35 @@ class MatchPresenter(
     }
 
     fun drawCard() {
-        dispatch(GameCommand.DrawCard(actorId = localPlayerId))
+        drawCardAs(localPlayerId)
     }
 
     fun movePendingCard(requestedSlotIndex: Int) {
+        movePendingCardAs(localPlayerId, requestedSlotIndex)
+    }
+
+    fun endTurn() {
+        endTurnAs(localPlayerId)
+    }
+
+    internal fun drawCardAs(actorId: PlayerId) {
+        dispatch(GameCommand.DrawCard(actorId = actorId))
+    }
+
+    internal fun movePendingCardAs(
+        actorId: PlayerId,
+        requestedSlotIndex: Int,
+    ) {
         dispatch(
             GameCommand.MovePendingCard(
-                actorId = localPlayerId,
+                actorId = actorId,
                 requestedSlotIndex = requestedSlotIndex,
             ),
         )
     }
 
-    fun endTurn() {
-        dispatch(GameCommand.EndTurn(actorId = localPlayerId))
+    internal fun endTurnAs(actorId: PlayerId) {
+        dispatch(GameCommand.EndTurn(actorId = actorId))
     }
 
     private fun dispatch(command: GameCommand) {
