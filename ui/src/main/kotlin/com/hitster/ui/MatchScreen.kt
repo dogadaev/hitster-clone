@@ -1029,12 +1029,7 @@ class MatchScreen(
     private fun toolbarStatusText(): String? {
         presenter.lastError?.let { return it }
         presenter.state.lastResolution?.let { resolution ->
-            val title = resolvedTrackTitle(resolution.cardId)
-            return if (resolution.correct) {
-                "Correct: $title (${resolution.releaseYear})"
-            } else {
-                "Wrong guess: $title (${resolution.releaseYear})"
-            }
+            return resolvedTrackTitle(resolution.cardId)
         }
         return null
     }
