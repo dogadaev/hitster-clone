@@ -105,7 +105,7 @@ class MatchScreen(
             MatchStatus.LOBBY -> drawLobby()
             MatchStatus.ACTIVE,
             MatchStatus.COMPLETE,
-            -> drawMatch()
+            -> drawMatch(includeOverlay = false)
         }
         shapeRenderer.end()
 
@@ -121,10 +121,20 @@ class MatchScreen(
             MatchStatus.COMPLETE,
             -> {
                 drawMatchTextures()
-                drawMatchText()
+                drawMatchText(includeOverlay = false)
             }
         }
         batch.end()
+
+        if (hasOverlayTimelineVisuals()) {
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+            drawTimelineCards(includeOverlay = true)
+            shapeRenderer.end()
+
+            batch.begin()
+            drawTimelineCardText(includeOverlay = true)
+            batch.end()
+        }
     }
 
     override fun resize(width: Int, height: Int) {
@@ -631,7 +641,7 @@ class MatchScreen(
         )
     }
 
-    private fun drawMatch() {
+    private fun drawMatch(includeOverlay: Boolean) {
         fillHero(heroRect)
         if (showActionButton()) {
             fillButton(actionButtonRect, 0xF6B447FF, 0xE6972CFF, 0xFFF2C56C)
@@ -658,7 +668,7 @@ class MatchScreen(
             fillBanner(statusBannerRect)
         }
 
-        drawTimelineCards()
+        drawTimelineCards(includeOverlay)
     }
 
     private fun drawMatchTextures() {
@@ -681,7 +691,7 @@ class MatchScreen(
         }
     }
 
-    private fun drawMatchText() {
+    private fun drawMatchText(includeOverlay: Boolean) {
         val player = activePlayer()
         val turnLabelWidth = 170f
         val turnX = if (showActionButton()) {
@@ -815,7 +825,7 @@ class MatchScreen(
             )
         }
 
-        drawTimelineCardText()
+        drawTimelineCardText(includeOverlay)
     }
 
     private fun fillHero(rect: Rectangle) {
@@ -882,20 +892,34 @@ class MatchScreen(
         )
     }
 
-    private fun drawTimelineCards() {
-        timelineCardVisuals.forEach(::drawCardVisual)
-        transientCardVisual?.let(::drawCardVisual)
+    private fun drawTimelineCards(includeOverlay: Boolean) {
+        timelineCardVisuals.forEach { visual ->
+            if (isOverlayVisual(visual) == includeOverlay) {
+                drawCardVisual(visual)
+            }
+        }
+        if (includeOverlay) {
+            transientCardVisual?.let(::drawCardVisual)
+        }
     }
 
-    private fun drawTimelineCardText() {
-        val coveringRect = if (draggingPendingCard) pendingCardVisual?.rect else null
+    private fun drawTimelineCardText(includeOverlay: Boolean) {
         timelineCardVisuals.forEach { visual ->
-            if (coveringRect != null && visual.face == CardFace.Revealed && visual.rect.overlaps(coveringRect)) {
-                return@forEach
+            if (isOverlayVisual(visual) == includeOverlay) {
+                drawCardText(visual)
             }
-            drawCardText(visual)
         }
-        transientCardVisual?.let(::drawCardText)
+        if (includeOverlay) {
+            transientCardVisual?.let(::drawCardText)
+        }
+    }
+
+    private fun hasOverlayTimelineVisuals(): Boolean {
+        return draggingPendingCard && pendingCardVisual != null || transientCardVisual != null
+    }
+
+    private fun isOverlayVisual(visual: TimelineCardVisual): Boolean {
+        return draggingPendingCard && pendingCardVisual?.id == visual.id
     }
 
     private fun drawCardVisual(visual: TimelineCardVisual) {
