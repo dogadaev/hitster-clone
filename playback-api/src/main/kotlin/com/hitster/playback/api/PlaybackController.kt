@@ -3,6 +3,8 @@ package com.hitster.playback.api
 import com.hitster.core.model.PlaybackReference
 
 interface PlaybackController {
+    fun prepareSession(): PlaybackCommandResult
+
     fun playTrack(reference: PlaybackReference): PlaybackCommandResult
 
     fun pause(): PlaybackCommandResult
@@ -19,7 +21,11 @@ interface PlaybackEventListener {
 }
 
 sealed interface PlaybackSessionState {
-    data object Idle : PlaybackSessionState
+    data object Disconnected : PlaybackSessionState
+
+    data object Connecting : PlaybackSessionState
+
+    data object Ready : PlaybackSessionState
 
     data class Playing(
         val spotifyUri: String,
@@ -50,8 +56,15 @@ enum class PlaybackIssueCode {
 }
 
 class NoOpPlaybackController : PlaybackController {
-    private var state: PlaybackSessionState = PlaybackSessionState.Idle
+    private var state: PlaybackSessionState = PlaybackSessionState.Ready
     private var listener: PlaybackEventListener? = null
+
+    override fun prepareSession(): PlaybackCommandResult {
+        state = PlaybackSessionState.Ready
+        listener?.onIssue(null)
+        listener?.onSessionStateChanged(state)
+        return PlaybackCommandResult.Success
+    }
 
     override fun playTrack(reference: PlaybackReference): PlaybackCommandResult {
         state = PlaybackSessionState.Playing(reference.spotifyUri)
@@ -61,7 +74,7 @@ class NoOpPlaybackController : PlaybackController {
     }
 
     override fun pause(): PlaybackCommandResult {
-        state = PlaybackSessionState.Idle
+        state = PlaybackSessionState.Ready
         listener?.onIssue(null)
         listener?.onSessionStateChanged(state)
         return PlaybackCommandResult.Success

@@ -5,6 +5,7 @@ import com.hitster.core.game.GameEffect
 import com.hitster.core.game.HostGameReducer
 import com.hitster.core.game.ReducerResult
 import com.hitster.core.model.GameState
+import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.PlayerId
 import com.hitster.networking.GameStateDto
 import com.hitster.networking.GameStateMapper
@@ -30,6 +31,9 @@ class MatchPresenter(
     var lastPlaybackIssue: PlaybackIssue? = null
         private set
 
+    var playbackSessionState: PlaybackSessionState = playbackController.currentState()
+        private set
+
     var lastPublishedSnapshot: GameStateDto = GameStateMapper.toDto(initialState)
         private set
 
@@ -39,7 +43,9 @@ class MatchPresenter(
     init {
         playbackController.setListener(
             object : PlaybackEventListener {
-                override fun onSessionStateChanged(sessionState: PlaybackSessionState) = Unit
+                override fun onSessionStateChanged(sessionState: PlaybackSessionState) {
+                    playbackSessionState = sessionState
+                }
 
                 override fun onIssue(issue: PlaybackIssue?) {
                     lastPlaybackIssue = issue
@@ -49,7 +55,24 @@ class MatchPresenter(
     }
 
     fun startMatch() {
+        if (requiresHostPlaybackPairing()) {
+            lastError = "Pair Spotify before starting."
+            return
+        }
         dispatch(GameCommand.StartGame(actorId = hostId))
+    }
+
+    fun prepareHostPlayback() {
+        when (val playbackResult = playbackController.prepareSession()) {
+            is PlaybackCommandResult.Success -> {
+                lastError = null
+                lastPlaybackIssue = null
+            }
+
+            is PlaybackCommandResult.Failure -> {
+                lastPlaybackIssue = playbackResult.issue
+            }
+        }
     }
 
     fun drawCard() {
@@ -82,6 +105,14 @@ class MatchPresenter(
 
     internal fun endTurnAs(actorId: PlayerId) {
         dispatch(GameCommand.EndTurn(actorId = actorId))
+    }
+
+    fun requiresHostPlaybackPairing(): Boolean {
+        if (localPlayerId != hostId || state.status != MatchStatus.LOBBY) {
+            return false
+        }
+        return playbackSessionState != PlaybackSessionState.Ready &&
+            playbackSessionState !is PlaybackSessionState.Playing
     }
 
     private fun dispatch(command: GameCommand) {

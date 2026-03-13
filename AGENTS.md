@@ -179,6 +179,8 @@ Requirements:
 - ending the turn should pause playback
 - playback integration must be abstracted behind an interface
 - core game logic must not depend directly on Spotify SDK classes
+- the host must complete playback pairing from the lobby before starting the match
+- guests should not be blocked by the host-only playback pairing step
 
 Implementation direction:
 - Android uses a native Spotify integration layer

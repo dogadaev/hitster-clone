@@ -33,12 +33,33 @@ class SpotifyAppRemoteBridge(
     private var playbackListener: PlaybackEventListener? = null
     private var spotifyAppRemote: SpotifyAppRemote? = null
     private var playerStateSubscription: Subscription<PlayerState>? = null
-    private var sessionState: PlaybackSessionState = PlaybackSessionState.Idle
+    private var sessionState: PlaybackSessionState = PlaybackSessionState.Disconnected
     private var lastIssue: PlaybackIssue? = null
     private var started = false
     private var connectionInFlight = false
     private var pendingCommand: PendingCommand? = null
     private var reconnectOnStart = false
+
+    override fun prepareSession(): PlaybackCommandResult {
+        if (!configuration.isConfigured()) {
+            return fail(
+                code = PlaybackIssueCode.MISSING_CONFIGURATION,
+                message = "Spotify playback is not configured. Add spotifyClientId and spotifyRedirectUri to local.properties.",
+            )
+        }
+        if (!SpotifyAppRemote.isSpotifyInstalled(activity)) {
+            return fail(
+                code = PlaybackIssueCode.APP_NOT_INSTALLED,
+                message = "Install the Spotify app on this device to start playback.",
+            )
+        }
+
+        onMainThread {
+            clearIssue()
+            connectIfNeeded()
+        }
+        return PlaybackCommandResult.Success
+    }
 
     override fun play(spotifyUri: String): PlaybackCommandResult {
         if (!configuration.isConfigured()) {
@@ -69,7 +90,7 @@ class SpotifyAppRemoteBridge(
             if (connectedRemote == null) {
                 pendingCommand = null
                 clearIssue()
-                updateState(PlaybackSessionState.Idle)
+                updateState(PlaybackSessionState.Ready)
                 return@onMainThread
             }
 
@@ -77,7 +98,7 @@ class SpotifyAppRemoteBridge(
                 .setResultCallback {
                     pendingCommand = null
                     clearIssue()
-                    updateState(PlaybackSessionState.Idle)
+                    updateState(PlaybackSessionState.Ready)
                 }
                 .setErrorCallback(::handleAsyncError)
         }
@@ -135,11 +156,16 @@ class SpotifyAppRemoteBridge(
         if (!started) {
             Log.d(tag, "Skipping connect; activity is not started.")
             reconnectOnStart = true
+            updateState(PlaybackSessionState.Connecting)
             return
         }
         val connectedRemote = spotifyAppRemote?.takeIf { it.isConnected }
         if (connectedRemote != null) {
             Log.d(tag, "Reusing active Spotify connection.")
+            if (pendingCommand == null) {
+                clearIssue()
+                updateState(PlaybackSessionState.Ready)
+            }
             runPendingCommand(connectedRemote)
             return
         }
@@ -150,6 +176,7 @@ class SpotifyAppRemoteBridge(
 
         Log.d(tag, "Connecting to Spotify App Remote.")
         connectionInFlight = true
+        updateState(PlaybackSessionState.Connecting)
         SpotifyAppRemote.connect(
             activity,
             ConnectionParams.Builder(configuration.clientId)
@@ -197,7 +224,7 @@ class SpotifyAppRemoteBridge(
                         Log.d(tag, "Spotify pause command accepted.")
                         pendingCommand = null
                         clearIssue()
-                        updateState(PlaybackSessionState.Idle)
+                        updateState(PlaybackSessionState.Ready)
                     }
                     .setErrorCallback(::handleAsyncError)
             }
@@ -205,6 +232,7 @@ class SpotifyAppRemoteBridge(
             null -> {
                 Log.d(tag, "Connected without a pending playback command.")
                 reconnectOnStart = false
+                updateState(PlaybackSessionState.Ready)
             }
         }
     }
@@ -228,8 +256,10 @@ class SpotifyAppRemoteBridge(
         val spotifyUri = track?.uri.orEmpty()
         return if (!isPaused && spotifyUri.isNotBlank()) {
             PlaybackSessionState.Playing(spotifyUri)
+        } else if (spotifyAppRemote?.isConnected == true) {
+            PlaybackSessionState.Ready
         } else {
-            PlaybackSessionState.Idle
+            PlaybackSessionState.Disconnected
         }
     }
 
@@ -240,7 +270,7 @@ class SpotifyAppRemoteBridge(
         playerStateSubscription = null
         spotifyAppRemote = spotifyAppRemote?.takeIf { it.isConnected }
         reportIssue(mapIssue(error))
-        updateState(PlaybackSessionState.Idle)
+        updateState(PlaybackSessionState.Disconnected)
     }
 
     private fun fail(
@@ -249,7 +279,7 @@ class SpotifyAppRemoteBridge(
     ): PlaybackCommandResult.Failure {
         val issue = PlaybackIssue(code = code, message = message)
         reportIssue(issue)
-        updateState(PlaybackSessionState.Idle)
+        updateState(PlaybackSessionState.Disconnected)
         return PlaybackCommandResult.Failure(issue)
     }
 
@@ -289,7 +319,7 @@ class SpotifyAppRemoteBridge(
         if (clearIssue) {
             clearIssue()
         }
-        updateState(PlaybackSessionState.Idle)
+        updateState(PlaybackSessionState.Disconnected)
     }
 
     private inline fun onMainThread(crossinline action: () -> Unit) {

@@ -17,7 +17,9 @@ import com.hitster.playback.api.PlaybackSessionState
 import com.hitster.playback.api.NoOpPlaybackController
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class MatchPresenterTest {
     private val reducer = HostGameReducer()
@@ -78,6 +80,63 @@ class MatchPresenterTest {
         assertSame(expectedIssue, presenter.lastPlaybackIssue)
     }
 
+    @Test
+    fun `host must pair playback before starting the match`() {
+        val playbackController = FakePlaybackController(
+            initialState = PlaybackSessionState.Disconnected,
+        )
+        val presenter = MatchPresenter(
+            reducer = reducer,
+            playbackController = playbackController,
+            hostId = hostId,
+            localPlayerId = hostId,
+            initialState = lobbyWithGuest(deckEntries()),
+        )
+
+        presenter.startMatch()
+
+        assertEquals("Pair Spotify before starting.", presenter.lastError)
+        assertEquals(com.hitster.core.model.MatchStatus.LOBBY, presenter.state.status)
+    }
+
+    @Test
+    fun `guests are not blocked by the host pairing gate`() {
+        val playbackController = FakePlaybackController(
+            initialState = PlaybackSessionState.Disconnected,
+        )
+        val presenter = MatchPresenter(
+            reducer = reducer,
+            playbackController = playbackController,
+            hostId = hostId,
+            localPlayerId = guestId,
+            initialState = lobbyWithGuest(deckEntries()),
+        )
+
+        assertFalse(presenter.requiresHostPlaybackPairing())
+    }
+
+    @Test
+    fun `prepare host playback updates readiness once the controller connects`() {
+        val playbackController = FakePlaybackController(
+            initialState = PlaybackSessionState.Disconnected,
+        )
+        val presenter = MatchPresenter(
+            reducer = reducer,
+            playbackController = playbackController,
+            hostId = hostId,
+            localPlayerId = hostId,
+            initialState = lobbyWithGuest(deckEntries()),
+        )
+
+        presenter.prepareHostPlayback()
+        playbackController.dispatchSessionState(PlaybackSessionState.Connecting)
+        playbackController.dispatchSessionState(PlaybackSessionState.Ready)
+
+        assertEquals(1, playbackController.prepareCalls)
+        assertEquals(PlaybackSessionState.Ready, presenter.playbackSessionState)
+        assertTrue(!presenter.requiresHostPlaybackPairing())
+    }
+
     private fun lobbyWithGuest(entries: List<PlaylistEntry>) =
         acceptedState(
             reducer.reduce(
@@ -96,6 +155,13 @@ class MatchPresenterTest {
 
     private fun acceptedState(result: ReducerResult) = (result as ReducerResult.Accepted).state
 
+    private fun deckEntries() = listOf(
+        entry("seed-host", 1980),
+        entry("seed-guest", 2000),
+        entry("draw-host", 1990),
+        entry("draw-guest", 2010),
+    )
+
     private fun entry(id: String, year: Int) = PlaylistEntry(
         id = id,
         title = id,
@@ -104,21 +170,37 @@ class MatchPresenterTest {
         playbackReference = PlaybackReference("spotify:track:$id"),
     )
 
-    private class FakePlaybackController : PlaybackController {
+    private class FakePlaybackController(
+        initialState: PlaybackSessionState = PlaybackSessionState.Ready,
+    ) : PlaybackController {
         private var listener: PlaybackEventListener? = null
+        private var state: PlaybackSessionState = initialState
+        var prepareCalls: Int = 0
+            private set
+
+        override fun prepareSession(): PlaybackCommandResult {
+            prepareCalls += 1
+            return PlaybackCommandResult.Success
+        }
 
         override fun playTrack(reference: PlaybackReference): PlaybackCommandResult = PlaybackCommandResult.Success
 
         override fun pause(): PlaybackCommandResult = PlaybackCommandResult.Success
 
-        override fun currentState(): PlaybackSessionState = PlaybackSessionState.Idle
+        override fun currentState(): PlaybackSessionState = state
 
         override fun setListener(listener: PlaybackEventListener?) {
             this.listener = listener
+            listener?.onSessionStateChanged(state)
         }
 
         fun dispatchIssue(issue: PlaybackIssue?) {
             listener?.onIssue(issue)
+        }
+
+        fun dispatchSessionState(state: PlaybackSessionState) {
+            this.state = state
+            listener?.onSessionStateChanged(state)
         }
     }
 }

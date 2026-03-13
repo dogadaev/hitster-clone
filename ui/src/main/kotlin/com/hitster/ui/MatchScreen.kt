@@ -24,6 +24,7 @@ import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.PlayerState
 import com.hitster.core.model.PlaylistEntry
 import com.hitster.core.model.TurnPhase
+import com.hitster.playback.api.PlaybackSessionState
 import java.util.Random
 import kotlin.math.abs
 import kotlin.math.max
@@ -594,7 +595,12 @@ class MatchScreen(
     }
 
     private fun drawLobby() {
-        fillButton(startButtonRect, 0xF6B447FF, 0xE4952BFF, 0xFFF0BF66)
+        val isPairing = presenter.playbackSessionState == PlaybackSessionState.Connecting
+        if (isPairing) {
+            fillButton(startButtonRect, 0xA4B5DBFF, 0x7D90BBFF, 0xE9F0FF55)
+        } else {
+            fillButton(startButtonRect, 0xF6B447FF, 0xE4952BFF, 0xFFF0BF66)
+        }
 
         val cardWidth = clamp(lobbyCardRect.width * 0.11f, 142f, 176f)
         val cardHeight = clamp(lobbyCardRect.height * 0.42f, 194f, 238f)
@@ -615,17 +621,21 @@ class MatchScreen(
             )
         }
 
-        lobbyPlayerBadgeRects().forEach { rect ->
-            drawDropShadow(rect, 12f, 0x01050B38)
-            fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x17284AFF, 0x132342FF, 0x243D6FFF, 0x1B3158FF)
-            drawFrame(rect, 0xAFC3F032, 2f)
+        if (!showLobbyPairingGate()) {
+            lobbyPlayerBadgeRects().forEach { rect ->
+                drawDropShadow(rect, 12f, 0x01050B38)
+                fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x17284AFF, 0x132342FF, 0x243D6FFF, 0x1B3158FF)
+                drawFrame(rect, 0xAFC3F032, 2f)
+            }
         }
     }
 
     private fun drawLobbyTextures() {
         drawPanelTexture(startButtonRect, color(0xFFF5D41E))
-        lobbyPlayerBadgeRects().forEach { rect ->
-            drawPanelTexture(rect, color(0xC7DAFF10))
+        if (!showLobbyPairingGate()) {
+            lobbyPlayerBadgeRects().forEach { rect ->
+                drawPanelTexture(rect, color(0xC7DAFF10))
+            }
         }
     }
 
@@ -642,40 +652,68 @@ class MatchScreen(
             verticalAlign = VerticalTextAlign.Center,
         )
 
-        presenter.state.players.zip(lobbyPlayerBadgeRects()).forEach { (player, rect) ->
+        if (showLobbyPairingGate()) {
             drawTextBlock(
-                text = player.displayName,
-                x = rect.x,
-                y = rect.y,
-                width = rect.width,
-                height = rect.height,
-                scale = 0.90f,
+                text = "Pair Spotify",
+                x = lobbyCardRect.x,
+                y = lobbyCardRect.y + lobbyCardRect.height * 0.20f,
+                width = lobbyCardRect.width,
+                height = 54f,
+                scale = 0.92f,
                 color = Color.WHITE,
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+            )
+            drawTextBlock(
+                text = "${presenter.state.players.size} PLAYERS",
+                x = lobbyCardRect.x,
+                y = lobbyCardRect.y + lobbyCardRect.height * 0.12f,
+                width = lobbyCardRect.width,
+                height = 34f,
+                scale = 0.62f,
+                color = color(0xF3CF7BFF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+            )
+        } else {
+            presenter.state.players.zip(lobbyPlayerBadgeRects()).forEach { (player, rect) ->
+                drawTextBlock(
+                    text = player.displayName,
+                    x = rect.x,
+                    y = rect.y,
+                    width = rect.width,
+                    height = rect.height,
+                    scale = 0.90f,
+                    color = Color.WHITE,
+                    align = Align.center,
+                    verticalAlign = VerticalTextAlign.Center,
+                )
+            }
+            drawTextBlock(
+                text = "${presenter.state.players.size} PLAYERS",
+                x = lobbyCardRect.x,
+                y = lobbyCardRect.y + lobbyCardRect.height * 0.18f,
+                width = lobbyCardRect.width,
+                height = 42f,
+                scale = 0.74f,
+                color = color(0xF3CF7BFF),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
             )
         }
 
         drawTextBlock(
-            text = "${presenter.state.players.size} PLAYERS",
-            x = lobbyCardRect.x,
-            y = lobbyCardRect.y + lobbyCardRect.height * 0.18f,
-            width = lobbyCardRect.width,
-            height = 42f,
-            scale = 0.74f,
-            color = color(0xF3CF7BFF),
-            align = Align.center,
-            verticalAlign = VerticalTextAlign.Center,
-        )
-
-        drawTextBlock(
-            text = "START",
+            text = lobbyPrimaryActionText(),
             x = startButtonRect.x,
             y = startButtonRect.y,
             width = startButtonRect.width,
             height = startButtonRect.height,
             scale = 1.16f,
-            color = color(0x1A1308FF),
+            color = if (presenter.playbackSessionState == PlaybackSessionState.Connecting) {
+                color(0x0F1A2EFF)
+            } else {
+                color(0x1A1308FF)
+            },
             align = Align.center,
             verticalAlign = VerticalTextAlign.Center,
             shadowColor = color(0xFFF8E29F33),
@@ -1132,6 +1170,20 @@ class MatchScreen(
 
     private fun showActionButton(): Boolean = canEndTurn()
 
+    private fun showLobbyPairingGate(): Boolean = presenter.requiresHostPlaybackPairing()
+
+    private fun lobbyPrimaryActionText(): String {
+        return if (showLobbyPairingGate()) {
+            if (presenter.playbackSessionState == PlaybackSessionState.Connecting) {
+                "PAIRING..."
+            } else {
+                "PAIR SPOTIFY"
+            }
+        } else {
+            "START"
+        }
+    }
+
     private fun localPlayer(): PlayerState? = presenter.localPlayer
 
     private fun localResolution() = presenter.state.lastResolution?.takeIf { it.playerId == presenter.localPlayerId }
@@ -1312,7 +1364,13 @@ class MatchScreen(
             val world = viewport.unproject(worldTouch.set(screenX.toFloat(), screenY.toFloat()))
 
             if (presenter.state.status == MatchStatus.LOBBY && startButtonRect.contains(world.x, world.y)) {
-                presenter.startMatch()
+                if (showLobbyPairingGate()) {
+                    if (presenter.playbackSessionState != PlaybackSessionState.Connecting) {
+                        presenter.prepareHostPlayback()
+                    }
+                } else {
+                    presenter.startMatch()
+                }
                 return true
             }
 
