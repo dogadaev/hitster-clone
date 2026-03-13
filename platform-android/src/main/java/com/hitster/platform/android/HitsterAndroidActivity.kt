@@ -1,6 +1,8 @@
 package com.hitster.platform.android
 
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -10,11 +12,13 @@ import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
 import com.hitster.ui.HitsterGameApp
 
 class HitsterAndroidActivity : AndroidApplication() {
+    private val tag = "HitsterSpotify"
     private val keepScreenAwakeController = AndroidKeepScreenAwakeController()
     private lateinit var spotifyBridge: AndroidSpotifyBridge
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(tag, "onCreate intent=${intent.describeForLogs()} savedState=${savedInstanceState != null}")
         enterImmersiveMode()
         keepScreenAwakeController.enable(window)
 
@@ -33,9 +37,22 @@ class HitsterAndroidActivity : AndroidApplication() {
         )
     }
 
+    override fun onStart() {
+        super.onStart()
+        Log.d(tag, "onStart intent=${intent.describeForLogs()}")
+        spotifyBridge.onStart()
+    }
+
     override fun onResume() {
         super.onResume()
+        Log.d(tag, "onResume")
         enterImmersiveMode()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        Log.d(tag, "onNewIntent intent=${intent.describeForLogs()}")
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -46,11 +63,13 @@ class HitsterAndroidActivity : AndroidApplication() {
     }
 
     override fun onStop() {
-        spotifyBridge.disconnect()
+        Log.d(tag, "onStop")
+        spotifyBridge.onStop()
         super.onStop()
     }
 
     override fun onDestroy() {
+        Log.d(tag, "onDestroy")
         spotifyBridge.disconnect()
         keepScreenAwakeController.disable(window)
         super.onDestroy()
@@ -81,6 +100,19 @@ class HitsterAndroidActivity : AndroidApplication() {
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    private fun Intent?.describeForLogs(): String {
+        if (this == null) {
+            return "<null>"
+        }
+        return buildString {
+            append(action ?: "<no-action>")
+            append(" data=")
+            append(dataString ?: "<no-data>")
+            append(" categories=")
+            append(categories?.joinToString(prefix = "[", postfix = "]") ?: "[]")
         }
     }
 }

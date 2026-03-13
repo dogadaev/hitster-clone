@@ -42,6 +42,10 @@ interface AndroidSpotifyBridge {
 
     fun setListener(listener: PlaybackEventListener?)
 
+    fun onStart()
+
+    fun onStop()
+
     fun disconnect()
 }
 
@@ -67,6 +71,10 @@ class StubAndroidSpotifyBridge(
         this.listener = listener
         listener?.onSessionStateChanged(PlaybackSessionState.Idle)
     }
+
+    override fun onStart() = Unit
+
+    override fun onStop() = Unit
 
     override fun disconnect() = Unit
 }

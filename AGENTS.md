@@ -217,6 +217,9 @@ The parser must:
 - produce user-friendly errors
 - remain independent from the UI layer
 
+Bundled or developer-facing sample playlists that are intended to exercise playback must use real playable Spotify track URIs.
+Do not leave shipped sample data on placeholder values such as `spotify:track:track-01`.
+
 ## Core Gameplay Requirements
 The gameplay loop should mirror the physical game as closely as practical.
 
