@@ -55,6 +55,16 @@ class HitsterAndroidActivity : AndroidApplication() {
         Log.d(tag, "onNewIntent intent=${intent.describeForLogs()}")
     }
 
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?,
+    ) {
+        super.onActivityResult(requestCode, resultCode, data)
+        Log.d(tag, "onActivityResult requestCode=$requestCode resultCode=$resultCode intent=${data.describeForLogs()}")
+        spotifyBridge.onActivityResult(requestCode, resultCode, data)
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {

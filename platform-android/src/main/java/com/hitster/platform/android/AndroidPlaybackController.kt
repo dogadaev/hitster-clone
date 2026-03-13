@@ -1,5 +1,6 @@
 package com.hitster.platform.android
 
+import android.content.Intent
 import com.hitster.core.model.PlaybackReference
 import com.hitster.playback.api.PlaybackCommandResult
 import com.hitster.playback.api.PlaybackController
@@ -48,6 +49,12 @@ interface AndroidSpotifyBridge {
 
     fun onStart()
 
+    fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?,
+    )
+
     fun onStop()
 
     fun disconnect()
@@ -83,6 +90,12 @@ class StubAndroidSpotifyBridge(
     }
 
     override fun onStart() = Unit
+
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?,
+    ) = Unit
 
     override fun onStop() = Unit
 

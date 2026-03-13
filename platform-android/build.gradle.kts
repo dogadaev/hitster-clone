@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.net.URI
 
 plugins {
     alias(libs.plugins.android.application)
@@ -24,6 +25,7 @@ fun String.toBuildConfigLiteral(): String {
 
 val spotifyClientId = readLocalOrEnvironment("spotifyClientId", "SPOTIFY_CLIENT_ID")
 val spotifyRedirectUri = readLocalOrEnvironment("spotifyRedirectUri", "SPOTIFY_REDIRECT_URI")
+val spotifyRedirect = spotifyRedirectUri.takeIf { it.isNotBlank() }?.let(URI::create)
 
 android {
     namespace = "com.hitster.platform.android"
@@ -35,6 +37,11 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        manifestPlaceholders["redirectSchemeName"] = spotifyRedirect?.scheme ?: "hitsterclone"
+        manifestPlaceholders["redirectHostName"] = spotifyRedirect?.host ?: "spotify-auth-callback"
+        manifestPlaceholders["redirectPathPattern"] = spotifyRedirect?.path
+            ?.takeIf { it.isNotBlank() }
+            ?: ".*"
         buildConfigField("String", "SPOTIFY_CLIENT_ID", spotifyClientId.toBuildConfigLiteral())
         buildConfigField("String", "SPOTIFY_REDIRECT_URI", spotifyRedirectUri.toBuildConfigLiteral())
     }
@@ -73,6 +80,8 @@ dependencies {
     runtimeOnly("com.badlogicgames.gdx:gdx-freetype-platform:1.13.1:natives-armeabi-v7a")
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.browser)
     implementation(libs.androidx.core.ktx)
     implementation(libs.gson)
+    implementation(libs.spotify.auth)
 }

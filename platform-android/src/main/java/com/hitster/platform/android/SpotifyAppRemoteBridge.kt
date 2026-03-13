@@ -1,6 +1,7 @@
 package com.hitster.platform.android
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -29,7 +30,9 @@ class SpotifyAppRemoteBridge(
     private val configuration: SpotifyAppRemoteConfiguration,
 ) : AndroidSpotifyBridge {
     private val tag = "HitsterSpotify"
+    private val connectionTimeoutMillis = 15_000L
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val authorizationCoordinator = SpotifyAuthorizationCoordinator(activity, configuration)
     private var playbackListener: PlaybackEventListener? = null
     private var spotifyAppRemote: SpotifyAppRemote? = null
     private var playerStateSubscription: Subscription<PlayerState>? = null
@@ -39,6 +42,29 @@ class SpotifyAppRemoteBridge(
     private var connectionInFlight = false
     private var pendingCommand: PendingCommand? = null
     private var reconnectOnStart = false
+    private var sessionPreparationRequested = false
+    private var authorizationInFlight = false
+    private var awaitingPostAuthorizationConnection = false
+    private val connectionTimeoutRunnable = Runnable {
+        if (!connectionInFlight) {
+            return@Runnable
+        }
+
+        Log.e(tag, "Spotify App Remote connection timed out.")
+        connectionInFlight = false
+        reconnectOnStart = false
+        sessionPreparationRequested = false
+        awaitingPostAuthorizationConnection = false
+        pendingCommand = null
+        spotifyAppRemote = null
+        reportIssue(
+            PlaybackIssue(
+                code = PlaybackIssueCode.PLAYBACK_UNAVAILABLE,
+                message = "Spotify pairing timed out. Open Spotify and try again.",
+            ),
+        )
+        updateState(PlaybackSessionState.Disconnected)
+    }
 
     override fun prepareSession(): PlaybackCommandResult {
         if (!configuration.isConfigured()) {
@@ -55,6 +81,8 @@ class SpotifyAppRemoteBridge(
         }
 
         onMainThread {
+            sessionPreparationRequested = true
+            awaitingPostAuthorizationConnection = false
             clearIssue()
             connectIfNeeded()
         }
@@ -76,8 +104,11 @@ class SpotifyAppRemoteBridge(
         }
 
         pendingCommand = PendingCommand.Play(spotifyUri)
+        sessionPreparationRequested = false
+        awaitingPostAuthorizationConnection = false
         Log.d(tag, "Queueing play command for $spotifyUri")
         onMainThread {
+            clearIssue()
             connectIfNeeded()
         }
         return PlaybackCommandResult.Success
@@ -117,9 +148,9 @@ class SpotifyAppRemoteBridge(
         started = true
         Log.d(
             tag,
-            "onStart pending=$pendingCommand reconnectOnStart=$reconnectOnStart connected=${spotifyAppRemote?.isConnected == true}",
+            "onStart pending=$pendingCommand reconnectOnStart=$reconnectOnStart pairing=$sessionPreparationRequested authInFlight=$authorizationInFlight connected=${spotifyAppRemote?.isConnected == true}",
         )
-        if (pendingCommand == null && !reconnectOnStart) {
+        if (pendingCommand == null && !reconnectOnStart && !sessionPreparationRequested && !authorizationInFlight) {
             return
         }
         onMainThread {
@@ -127,27 +158,72 @@ class SpotifyAppRemoteBridge(
         }
     }
 
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?,
+    ) {
+        onMainThread {
+            when (val authorizationResult = authorizationCoordinator.onActivityResult(requestCode, resultCode, data)) {
+                null -> Unit
+
+                SpotifyAuthorizationCoordinator.AuthorizationResult.Success -> {
+                    Log.d(tag, "Spotify authorization completed; reconnecting App Remote.")
+                    authorizationInFlight = false
+                    awaitingPostAuthorizationConnection = true
+                    clearIssue()
+                    connectIfNeeded()
+                }
+
+                is SpotifyAuthorizationCoordinator.AuthorizationResult.Failure -> {
+                    Log.e(tag, "Spotify authorization failed: ${authorizationResult.issue.message}")
+                    authorizationInFlight = false
+                    awaitingPostAuthorizationConnection = false
+                    reconnectOnStart = false
+                    sessionPreparationRequested = false
+                    pendingCommand = null
+                    reportIssue(authorizationResult.issue)
+                    updateState(PlaybackSessionState.Disconnected)
+                }
+            }
+        }
+    }
+
     override fun onStop() {
         started = false
-        reconnectOnStart = pendingCommand != null || spotifyAppRemote?.isConnected == true
+        reconnectOnStart = reconnectOnStart ||
+            sessionPreparationRequested ||
+            authorizationInFlight ||
+            connectionInFlight ||
+            pendingCommand != null ||
+            spotifyAppRemote?.isConnected == true
         Log.d(
             tag,
-            "onStop pending=$pendingCommand reconnectOnStart=$reconnectOnStart connected=${spotifyAppRemote?.isConnected == true}",
+            "onStop pending=$pendingCommand reconnectOnStart=$reconnectOnStart pairing=$sessionPreparationRequested authInFlight=$authorizationInFlight connected=${spotifyAppRemote?.isConnected == true}",
         )
         onMainThread {
             disconnectRemote(
                 clearPendingCommand = false,
                 clearIssue = false,
+                notifyDisconnected = !reconnectOnStart,
             )
+            if (reconnectOnStart) {
+                updateState(PlaybackSessionState.Connecting)
+            }
         }
     }
 
     override fun disconnect() {
         onMainThread {
             reconnectOnStart = false
+            sessionPreparationRequested = false
+            authorizationInFlight = false
+            awaitingPostAuthorizationConnection = false
+            cancelConnectionTimeout()
             disconnectRemote(
                 clearPendingCommand = true,
                 clearIssue = true,
+                notifyDisconnected = true,
             )
         }
     }
@@ -176,18 +252,24 @@ class SpotifyAppRemoteBridge(
 
         Log.d(tag, "Connecting to Spotify App Remote.")
         connectionInFlight = true
+        reconnectOnStart = true
         updateState(PlaybackSessionState.Connecting)
+        scheduleConnectionTimeout()
         SpotifyAppRemote.connect(
             activity,
             ConnectionParams.Builder(configuration.clientId)
                 .setRedirectUri(configuration.redirectUri)
-                .showAuthView(true)
+                .showAuthView(false)
                 .build(),
             object : Connector.ConnectionListener {
                 override fun onConnected(spotifyAppRemote: SpotifyAppRemote) {
                     Log.d(tag, "Spotify App Remote connected.")
+                    cancelConnectionTimeout()
                     connectionInFlight = false
                     reconnectOnStart = false
+                    authorizationInFlight = false
+                    awaitingPostAuthorizationConnection = false
+                    sessionPreparationRequested = false
                     this@SpotifyAppRemoteBridge.spotifyAppRemote = spotifyAppRemote
                     subscribeToPlayerState(spotifyAppRemote)
                     clearIssue()
@@ -196,7 +278,12 @@ class SpotifyAppRemoteBridge(
 
                 override fun onFailure(error: Throwable) {
                     Log.e(tag, "Spotify App Remote connection failed.", error)
+                    cancelConnectionTimeout()
                     connectionInFlight = false
+                    if (shouldRequestAuthorization(error)) {
+                        launchAuthorization()
+                        return
+                    }
                     handleAsyncError(error)
                 }
             },
@@ -263,9 +350,46 @@ class SpotifyAppRemoteBridge(
         }
     }
 
+    private fun launchAuthorization() {
+        if (authorizationInFlight) {
+            Log.d(tag, "Spotify authorization already in flight.")
+            return
+        }
+
+        Log.d(tag, "Launching Spotify authorization.")
+        authorizationInFlight = true
+        reconnectOnStart = true
+        updateState(PlaybackSessionState.Connecting)
+        authorizationCoordinator.startAuthorization()
+    }
+
+    private fun shouldRequestAuthorization(error: Throwable): Boolean {
+        if (authorizationInFlight || awaitingPostAuthorizationConnection) {
+            return false
+        }
+
+        return error is NotLoggedInException ||
+            error is AuthenticationFailedException ||
+            error is UserNotAuthorizedException
+    }
+
+    private fun scheduleConnectionTimeout() {
+        cancelConnectionTimeout()
+        mainHandler.postDelayed(connectionTimeoutRunnable, connectionTimeoutMillis)
+    }
+
+    private fun cancelConnectionTimeout() {
+        mainHandler.removeCallbacks(connectionTimeoutRunnable)
+    }
+
     private fun handleAsyncError(error: Throwable) {
         Log.e(tag, "Spotify App Remote error.", error)
+        cancelConnectionTimeout()
         pendingCommand = null
+        sessionPreparationRequested = false
+        reconnectOnStart = false
+        authorizationInFlight = false
+        awaitingPostAuthorizationConnection = false
         playerStateSubscription?.cancel()
         playerStateSubscription = null
         spotifyAppRemote = spotifyAppRemote?.takeIf { it.isConnected }
@@ -277,6 +401,10 @@ class SpotifyAppRemoteBridge(
         code: PlaybackIssueCode,
         message: String,
     ): PlaybackCommandResult.Failure {
+        sessionPreparationRequested = false
+        reconnectOnStart = false
+        authorizationInFlight = false
+        awaitingPostAuthorizationConnection = false
         val issue = PlaybackIssue(code = code, message = message)
         reportIssue(issue)
         updateState(PlaybackSessionState.Disconnected)
@@ -304,11 +432,13 @@ class SpotifyAppRemoteBridge(
     private fun disconnectRemote(
         clearPendingCommand: Boolean,
         clearIssue: Boolean,
+        notifyDisconnected: Boolean,
     ) {
         if (clearPendingCommand) {
             pendingCommand = null
         }
         connectionInFlight = false
+        cancelConnectionTimeout()
         playerStateSubscription?.cancel()
         playerStateSubscription = null
         spotifyAppRemote?.let {
@@ -319,7 +449,9 @@ class SpotifyAppRemoteBridge(
         if (clearIssue) {
             clearIssue()
         }
-        updateState(PlaybackSessionState.Disconnected)
+        if (notifyDisconnected) {
+            updateState(PlaybackSessionState.Disconnected)
+        }
     }
 
     private inline fun onMainThread(crossinline action: () -> Unit) {

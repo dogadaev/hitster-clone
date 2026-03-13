@@ -184,6 +184,7 @@ Requirements:
 
 Implementation direction:
 - Android uses a native Spotify integration layer
+- Android host pairing should use an explicit app-initiated Spotify authorization flow before connecting App Remote, rather than relying on the App Remote auth view alone
 - iOS uses a native Spotify integration layer
 - shared game code communicates only through an abstract playback interface
 
