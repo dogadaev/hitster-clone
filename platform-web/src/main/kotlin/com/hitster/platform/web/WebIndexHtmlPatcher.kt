@@ -142,6 +142,10 @@ internal object WebIndexHtmlPatcher {
                 }));
               }
 
+              function supportsTouchBridge() {
+                return (navigator.maxTouchPoints || 0) > 0 || "ontouchstart" in window;
+              }
+
               function readRootPixels(variableName) {
                 var value = window.getComputedStyle(root).getPropertyValue(variableName).trim();
                 if (!value) {
@@ -187,10 +191,13 @@ internal object WebIndexHtmlPatcher {
                 wakeFallbackVideo.setAttribute("disableRemotePlayback", "");
                 wakeFallbackVideo.muted = true;
                 wakeFallbackVideo.preload = "auto";
-                wakeFallbackVideo.src = "${wakeLockFallbackVideoUri}";
                 if (typeof wakeFallbackVideo.disableRemotePlayback !== "undefined") {
                   wakeFallbackVideo.disableRemotePlayback = true;
                 }
+                var wakeSource = document.createElement("source");
+                wakeSource.src = "${wakeLockFallbackVideoUri}";
+                wakeSource.type = "video/mp4";
+                wakeFallbackVideo.appendChild(wakeSource);
                 wakeFallbackVideo.addEventListener("loadedmetadata", function() {
                   if (wakeFallbackVideo.duration <= 1) {
                     wakeFallbackVideo.loop = true;
@@ -216,6 +223,7 @@ internal object WebIndexHtmlPatcher {
                 wakeFallbackVideo.style.pointerEvents = "none";
                 wakeFallbackVideo.style.zIndex = "-1";
                 document.body.appendChild(wakeFallbackVideo);
+                wakeFallbackVideo.load();
                 return wakeFallbackVideo;
               }
 
@@ -268,46 +276,42 @@ internal object WebIndexHtmlPatcher {
                 canvas.addEventListener(type, handleInteractiveFocus, { passive: true });
               });
 
-              canvas.addEventListener("touchstart", function(event) {
-                if (event.defaultPrevented) {
-                  fallbackTouchId = null;
-                  return;
-                }
-                var touch = event.changedTouches && event.changedTouches[0];
-                if (!canvasContainsTouch(touch)) {
-                  return;
-                }
-                fallbackTouchId = touch.identifier;
-                dispatchSyntheticMouse("mousedown", touch);
-              }, { passive: false, capture: false });
-
-              canvas.addEventListener("touchmove", function(event) {
-                if (event.defaultPrevented) {
-                  return;
-                }
-                var touch = findTouchById(event.changedTouches, fallbackTouchId);
-                if (!touch) {
-                  return;
-                }
-                dispatchSyntheticMouse("mousemove", touch);
-                event.preventDefault();
-              }, { passive: false, capture: false });
-
-              ["touchend", "touchcancel"].forEach(function(type) {
-                canvas.addEventListener(type, function(event) {
-                  if (event.defaultPrevented) {
-                    fallbackTouchId = null;
+              if (supportsTouchBridge()) {
+                document.addEventListener("touchstart", function(event) {
+                  var touch = event.changedTouches && event.changedTouches[0];
+                  if (!canvasContainsTouch(touch)) {
                     return;
                   }
+                  fallbackTouchId = touch.identifier;
+                  handleInteractiveFocus();
+                  dispatchSyntheticMouse("mousedown", touch);
+                  event.preventDefault();
+                  event.stopPropagation();
+                }, { passive: false, capture: true });
+
+                document.addEventListener("touchmove", function(event) {
                   var touch = findTouchById(event.changedTouches, fallbackTouchId);
                   if (!touch) {
                     return;
                   }
-                  dispatchSyntheticMouse("mouseup", touch);
-                  fallbackTouchId = null;
+                  dispatchSyntheticMouse("mousemove", touch);
                   event.preventDefault();
-                }, { passive: false, capture: false });
-              });
+                  event.stopPropagation();
+                }, { passive: false, capture: true });
+
+                ["touchend", "touchcancel"].forEach(function(type) {
+                  document.addEventListener(type, function(event) {
+                    var touch = findTouchById(event.changedTouches, fallbackTouchId);
+                    if (!touch) {
+                      return;
+                    }
+                    dispatchSyntheticMouse("mouseup", touch);
+                    fallbackTouchId = null;
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }, { passive: false, capture: true });
+                });
+              }
 
               document.addEventListener("visibilitychange", function() {
                 if (document.hidden) {

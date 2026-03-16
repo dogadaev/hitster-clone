@@ -30,12 +30,16 @@ class WebIndexHtmlPatcherTest {
         assertContains(patchedHtml, "canvas.addEventListener(type, handleInteractiveFocus")
         assertContains(patchedHtml, "window.visualViewport.addEventListener(\"resize\", scheduleViewportSync")
         assertContains(patchedHtml, "navigator.wakeLock.request(\"screen\")")
-        assertContains(patchedHtml, "wakeFallbackVideo.src = \"data:video/mp4;base64,")
-        assertContains(patchedHtml, "if (event.defaultPrevented)")
+        assertContains(patchedHtml, "wakeSource.src = \"data:video/mp4;base64,")
+        assertContains(patchedHtml, "if (supportsTouchBridge())")
+        assertContains(patchedHtml, "document.addEventListener(\"touchstart\", function(event)")
         assertContains(patchedHtml, "dispatchSyntheticMouse(\"mousedown\", touch);")
         assertContains(patchedHtml, "wakeFallbackVideo.setAttribute(\"webkit-playsinline\", \"\")")
+        assertContains(patchedHtml, "wakeFallbackVideo.appendChild(wakeSource);")
+        assertContains(patchedHtml, "wakeFallbackVideo.load();")
         assertContains(patchedHtml, "wakeFallbackVideo.addEventListener(\"loadedmetadata\"")
         assertContains(patchedHtml, "wakeFallbackVideo.currentTime > 0.5")
+        assertContains(patchedHtml, "return (navigator.maxTouchPoints || 0) > 0 || \"ontouchstart\" in window;")
     }
 
     @Test
