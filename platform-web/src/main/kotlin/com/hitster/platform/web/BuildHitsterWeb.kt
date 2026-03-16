@@ -24,5 +24,10 @@ object BuildHitsterWeb {
             setObfuscated(false)
             TeaBuilder.build(this)
         }
+
+        val indexHtml = File(buildConfiguration.webappPath, "webapp/index.html")
+        if (indexHtml.exists()) {
+            indexHtml.writeText(WebIndexHtmlPatcher.patch(indexHtml.readText()))
+        }
     }
 }
