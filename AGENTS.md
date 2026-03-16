@@ -149,6 +149,8 @@ Guests may join either from another Android device or from the guest-only web bu
 An Android host must keep its local-session server discoverable and able to accept guest joins while the app is backgrounded, using foreground-safe platform hosting where needed.
 Authoritative host networking and command handling must not depend on the libGDX render loop being actively resumed.
 The guest-only web build must remain touch-usable on mobile browsers, including iOS Safari and Android Chrome, rather than assuming desktop mouse-only interaction.
+The guest-only web build must size itself to the visible mobile browser viewport, respect safe-area insets, and render crisply on high-DPI screens instead of relying on raw `100vh` / `100vw` assumptions.
+When browser capabilities allow it, or when a safe local fallback is available, the guest-only web build should keep the screen awake during active play.
 
 ## Shared State vs Local UI State
 Shared synchronized state includes:

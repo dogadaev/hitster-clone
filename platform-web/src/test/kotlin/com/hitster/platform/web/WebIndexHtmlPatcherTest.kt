@@ -5,7 +5,7 @@ import kotlin.test.assertContains
 
 class WebIndexHtmlPatcherTest {
     @Test
-    fun patchInjectsMobileViewportTouchHandlingAndCanvasSizing() {
+    fun patchInjectsMobileViewportTouchHandlingCanvasSizingAndWakeLockSupport() {
         val originalHtml = """
             <!DOCTYPE html>
             <html>
@@ -22,12 +22,34 @@ class WebIndexHtmlPatcherTest {
 
         val patchedHtml = WebIndexHtmlPatcher.patch(originalHtml)
 
-        assertContains(patchedHtml, """<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">""")
-        assertContains(patchedHtml, "#canvas {")
-        assertContains(patchedHtml, "width: 100vw !important;")
-        assertContains(patchedHtml, "canvas.style.touchAction = \"none\";")
-        assertContains(patchedHtml, "document.addEventListener(\"touchstart\"")
-        assertContains(patchedHtml, "dispatchSyntheticMouse(\"mousedown\", touch);")
-        assertContains(patchedHtml, "event.stopImmediatePropagation();")
+        assertContains(patchedHtml, """interactive-widget=resizes-content""")
+        assertContains(patchedHtml, """<style id="hitster-mobile-shell">""")
+        assertContains(patchedHtml, "--hitster-visible-height")
+        assertContains(patchedHtml, "width: 100% !important;")
+        assertContains(patchedHtml, """<script id="hitster-mobile-runtime">""")
+        assertContains(patchedHtml, "canvas.addEventListener(type, handleInteractiveFocus")
+        assertContains(patchedHtml, "window.visualViewport.addEventListener(\"resize\", scheduleViewportSync")
+        assertContains(patchedHtml, "navigator.wakeLock.request(\"screen\")")
+        assertContains(patchedHtml, "wakeFallbackVideo.src = \"data:video/mp4;base64,")
+    }
+
+    @Test
+    fun patchIsIdempotent() {
+        val originalHtml = """
+            <!DOCTYPE html>
+            <html>
+            <head></head>
+            <body>
+            <div>
+                <canvas id="canvas"></canvas>
+            </div>
+            </body>
+            </html>
+        """.trimIndent()
+
+        val patchedOnce = WebIndexHtmlPatcher.patch(originalHtml)
+        val patchedTwice = WebIndexHtmlPatcher.patch(patchedOnce)
+
+        kotlin.test.assertEquals(patchedOnce, patchedTwice)
     }
 }

@@ -13,6 +13,7 @@ object HitsterWebLauncher {
         val config = TeaApplicationConfiguration("canvas").apply {
             width = 0
             height = 0
+            usePhysicalPixels = true
             showDownloadLogs = false
             preloadListener = object : TeaAssetPreloadListener {
                 override fun onPreload(assetLoader: AssetLoader) {
