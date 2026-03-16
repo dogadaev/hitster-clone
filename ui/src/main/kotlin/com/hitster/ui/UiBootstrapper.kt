@@ -64,8 +64,8 @@ object UiBootstrapper {
                 advertisement,
                 playerId,
                 displayName,
-                { event -> controller.handleEvent(event) },
-                { reason -> controller.handleDisconnect(reason) },
+                { event -> runOnGameThread { controller.handleEvent(event) } },
+                { reason -> runOnGameThread { controller.handleDisconnect(reason) } },
             ),
         )
         return controller

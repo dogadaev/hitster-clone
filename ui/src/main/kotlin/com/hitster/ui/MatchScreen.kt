@@ -623,12 +623,10 @@ class MatchScreen(
             )
         }
 
-        if (!showLobbyPairingGate()) {
-            lobbyPlayerBadgeRects().forEach { rect ->
-                drawDropShadow(rect, 12f, 0x01050B38)
-                fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x17284AFF, 0x132342FF, 0x243D6FFF, 0x1B3158FF)
-                drawFrame(rect, 0xAFC3F032, 2f)
-            }
+        lobbyPlayerBadgeRects().forEach { rect ->
+            drawDropShadow(rect, 12f, 0x01050B38)
+            fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x17284AFF, 0x132342FF, 0x243D6FFF, 0x1B3158FF)
+            drawFrame(rect, 0xAFC3F032, 2f)
         }
     }
 
@@ -636,10 +634,8 @@ class MatchScreen(
         if (showLobbyPrimaryButton()) {
             drawPanelTexture(startButtonRect, color(0xFFF5D41E))
         }
-        if (!showLobbyPairingGate()) {
-            lobbyPlayerBadgeRects().forEach { rect ->
-                drawPanelTexture(rect, color(0xC7DAFF10))
-            }
+        lobbyPlayerBadgeRects().forEach { rect ->
+            drawPanelTexture(rect, color(0xC7DAFF10))
         }
     }
 
@@ -656,55 +652,30 @@ class MatchScreen(
             verticalAlign = VerticalTextAlign.Center,
         )
 
-        if (showLobbyPairingGate()) {
+        presenter.state.players.zip(lobbyPlayerBadgeRects()).forEach { (player, rect) ->
             drawTextBlock(
-                text = "Pair Spotify",
-                x = lobbyCardRect.x,
-                y = lobbyCardRect.y + lobbyCardRect.height * 0.20f,
-                width = lobbyCardRect.width,
-                height = 54f,
-                scale = 0.92f,
+                text = player.displayName,
+                x = rect.x,
+                y = rect.y,
+                width = rect.width,
+                height = rect.height,
+                scale = 0.90f,
                 color = Color.WHITE,
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
             )
-            drawTextBlock(
-                text = "${presenter.state.players.size} PLAYERS",
-                x = lobbyCardRect.x,
-                y = lobbyCardRect.y + lobbyCardRect.height * 0.12f,
-                width = lobbyCardRect.width,
-                height = 34f,
-                scale = 0.62f,
-                color = color(0xF3CF7BFF),
-                align = Align.center,
-                verticalAlign = VerticalTextAlign.Center,
-            )
-        } else {
-            presenter.state.players.zip(lobbyPlayerBadgeRects()).forEach { (player, rect) ->
-                drawTextBlock(
-                    text = player.displayName,
-                    x = rect.x,
-                    y = rect.y,
-                    width = rect.width,
-                    height = rect.height,
-                    scale = 0.90f,
-                    color = Color.WHITE,
-                    align = Align.center,
-                    verticalAlign = VerticalTextAlign.Center,
-                )
-            }
-            drawTextBlock(
-                text = "${presenter.state.players.size} PLAYERS",
-                x = lobbyCardRect.x,
-                y = lobbyCardRect.y + lobbyCardRect.height * 0.18f,
-                width = lobbyCardRect.width,
-                height = 42f,
-                scale = 0.74f,
-                color = color(0xF3CF7BFF),
-                align = Align.center,
-                verticalAlign = VerticalTextAlign.Center,
-            )
         }
+        drawTextBlock(
+            text = "${presenter.state.players.size} PLAYERS",
+            x = lobbyCardRect.x,
+            y = lobbyCardRect.y + lobbyCardRect.height * 0.18f,
+            width = lobbyCardRect.width,
+            height = 42f,
+            scale = 0.74f,
+            color = color(0xF3CF7BFF),
+            align = Align.center,
+            verticalAlign = VerticalTextAlign.Center,
+        )
 
         if (showLobbyPrimaryButton()) {
             drawTextBlock(

@@ -16,6 +16,7 @@ import com.hitster.ui.HostDiscoveryService
 import com.hitster.ui.HostedSessionTransport
 import com.hitster.ui.MatchController
 import com.hitster.ui.UiBootstrapper
+import com.hitster.ui.runOnGameThread
 
 class AndroidPlatformServices : AppPlatformServices {
     override val supportsHosting: Boolean = true
@@ -45,7 +46,11 @@ class AndroidPlatformServices : AppPlatformServices {
                 object : HostedSessionTransport {
                     private val server = LanSessionServer(
                         port = serverPort,
-                        commandListener = { command -> presenter.handleRemoteCommand(command) },
+                        commandListener = { command ->
+                            runOnGameThread {
+                                presenter.handleRemoteCommand(command)
+                            }
+                        },
                         discoveryAnnouncer = discoveryAnnouncer,
                     )
 
