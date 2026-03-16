@@ -1,5 +1,6 @@
 package com.hitster.platform.android
 
+import android.content.Context
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.HostEventDto
 import com.hitster.networking.SessionAdvertisementDto
@@ -16,9 +17,10 @@ import com.hitster.ui.HostDiscoveryService
 import com.hitster.ui.HostedSessionTransport
 import com.hitster.ui.MatchController
 import com.hitster.ui.UiBootstrapper
-import com.hitster.ui.runOnGameThread
 
-class AndroidPlatformServices : AppPlatformServices {
+class AndroidPlatformServices(
+    private val applicationContext: Context,
+) : AppPlatformServices {
     override val supportsHosting: Boolean = true
 
     override fun createHostedMatchController(
@@ -46,15 +48,12 @@ class AndroidPlatformServices : AppPlatformServices {
                 object : HostedSessionTransport {
                     private val server = LanSessionServer(
                         port = serverPort,
-                        commandListener = { command ->
-                            runOnGameThread {
-                                presenter.handleRemoteCommand(command)
-                            }
-                        },
+                        commandListener = presenter::handleRemoteCommand,
                         discoveryAnnouncer = discoveryAnnouncer,
                     )
 
                     override fun start() {
+                        HostingForegroundService.start(applicationContext)
                         server.start()
                     }
 
@@ -64,6 +63,7 @@ class AndroidPlatformServices : AppPlatformServices {
 
                     override fun close() {
                         server.stop()
+                        HostingForegroundService.stop(applicationContext)
                     }
                 }
             },

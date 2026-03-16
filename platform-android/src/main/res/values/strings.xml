@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Hitster Clone</string>
+    <string name="hosting_notification_title">Hosting a local session</string>
+    <string name="hosting_notification_body">Guests can keep joining while the app is in the background.</string>
+    <string name="hosting_notification_channel_name">Hosted sessions</string>
+    <string name="hosting_notification_channel_description">Keeps the local multiplayer session available to nearby guests.</string>
 </resources>
-

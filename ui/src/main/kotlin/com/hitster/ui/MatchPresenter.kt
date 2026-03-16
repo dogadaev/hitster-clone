@@ -23,22 +23,29 @@ class MatchPresenter(
     override val localPlayerId: PlayerId,
     initialState: GameState,
 ) : MatchController {
+    @Volatile
     override var state: GameState = initialState
         private set
 
     override val isLocalHost: Boolean = localPlayerId == hostId
 
+    @Volatile
     override var lastError: String? = null
         private set
 
+    @Volatile
     override var lastPlaybackIssue: PlaybackIssue? = null
         private set
 
+    @Volatile
     override var playbackSessionState: PlaybackSessionState = playbackController.currentState()
         private set
 
+    @Volatile
     var lastPublishedSnapshot: GameStateDto = GameStateMapper.toDto(initialState)
         private set
+
+    private val stateLock = Any()
 
     var snapshotListener: ((GameStateDto) -> Unit)? = null
     var rejectionListener: ((String, String, Long) -> Unit)? = null
@@ -156,16 +163,18 @@ class MatchPresenter(
     }
 
     private fun dispatch(command: GameCommand) {
-        when (val result = reducer.reduce(state, command)) {
-            is ReducerResult.Accepted -> {
-                lastError = null
-                state = result.state
-                applyEffects(result.effects)
-            }
+        synchronized(stateLock) {
+            when (val result = reducer.reduce(state, command)) {
+                is ReducerResult.Accepted -> {
+                    lastError = null
+                    state = result.state
+                    applyEffects(result.effects)
+                }
 
-            is ReducerResult.Rejected -> {
-                lastError = result.reason
-                rejectionListener?.invoke(command.actorId().value, result.reason, result.state.revision)
+                is ReducerResult.Rejected -> {
+                    lastError = result.reason
+                    rejectionListener?.invoke(command.actorId().value, result.reason, result.state.revision)
+                }
             }
         }
     }

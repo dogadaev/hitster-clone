@@ -146,6 +146,8 @@ The architecture must allow future support for:
 However, only local-session hosting is required for the first MVP.
 The host flow must run on Android.
 Guests may join either from another Android device or from the guest-only web build.
+An Android host must keep its local-session server discoverable and able to accept guest joins while the app is backgrounded, using foreground-safe platform hosting where needed.
+Authoritative host networking and command handling must not depend on the libGDX render loop being actively resumed.
 
 ## Shared State vs Local UI State
 Shared synchronized state includes:

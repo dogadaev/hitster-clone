@@ -34,7 +34,7 @@ class HitsterAndroidActivity : AndroidApplication() {
                     spotifyBridge = spotifyBridge,
                 ),
                 localDisplayName = Build.MODEL.ifBlank { "Android Player" },
-                platformServices = AndroidPlatformServices(),
+                platformServices = AndroidPlatformServices(applicationContext),
             ),
             configuration,
         )

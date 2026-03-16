@@ -15,6 +15,8 @@ import com.hitster.playback.api.PlaybackIssue
 import com.hitster.playback.api.PlaybackIssueCode
 import com.hitster.playback.api.PlaybackSessionState
 import com.hitster.playback.api.NoOpPlaybackController
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -135,6 +137,44 @@ class MatchPresenterTest {
         assertEquals(1, playbackController.prepareCalls)
         assertEquals(PlaybackSessionState.Ready, presenter.playbackSessionState)
         assertTrue(!presenter.requiresHostPlaybackPairing())
+    }
+
+    @Test
+    fun `remote joins publish snapshots even when handled off the render thread`() {
+        val presenter = MatchPresenter(
+            reducer = reducer,
+            playbackController = NoOpPlaybackController(),
+            hostId = hostId,
+            localPlayerId = hostId,
+            initialState = GameSessionFactory.createLobby(
+                sessionId = SessionId("session"),
+                hostId = hostId,
+                hostName = "Host",
+                deckEntries = deckEntries(),
+            ),
+        )
+        val snapshotPublished = CountDownLatch(1)
+        presenter.snapshotListener = { snapshot ->
+            if (snapshot.players.any { it.id == "guest-background" }) {
+                snapshotPublished.countDown()
+            }
+        }
+
+        val commandThread = Thread {
+            presenter.handleRemoteCommand(
+                com.hitster.networking.ClientCommandDto.JoinSession(
+                    actorId = "guest-background",
+                    displayName = "Background Guest",
+                ),
+            )
+        }
+
+        commandThread.start()
+        commandThread.join()
+
+        assertTrue(snapshotPublished.await(1, TimeUnit.SECONDS))
+        assertEquals(2, presenter.state.players.size)
+        assertEquals("guest-background", presenter.state.players.last().id.value)
     }
 
     private fun lobbyWithGuest(entries: List<PlaylistEntry>) =
