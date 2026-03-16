@@ -26,6 +26,8 @@ class WebIndexHtmlPatcherTest {
         assertContains(patchedHtml, "#canvas {")
         assertContains(patchedHtml, "width: 100vw !important;")
         assertContains(patchedHtml, "canvas.style.touchAction = \"none\";")
-        assertContains(patchedHtml, "canvas.addEventListener(type, function(event) {")
+        assertContains(patchedHtml, "document.addEventListener(\"touchstart\"")
+        assertContains(patchedHtml, "dispatchSyntheticMouse(\"mousedown\", touch);")
+        assertContains(patchedHtml, "event.stopImmediatePropagation();")
     }
 }

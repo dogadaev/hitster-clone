@@ -15,6 +15,8 @@ internal object WebIndexHtmlPatcher {
               justify-content: center;
               align-items: center;
               touch-action: none;
+              -webkit-touch-callout: none;
+              -webkit-tap-highlight-color: transparent;
               -webkit-user-select: none;
               user-select: none;
             }
@@ -31,6 +33,7 @@ internal object WebIndexHtmlPatcher {
               display: block;
               touch-action: none;
               -webkit-touch-callout: none;
+              -webkit-tap-highlight-color: transparent;
               user-select: none;
               outline: none;
             }
@@ -44,11 +47,82 @@ internal object WebIndexHtmlPatcher {
               if (!canvas) {
                 return;
               }
+              canvas.setAttribute("tabindex", "0");
               canvas.style.touchAction = "none";
-              ["touchstart", "touchmove", "touchend", "touchcancel"].forEach(function(type) {
-                canvas.addEventListener(type, function(event) {
+              var activeTouchId = null;
+              function canvasRect() {
+                return canvas.getBoundingClientRect();
+              }
+              function isInsideCanvas(touch) {
+                if (!touch) {
+                  return false;
+                }
+                var rect = canvasRect();
+                return touch.clientX >= rect.left &&
+                  touch.clientX <= rect.right &&
+                  touch.clientY >= rect.top &&
+                  touch.clientY <= rect.bottom;
+              }
+              function findTrackedTouch(touchList) {
+                if (activeTouchId === null || !touchList) {
+                  return null;
+                }
+                for (var index = 0; index < touchList.length; index += 1) {
+                  var touch = touchList[index];
+                  if (touch.identifier === activeTouchId) {
+                    return touch;
+                  }
+                }
+                return null;
+              }
+              function dispatchSyntheticMouse(type, touch) {
+                if (!touch) {
+                  return;
+                }
+                canvas.dispatchEvent(new MouseEvent(type, {
+                  bubbles: true,
+                  cancelable: true,
+                  composed: true,
+                  view: window,
+                  clientX: touch.clientX,
+                  clientY: touch.clientY,
+                  screenX: touch.screenX,
+                  screenY: touch.screenY,
+                  button: 0,
+                  buttons: type === "mouseup" ? 0 : 1
+                }));
+              }
+              document.addEventListener("touchstart", function(event) {
+                var touch = event.changedTouches && event.changedTouches[0];
+                if (!isInsideCanvas(touch)) {
+                  return;
+                }
+                activeTouchId = touch.identifier;
+                canvas.focus();
+                dispatchSyntheticMouse("mousedown", touch);
+                event.preventDefault();
+                event.stopImmediatePropagation();
+              }, { passive: false, capture: true });
+              document.addEventListener("touchmove", function(event) {
+                var touch = findTrackedTouch(event.changedTouches);
+                if (!touch) {
+                  return;
+                }
+                dispatchSyntheticMouse("mousemove", touch);
+                event.preventDefault();
+                event.stopImmediatePropagation();
+              }, { passive: false, capture: true });
+              ["touchend", "touchcancel"].forEach(function(type) {
+                document.addEventListener(type, function(event) {
+                  var touch = findTrackedTouch(event.changedTouches);
+                  if (!touch) {
+                    return;
+                  }
+                  dispatchSyntheticMouse("mouseup", touch);
+                  activeTouchId = null;
                   event.preventDefault();
-                }, { passive: false });
+                  event.stopImmediatePropagation();
+                }, { passive: false, capture: true });
               });
               ["gesturestart", "gesturechange", "gestureend"].forEach(function(type) {
                 document.addEventListener(type, function(event) {
