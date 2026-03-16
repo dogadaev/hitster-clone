@@ -31,6 +31,8 @@ class WebIndexHtmlPatcherTest {
         assertContains(patchedHtml, "window.visualViewport.addEventListener(\"resize\", scheduleViewportSync")
         assertContains(patchedHtml, "navigator.wakeLock.request(\"screen\")")
         assertContains(patchedHtml, "wakeFallbackVideo.src = \"data:video/mp4;base64,")
+        assertContains(patchedHtml, "if (event.defaultPrevented)")
+        assertContains(patchedHtml, "dispatchSyntheticMouse(\"mousedown\", touch);")
         assertContains(patchedHtml, "wakeFallbackVideo.setAttribute(\"webkit-playsinline\", \"\")")
         assertContains(patchedHtml, "wakeFallbackVideo.addEventListener(\"loadedmetadata\"")
         assertContains(patchedHtml, "wakeFallbackVideo.currentTime > 0.5")

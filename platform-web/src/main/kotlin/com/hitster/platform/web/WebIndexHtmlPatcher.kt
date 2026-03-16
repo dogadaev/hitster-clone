@@ -80,6 +80,7 @@ internal object WebIndexHtmlPatcher {
               var shouldKeepScreenAwake = false;
               var viewportSyncFrame = 0;
               var lastViewportSignature = "";
+              var fallbackTouchId = null;
 
               function focusCanvas() {
                 try {
@@ -97,6 +98,48 @@ internal object WebIndexHtmlPatcher {
                   viewportSyncFrame = 0;
                   syncVisibleViewport();
                 });
+              }
+
+              function canvasContainsTouch(touch) {
+                if (!touch) {
+                  return false;
+                }
+                var rect = canvas.getBoundingClientRect();
+                return touch.clientX >= rect.left &&
+                  touch.clientX <= rect.right &&
+                  touch.clientY >= rect.top &&
+                  touch.clientY <= rect.bottom;
+              }
+
+              function findTouchById(touchList, touchId) {
+                if (touchId === null || !touchList) {
+                  return null;
+                }
+                for (var index = 0; index < touchList.length; index += 1) {
+                  var touch = touchList[index];
+                  if (touch.identifier === touchId) {
+                    return touch;
+                  }
+                }
+                return null;
+              }
+
+              function dispatchSyntheticMouse(type, touch) {
+                if (!touch) {
+                  return;
+                }
+                canvas.dispatchEvent(new MouseEvent(type, {
+                  bubbles: true,
+                  cancelable: true,
+                  composed: true,
+                  view: window,
+                  clientX: touch.clientX,
+                  clientY: touch.clientY,
+                  screenX: touch.screenX,
+                  screenY: touch.screenY,
+                  button: 0,
+                  buttons: type === "mouseup" ? 0 : 1,
+                }));
               }
 
               function readRootPixels(variableName) {
@@ -223,6 +266,47 @@ internal object WebIndexHtmlPatcher {
 
               ["touchstart", "pointerdown", "mousedown"].forEach(function(type) {
                 canvas.addEventListener(type, handleInteractiveFocus, { passive: true });
+              });
+
+              canvas.addEventListener("touchstart", function(event) {
+                if (event.defaultPrevented) {
+                  fallbackTouchId = null;
+                  return;
+                }
+                var touch = event.changedTouches && event.changedTouches[0];
+                if (!canvasContainsTouch(touch)) {
+                  return;
+                }
+                fallbackTouchId = touch.identifier;
+                dispatchSyntheticMouse("mousedown", touch);
+              }, { passive: false, capture: false });
+
+              canvas.addEventListener("touchmove", function(event) {
+                if (event.defaultPrevented) {
+                  return;
+                }
+                var touch = findTouchById(event.changedTouches, fallbackTouchId);
+                if (!touch) {
+                  return;
+                }
+                dispatchSyntheticMouse("mousemove", touch);
+                event.preventDefault();
+              }, { passive: false, capture: false });
+
+              ["touchend", "touchcancel"].forEach(function(type) {
+                canvas.addEventListener(type, function(event) {
+                  if (event.defaultPrevented) {
+                    fallbackTouchId = null;
+                    return;
+                  }
+                  var touch = findTouchById(event.changedTouches, fallbackTouchId);
+                  if (!touch) {
+                    return;
+                  }
+                  dispatchSyntheticMouse("mouseup", touch);
+                  fallbackTouchId = null;
+                  event.preventDefault();
+                }, { passive: false, capture: false });
               });
 
               document.addEventListener("visibilitychange", function() {
