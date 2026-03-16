@@ -1,25 +1,64 @@
 package com.hitster.ui
 
 import com.badlogic.gdx.Game
-import com.badlogic.gdx.Gdx
 import com.hitster.animations.AnimationCatalog
 import com.hitster.playback.api.NoOpPlaybackController
 import com.hitster.playback.api.PlaybackController
 
 class HitsterGameApp(
     playbackController: PlaybackController = NoOpPlaybackController(),
+    private val localDisplayName: String = "Player",
+    private val platformServices: AppPlatformServices,
 ) : Game() {
-    private val presenter = UiBootstrapper.createPresenter(playbackController)
-    private val automatedGuestBot = UiBootstrapper.createAutomatedGuestBot(presenter)
     private val animationCatalog = AnimationCatalog.default()
+    private val playbackController = playbackController
+    private var activeMatchController: MatchController? = null
 
     override fun create() {
-        setScreen(MatchScreen(presenter, animationCatalog))
+        if (platformServices.supportsHosting) {
+            openRoleSelection()
+        } else {
+            openGuestDiscovery(canGoBack = false)
+        }
     }
 
-    override fun render() {
-        val deltaSeconds = Gdx.graphics.deltaTime
-        super.render()
-        automatedGuestBot?.update(deltaSeconds)
+    override fun dispose() {
+        activeMatchController?.dispose()
+        super.dispose()
+    }
+
+    private fun openRoleSelection() {
+        activeMatchController?.dispose()
+        activeMatchController = null
+        setScreen(
+            RoleSelectionScreen(
+                onHostSelected = {
+                    val controller = platformServices.createHostedMatchController(playbackController, localDisplayName)
+                    activeMatchController = controller
+                    setScreen(MatchScreen(controller, animationCatalog))
+                },
+                onGuestSelected = { openGuestDiscovery(canGoBack = true) },
+            ),
+        )
+    }
+
+    private fun openGuestDiscovery(canGoBack: Boolean) {
+        activeMatchController?.dispose()
+        activeMatchController = null
+        setScreen(
+            GuestDiscoveryScreen(
+                discoveryService = platformServices.createGuestDiscoveryService(),
+                showBackButton = canGoBack,
+                onBack = ::openRoleSelection,
+                onHostSelected = { advertisement ->
+                    val controller = platformServices.createRemoteGuestController(
+                        advertisement = advertisement,
+                        displayName = localDisplayName,
+                    )
+                    activeMatchController = controller
+                    setScreen(MatchScreen(controller, animationCatalog))
+                },
+            ),
+        )
     }
 }

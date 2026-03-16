@@ -32,7 +32,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 class MatchScreen(
-    private val presenter: MatchPresenter,
+    private val presenter: MatchController,
     private val animationCatalog: AnimationCatalog,
 ) : ScreenAdapter() {
     private val camera = OrthographicCamera()
@@ -595,11 +595,13 @@ class MatchScreen(
     }
 
     private fun drawLobby() {
-        val isPairing = presenter.playbackSessionState == PlaybackSessionState.Connecting
-        if (isPairing) {
-            fillButton(startButtonRect, 0xA4B5DBFF, 0x7D90BBFF, 0xE9F0FF55)
-        } else {
-            fillButton(startButtonRect, 0xF6B447FF, 0xE4952BFF, 0xFFF0BF66)
+        if (showLobbyPrimaryButton()) {
+            val isPairing = presenter.playbackSessionState == PlaybackSessionState.Connecting
+            if (isPairing) {
+                fillButton(startButtonRect, 0xA4B5DBFF, 0x7D90BBFF, 0xE9F0FF55)
+            } else {
+                fillButton(startButtonRect, 0xF6B447FF, 0xE4952BFF, 0xFFF0BF66)
+            }
         }
 
         val cardWidth = clamp(lobbyCardRect.width * 0.11f, 142f, 176f)
@@ -631,7 +633,9 @@ class MatchScreen(
     }
 
     private fun drawLobbyTextures() {
-        drawPanelTexture(startButtonRect, color(0xFFF5D41E))
+        if (showLobbyPrimaryButton()) {
+            drawPanelTexture(startButtonRect, color(0xFFF5D41E))
+        }
         if (!showLobbyPairingGate()) {
             lobbyPlayerBadgeRects().forEach { rect ->
                 drawPanelTexture(rect, color(0xC7DAFF10))
@@ -702,22 +706,37 @@ class MatchScreen(
             )
         }
 
-        drawTextBlock(
-            text = lobbyPrimaryActionText(),
-            x = startButtonRect.x,
-            y = startButtonRect.y,
-            width = startButtonRect.width,
-            height = startButtonRect.height,
-            scale = 1.16f,
-            color = if (presenter.playbackSessionState == PlaybackSessionState.Connecting) {
-                color(0x0F1A2EFF)
-            } else {
-                color(0x1A1308FF)
-            },
-            align = Align.center,
-            verticalAlign = VerticalTextAlign.Center,
-            shadowColor = color(0xFFF8E29F33),
-        )
+        if (showLobbyPrimaryButton()) {
+            drawTextBlock(
+                text = lobbyPrimaryActionText(),
+                x = startButtonRect.x,
+                y = startButtonRect.y,
+                width = startButtonRect.width,
+                height = startButtonRect.height,
+                scale = 1.16f,
+                color = if (presenter.playbackSessionState == PlaybackSessionState.Connecting) {
+                    color(0x0F1A2EFF)
+                } else {
+                    color(0x1A1308FF)
+                },
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = color(0xFFF8E29F33),
+            )
+        } else {
+            drawTextBlock(
+                text = "WAITING FOR HOST",
+                x = startButtonRect.x,
+                y = startButtonRect.y,
+                width = startButtonRect.width,
+                height = startButtonRect.height,
+                scale = 0.88f,
+                color = color(0xD9E4FDFF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = color(0x02060C8A),
+            )
+        }
     }
 
     private fun lobbyPlayerBadgeRects(): List<Rectangle> {
@@ -1172,6 +1191,8 @@ class MatchScreen(
 
     private fun showLobbyPairingGate(): Boolean = presenter.requiresHostPlaybackPairing()
 
+    private fun showLobbyPrimaryButton(): Boolean = presenter.isLocalHost
+
     private fun lobbyPrimaryActionText(): String {
         return if (showLobbyPairingGate()) {
             if (presenter.playbackSessionState == PlaybackSessionState.Connecting) {
@@ -1363,7 +1384,7 @@ class MatchScreen(
             updateLayout()
             val world = viewport.unproject(worldTouch.set(screenX.toFloat(), screenY.toFloat()))
 
-            if (presenter.state.status == MatchStatus.LOBBY && startButtonRect.contains(world.x, world.y)) {
+            if (presenter.state.status == MatchStatus.LOBBY && showLobbyPrimaryButton() && startButtonRect.contains(world.x, world.y)) {
                 if (showLobbyPairingGate()) {
                     if (presenter.playbackSessionState != PlaybackSessionState.Connecting) {
                         presenter.prepareHostPlayback()

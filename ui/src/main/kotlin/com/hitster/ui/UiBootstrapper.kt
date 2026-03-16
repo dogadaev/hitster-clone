@@ -1,62 +1,74 @@
 package com.hitster.ui
 
-import com.hitster.core.game.GameCommand
 import com.hitster.core.game.GameSessionFactory
 import com.hitster.core.game.HostGameReducer
-import com.hitster.core.game.ReducerResult
 import com.hitster.core.model.PlaybackReference
 import com.hitster.core.model.PlayerId
 import com.hitster.core.model.PlaylistEntry
 import com.hitster.core.model.SessionId
+import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.playback.api.NoOpPlaybackController
 import com.hitster.playback.api.PlaybackController
 import com.hitster.playlist.data.PlaylistParseResult
 import com.hitster.playlist.data.PlaylistParser
+import java.util.UUID
 
 object UiBootstrapper {
     private const val samplePlaylistResourcePath = "sample-playlist.json"
     private val hostId = PlayerId("host")
-    private val guestId = PlayerId("guest")
 
-    fun createPresenter(
+    fun createHostedMatchController(
         playbackController: PlaybackController = NoOpPlaybackController(),
-        localPlayerId: PlayerId = hostId,
-    ): MatchPresenter {
+        hostDisplayName: String = "Host Player",
+        sessionTransportFactory: (MatchPresenter) -> HostedSessionTransport,
+    ): HostedMatchController {
         val reducer = HostGameReducer()
         val lobby = GameSessionFactory.createLobby(
-            sessionId = SessionId("local-session"),
+            sessionId = SessionId("local-session-${UUID.randomUUID().toString().take(8)}"),
             hostId = hostId,
-            hostName = "Host Player",
+            hostName = hostDisplayName,
             deckEntries = loadEntries(),
             shuffleSeed = 42L,
         )
-
-        val withGuest = (reducer.reduce(
-            lobby,
-            GameCommand.JoinSession(
-                playerId = guestId,
-                displayName = "Guest Player",
-            ),
-        ) as ReducerResult.Accepted).state
-
-        return MatchPresenter(
+        val presenter = MatchPresenter(
             reducer = reducer,
             playbackController = playbackController,
             hostId = hostId,
-            localPlayerId = localPlayerId,
-            initialState = withGuest,
+            localPlayerId = hostId,
+            initialState = lobby,
+        )
+
+        return HostedMatchController(
+            presenter = presenter,
+            sessionTransport = sessionTransportFactory(presenter),
         )
     }
 
-    fun createAutomatedGuestBot(presenter: MatchPresenter): AutomatedGuestPlayerBot? {
-        if (presenter.localPlayerId != hostId) {
-            return null
-        }
-
-        return AutomatedGuestPlayerBot(
-            presenter = presenter,
-            playerId = guestId,
+    fun createRemoteGuestController(
+        advertisement: SessionAdvertisementDto,
+        displayName: String = "Guest Player",
+        clientFactory: (
+            advertisement: SessionAdvertisementDto,
+            actorId: PlayerId,
+            displayName: String,
+            onEvent: (com.hitster.networking.HostEventDto) -> Unit,
+            onDisconnected: (String) -> Unit,
+        ) -> GuestSessionClient,
+    ): RemoteGuestMatchController {
+        val playerId = PlayerId("guest-${UUID.randomUUID().toString().take(8)}")
+        lateinit var controller: RemoteGuestMatchController
+        controller = RemoteGuestMatchController(
+            advertisement = advertisement,
+            localPlayerId = playerId,
+            client = clientFactory(
+                advertisement,
+                playerId,
+                displayName,
+                { event -> controller.handleEvent(event) },
+                { reason -> controller.handleDisconnect(reason) },
+            ),
         )
+        return controller
     }
 
     private fun loadEntries(): List<PlaylistEntry> {

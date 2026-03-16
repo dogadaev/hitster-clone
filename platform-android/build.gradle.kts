@@ -68,7 +68,9 @@ android {
 
 dependencies {
     implementation(project(":core-model"))
+    implementation(project(":networking"))
     implementation(project(":playback-api"))
+    implementation(project(":transport-jvm"))
     implementation(project(":ui"))
     implementation(files("libs/spotify-app-remote-release-0.8.0.aar"))
     implementation(libs.gdx.core)

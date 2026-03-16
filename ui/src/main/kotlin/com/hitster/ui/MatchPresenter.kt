@@ -9,6 +9,7 @@ import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.PlayerId
 import com.hitster.networking.GameStateDto
 import com.hitster.networking.GameStateMapper
+import com.hitster.networking.ClientCommandDto
 import com.hitster.playback.api.PlaybackCommandResult
 import com.hitster.playback.api.PlaybackController
 import com.hitster.playback.api.PlaybackEventListener
@@ -19,25 +20,30 @@ class MatchPresenter(
     private val reducer: HostGameReducer,
     private val playbackController: PlaybackController,
     private val hostId: PlayerId,
-    val localPlayerId: PlayerId,
+    override val localPlayerId: PlayerId,
     initialState: GameState,
-) {
-    var state: GameState = initialState
+) : MatchController {
+    override var state: GameState = initialState
         private set
 
-    var lastError: String? = null
+    override val isLocalHost: Boolean = localPlayerId == hostId
+
+    override var lastError: String? = null
         private set
 
-    var lastPlaybackIssue: PlaybackIssue? = null
+    override var lastPlaybackIssue: PlaybackIssue? = null
         private set
 
-    var playbackSessionState: PlaybackSessionState = playbackController.currentState()
+    override var playbackSessionState: PlaybackSessionState = playbackController.currentState()
         private set
 
     var lastPublishedSnapshot: GameStateDto = GameStateMapper.toDto(initialState)
         private set
 
-    val localPlayer: com.hitster.core.model.PlayerState?
+    var snapshotListener: ((GameStateDto) -> Unit)? = null
+    var rejectionListener: ((String, String, Long) -> Unit)? = null
+
+    override val localPlayer: com.hitster.core.model.PlayerState?
         get() = state.requirePlayer(localPlayerId)
 
     init {
@@ -54,7 +60,7 @@ class MatchPresenter(
         )
     }
 
-    fun startMatch() {
+    override fun startMatch() {
         if (requiresHostPlaybackPairing()) {
             lastError = "Pair Spotify before starting."
             return
@@ -62,7 +68,7 @@ class MatchPresenter(
         dispatch(GameCommand.StartGame(actorId = hostId))
     }
 
-    fun prepareHostPlayback() {
+    override fun prepareHostPlayback() {
         when (val playbackResult = playbackController.prepareSession()) {
             is PlaybackCommandResult.Success -> {
                 lastError = null
@@ -75,15 +81,15 @@ class MatchPresenter(
         }
     }
 
-    fun drawCard() {
+    override fun drawCard() {
         drawCardAs(localPlayerId)
     }
 
-    fun movePendingCard(requestedSlotIndex: Int) {
+    override fun movePendingCard(requestedSlotIndex: Int) {
         movePendingCardAs(localPlayerId, requestedSlotIndex)
     }
 
-    fun endTurn() {
+    override fun endTurn() {
         endTurnAs(localPlayerId)
     }
 
@@ -107,12 +113,46 @@ class MatchPresenter(
         dispatch(GameCommand.EndTurn(actorId = actorId))
     }
 
-    fun requiresHostPlaybackPairing(): Boolean {
-        if (localPlayerId != hostId || state.status != MatchStatus.LOBBY) {
+    override fun requiresHostPlaybackPairing(): Boolean {
+        if (!isLocalHost || state.status != MatchStatus.LOBBY) {
             return false
         }
         return playbackSessionState != PlaybackSessionState.Ready &&
             playbackSessionState !is PlaybackSessionState.Playing
+    }
+
+    fun handleRemoteCommand(command: ClientCommandDto) {
+        when (command) {
+            is ClientCommandDto.JoinSession -> {
+                dispatch(
+                    GameCommand.JoinSession(
+                        playerId = PlayerId(command.actorId),
+                        displayName = command.displayName,
+                    ),
+                )
+            }
+
+            is ClientCommandDto.StartGame -> {
+                dispatch(GameCommand.StartGame(actorId = PlayerId(command.actorId)))
+            }
+
+            is ClientCommandDto.DrawCard -> {
+                dispatch(GameCommand.DrawCard(actorId = PlayerId(command.actorId)))
+            }
+
+            is ClientCommandDto.MovePendingCard -> {
+                dispatch(
+                    GameCommand.MovePendingCard(
+                        actorId = PlayerId(command.actorId),
+                        requestedSlotIndex = command.requestedSlotIndex,
+                    ),
+                )
+            }
+
+            is ClientCommandDto.EndTurn -> {
+                dispatch(GameCommand.EndTurn(actorId = PlayerId(command.actorId)))
+            }
+        }
     }
 
     private fun dispatch(command: GameCommand) {
@@ -125,6 +165,7 @@ class MatchPresenter(
 
             is ReducerResult.Rejected -> {
                 lastError = result.reason
+                rejectionListener?.invoke(command.actorId().value, result.reason, result.state.revision)
             }
         }
     }
@@ -148,8 +189,19 @@ class MatchPresenter(
 
                 is GameEffect.PublishSnapshot -> {
                     lastPublishedSnapshot = GameStateMapper.toDto(effect.state)
+                    snapshotListener?.invoke(lastPublishedSnapshot)
                 }
             }
         }
+    }
+}
+
+private fun GameCommand.actorId(): PlayerId {
+    return when (this) {
+        is GameCommand.JoinSession -> playerId
+        is GameCommand.StartGame -> actorId
+        is GameCommand.DrawCard -> actorId
+        is GameCommand.MovePendingCard -> actorId
+        is GameCommand.EndTurn -> actorId
     }
 }

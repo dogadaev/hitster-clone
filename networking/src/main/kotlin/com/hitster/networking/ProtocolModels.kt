@@ -2,8 +2,17 @@ package com.hitster.networking
 
 import com.hitster.core.model.GameState
 import com.hitster.core.model.MatchStatus
+import com.hitster.core.model.DeckState
 import com.hitster.core.model.PendingCard
+import com.hitster.core.model.PlaybackReference
+import com.hitster.core.model.PlayerId
 import com.hitster.core.model.PlayerState
+import com.hitster.core.model.PlayerTimeline
+import com.hitster.core.model.PlaylistEntry
+import com.hitster.core.model.SessionId
+import com.hitster.core.model.TurnPhase
+import com.hitster.core.model.TurnResolution
+import com.hitster.core.model.TurnState
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -22,6 +31,8 @@ data class SessionAdvertisementDto(
     val sessionId: String,
     val hostPlayerId: String,
     val hostDisplayName: String,
+    val hostAddress: String,
+    val serverPort: Int,
     val playerCount: Int,
     val transportMode: TransportModeDto = TransportModeDto.LOCAL_NETWORK,
 )
@@ -74,6 +85,7 @@ sealed class HostEventDto {
     @Serializable
     @SerialName("command_rejected")
     data class CommandRejected(
+        val actorId: String,
         val reason: String,
         val revision: Long,
     ) : HostEventDto()
@@ -87,7 +99,7 @@ data class GameStateDto(
     val status: MatchStatusDto,
     val activePlayerIndex: Int,
     val deckRemaining: Int,
-    val discardPileCardIds: List<String>,
+    val discardPile: List<TimelineCardDto>,
     val players: List<PlayerStateDto>,
     val turn: TurnStateDto?,
     val lastResolution: TurnResolutionDto?,
@@ -178,7 +190,7 @@ object GameStateMapper {
             status = state.status.toDto(),
             activePlayerIndex = state.activePlayerIndex,
             deckRemaining = state.deck.size,
-            discardPileCardIds = state.discardPile.map { it.id },
+            discardPile = state.discardPile.map(::toTimelineCardDto),
             players = state.players.map(::toDto),
             turn = state.turn?.let {
                 TurnStateDto(
@@ -206,16 +218,7 @@ object GameStateMapper {
             displayName = player.displayName,
             connected = player.connected,
             score = player.score,
-            timeline = player.timeline.cards.map {
-                TimelineCardDto(
-                    id = it.id,
-                    title = it.title,
-                    artist = it.artist,
-                    releaseYear = it.releaseYear,
-                    spotifyUri = it.playbackReference.spotifyUri,
-                    coverImageUrl = it.coverImageUrl,
-                )
-            },
+            timeline = player.timeline.cards.map(::toTimelineCardDto),
             pendingCard = player.pendingCard?.toDto(),
         )
     }
@@ -234,5 +237,114 @@ object GameStateMapper {
             MatchStatus.COMPLETE -> MatchStatusDto.COMPLETE
         }
     }
-}
 
+    fun fromDto(state: GameStateDto): GameState {
+        val players = state.players.map(::toPlayerState)
+        val discardPile = state.discardPile.map(::toPlaylistEntry)
+        return GameState(
+            sessionId = SessionId(state.sessionId),
+            hostId = PlayerId(state.hostId),
+            revision = state.revision,
+            status = state.status.toModel(),
+            players = players,
+            activePlayerIndex = state.activePlayerIndex,
+            deck = DeckState(
+                remainingCards = List(state.deckRemaining) { index ->
+                    placeholderEntry(
+                        id = "deck-placeholder-$index",
+                        title = "",
+                        artist = "",
+                        releaseYear = 0,
+                        spotifyUri = "",
+                    )
+                },
+            ),
+            discardPile = discardPile,
+            turn = state.turn?.let {
+                TurnState(
+                    number = it.number,
+                    activePlayerId = PlayerId(it.activePlayerId),
+                    phase = TurnPhase.valueOf(it.phase),
+                )
+            },
+            lastResolution = state.lastResolution?.let {
+                TurnResolution(
+                    playerId = PlayerId(it.playerId),
+                    cardId = it.cardId,
+                    attemptedSlotIndex = it.attemptedSlotIndex,
+                    correct = it.correct,
+                    releaseYear = it.releaseYear,
+                    message = it.message,
+                )
+            },
+        )
+    }
+
+    private fun toPlayerState(player: PlayerStateDto): PlayerState {
+        return PlayerState(
+            id = PlayerId(player.id),
+            displayName = player.displayName,
+            connected = player.connected,
+            score = player.score,
+            timeline = PlayerTimeline(player.timeline.map(::toPlaylistEntry)),
+            pendingCard = player.pendingCard?.let {
+                PendingCard(
+                    entry = placeholderEntry(
+                        id = it.id,
+                        title = "",
+                        artist = "",
+                        releaseYear = 0,
+                        spotifyUri = "",
+                    ),
+                    proposedSlotIndex = it.proposedSlotIndex,
+                )
+            },
+        )
+    }
+
+    private fun toTimelineCardDto(entry: PlaylistEntry): TimelineCardDto {
+        return TimelineCardDto(
+            id = entry.id,
+            title = entry.title,
+            artist = entry.artist,
+            releaseYear = entry.releaseYear,
+            spotifyUri = entry.playbackReference.spotifyUri,
+            coverImageUrl = entry.coverImageUrl,
+        )
+    }
+
+    private fun toPlaylistEntry(card: TimelineCardDto): PlaylistEntry {
+        return PlaylistEntry(
+            id = card.id,
+            title = card.title,
+            artist = card.artist,
+            releaseYear = card.releaseYear,
+            playbackReference = PlaybackReference(card.spotifyUri),
+            coverImageUrl = card.coverImageUrl,
+        )
+    }
+
+    private fun placeholderEntry(
+        id: String,
+        title: String,
+        artist: String,
+        releaseYear: Int,
+        spotifyUri: String,
+    ): PlaylistEntry {
+        return PlaylistEntry(
+            id = id,
+            title = title,
+            artist = artist,
+            releaseYear = releaseYear,
+            playbackReference = PlaybackReference(spotifyUri),
+        )
+    }
+
+    private fun MatchStatusDto.toModel(): MatchStatus {
+        return when (this) {
+            MatchStatusDto.LOBBY -> MatchStatus.LOBBY
+            MatchStatusDto.ACTIVE -> MatchStatus.ACTIVE
+            MatchStatusDto.COMPLETE -> MatchStatus.COMPLETE
+        }
+    }
+}

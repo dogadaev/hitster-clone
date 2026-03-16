@@ -33,16 +33,16 @@ The mobile app is intended to replace:
 - the row of cards a player places in front of themselves
 
 ## Primary Technical Direction
-Build native mobile apps for:
-- iOS
-- Android
+Build the first playable MVP around:
+- Android for host and guest play
+- a guest-only web build using the same libGDX game code
 
 Use:
 - Kotlin as the main language
 - libGDX as the primary game framework
 - platform-specific native integrations where libGDX alone is not sufficient
 
-The first implementation target is mobile-native play, not browser play.
+The browser build is a guest-only extension of the same libGDX app, not a separate web-specific game client.
 
 ## Development Priorities
 Prioritize:
@@ -54,7 +54,6 @@ Prioritize:
 - maintainable code with testable game logic
 
 Do not prioritize first:
-- browser version
 - desktop support
 - dedicated remote servers
 - Bluetooth play
@@ -114,15 +113,15 @@ Do not introduce heavy dependencies without clear justification.
 
 ## Target Platforms
 Primary targets:
-- Android phones
-- iPhones
+- Android phones for host and guest play
+- modern desktop or mobile browsers for guest-only play
 
 The app must be designed for landscape orientation.
 Do not treat portrait mode as part of the core experience.
 
 Tablet support is welcome if it does not significantly complicate the implementation.
 
-The first development milestone should focus on phones.
+The first development milestone should focus on Android phones, while keeping the guest-only web build functional for lightweight join flows.
 
 ## Orientation Rule
 The app must use landscape orientation during gameplay.
@@ -145,6 +144,8 @@ The architecture must allow future support for:
 - Bluetooth-based transport if technically viable
 
 However, only local-session hosting is required for the first MVP.
+The host flow must run on Android.
+Guests may join either from another Android device or from the guest-only web build.
 
 ## Shared State vs Local UI State
 Shared synchronized state includes:
@@ -185,7 +186,7 @@ Requirements:
 Implementation direction:
 - Android uses a native Spotify integration layer
 - Android host pairing should use an explicit app-initiated Spotify authorization flow before connecting App Remote, rather than relying on the App Remote auth view alone
-- iOS uses a native Spotify integration layer
+- guests, including web guests, must not require Spotify pairing
 - shared game code communicates only through an abstract playback interface
 
 The app must handle these cases gracefully:
@@ -409,7 +410,6 @@ Prefer tests for pure shared logic before writing platform-specific integration 
 
 ## Non-Goals for MVP
 These are not MVP blockers:
-- browser version
 - desktop version
 - public matchmaking
 - accounts
@@ -424,6 +424,10 @@ These are not MVP blockers:
 The MVP is successful when:
 - one player can host a local session
 - at least one other player can join
+- the main flow lets the user choose host or guest before entering the lobby
+- Spotify pairing is shown only for Android hosts, not for guests
+- available Android hosts are discoverable over the local network through a real networking layer rather than a simulated local flow
+- the guest-only web build can discover and join an Android-hosted local session while rendering the same libGDX gameplay client
 - each player sees only their own normal gameplay UI on their own device
 - each player starts with one revealed random card already on their own timeline
 - the deck is visible and interactive
@@ -448,6 +452,8 @@ When implementing features:
 - keep Spotify integration behind abstractions
 - keep Spotify client credentials and redirect configuration in ignored local developer config such as `local.properties`; do not hardcode or commit environment-specific secrets
 - a device must render and act only as its own local player; do not implement hotseat-style timeline switching or command impersonation based on the active turn
+- keep Android host/session transport and browser guest transport as real networked flows, not simulated local stand-ins
+- keep the browser guest build on the shared libGDX client path instead of introducing a separate browser-only UI
 - prefer modular, testable, maintainable code
 - prefer simple implementations that preserve future extensibility
 - keep project-local Codex defaults in `.codex/config.toml`; for this repo use `approval_policy = "never"` and `sandbox_mode = "danger-full-access"` unless the user explicitly changes them

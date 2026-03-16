@@ -22,8 +22,9 @@ include(
     ":playlist-data",
     ":core-game",
     ":networking",
+    ":transport-jvm",
     ":animations",
     ":ui",
     ":platform-android",
+    ":platform-web",
 )
-

@@ -2,6 +2,7 @@ package com.hitster.platform.android
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Build
 import android.util.Log
 import android.view.WindowManager
 import androidx.core.view.WindowCompat
@@ -32,6 +33,8 @@ class HitsterAndroidActivity : AndroidApplication() {
                 playbackController = AndroidPlaybackController(
                     spotifyBridge = spotifyBridge,
                 ),
+                localDisplayName = Build.MODEL.ifBlank { "Android Player" },
+                platformServices = AndroidPlatformServices(),
             ),
             configuration,
         )
