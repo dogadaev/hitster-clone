@@ -16,12 +16,14 @@ class BrowserHostDiscoveryService(
 ) : HostDiscoveryService {
     private var active = false
     private var onUpdate: ((List<SessionAdvertisementDto>) -> Unit)? = null
+    private val snapshotSmoother = HostDiscoverySnapshotSmoother()
 
     override fun start(onUpdate: (List<SessionAdvertisementDto>) -> Unit) {
         this.onUpdate = onUpdate
         if (active) {
             return
         }
+        snapshotSmoother.reset()
         active = true
         requestHosts()
     }
@@ -29,6 +31,7 @@ class BrowserHostDiscoveryService(
     override fun stop() {
         active = false
         onUpdate = null
+        snapshotSmoother.reset()
     }
 
     private fun requestHosts() {
@@ -51,7 +54,7 @@ class BrowserHostDiscoveryService(
                     } else {
                         emptyList()
                     }
-                    onUpdate?.invoke(hosts)
+                    onUpdate?.invoke(snapshotSmoother.stabilize(hosts))
                     scheduleNextPoll()
                 }
             },

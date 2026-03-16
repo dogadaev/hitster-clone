@@ -137,19 +137,41 @@ internal object WebIndexHtmlPatcher {
                   return wakeFallbackVideo;
                 }
                 wakeFallbackVideo = document.createElement("video");
+                wakeFallbackVideo.setAttribute("title", "No Sleep");
                 wakeFallbackVideo.setAttribute("playsinline", "");
+                wakeFallbackVideo.setAttribute("webkit-playsinline", "");
                 wakeFallbackVideo.setAttribute("muted", "");
+                wakeFallbackVideo.setAttribute("disableRemotePlayback", "");
                 wakeFallbackVideo.muted = true;
-                wakeFallbackVideo.loop = true;
                 wakeFallbackVideo.preload = "auto";
                 wakeFallbackVideo.src = "${wakeLockFallbackVideoUri}";
+                if (typeof wakeFallbackVideo.disableRemotePlayback !== "undefined") {
+                  wakeFallbackVideo.disableRemotePlayback = true;
+                }
+                wakeFallbackVideo.addEventListener("loadedmetadata", function() {
+                  if (wakeFallbackVideo.duration <= 1) {
+                    wakeFallbackVideo.loop = true;
+                    wakeFallbackVideo.setAttribute("loop", "");
+                    return;
+                  }
+                  if (wakeFallbackVideo.dataset.hitsterLoopHack === "true") {
+                    return;
+                  }
+                  wakeFallbackVideo.dataset.hitsterLoopHack = "true";
+                  wakeFallbackVideo.addEventListener("timeupdate", function() {
+                    if (wakeFallbackVideo.currentTime > 0.5) {
+                      wakeFallbackVideo.currentTime = Math.random() * 0.5;
+                    }
+                  });
+                });
                 wakeFallbackVideo.style.position = "fixed";
-                wakeFallbackVideo.style.left = "-9999px";
-                wakeFallbackVideo.style.top = "-9999px";
+                wakeFallbackVideo.style.right = "0";
+                wakeFallbackVideo.style.bottom = "0";
                 wakeFallbackVideo.style.width = "1px";
                 wakeFallbackVideo.style.height = "1px";
-                wakeFallbackVideo.style.opacity = "0";
+                wakeFallbackVideo.style.opacity = "0.01";
                 wakeFallbackVideo.style.pointerEvents = "none";
+                wakeFallbackVideo.style.zIndex = "-1";
                 document.body.appendChild(wakeFallbackVideo);
                 return wakeFallbackVideo;
               }
@@ -162,6 +184,7 @@ internal object WebIndexHtmlPatcher {
                 if (!wakeFallbackVideo) {
                   return;
                 }
+                wakeFallbackVideo.currentTime = 0;
                 wakeFallbackVideo.pause();
               }
 
@@ -219,6 +242,7 @@ internal object WebIndexHtmlPatcher {
                 window.setTimeout(scheduleViewportSync, 250);
               }, { passive: true });
               window.addEventListener("pageshow", scheduleViewportSync, { passive: true });
+              window.addEventListener("pagehide", releaseWakeLock, { passive: true });
               window.addEventListener("focus", scheduleViewportSync, { passive: true });
               if (window.visualViewport) {
                 window.visualViewport.addEventListener("resize", scheduleViewportSync, { passive: true });

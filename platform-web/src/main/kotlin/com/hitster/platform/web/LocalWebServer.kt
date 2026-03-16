@@ -27,7 +27,7 @@ fun main() {
         "Web dist not found at ${distDir.absolutePath}. Run :platform-web:buildWebDist first."
     }
 
-    val discoveryListener = LanHostDiscoveryListener()
+    val discoveryListener = LanHostDiscoveryListener(sessionTtlMillis = 8_000L)
     discoveryListener.start()
 
     val server = embeddedServer(CIO, host = "0.0.0.0", port = defaultWebPort) {
