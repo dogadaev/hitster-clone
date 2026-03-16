@@ -25,8 +25,11 @@ dependencies {
     implementation(libs.gdx.teavm.backend)
     implementation(libs.gdx.teavm.freetype)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.websockets)
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.websockets)
 }
 
 val buildWebDist = tasks.register<JavaExec>("buildWebDist") {

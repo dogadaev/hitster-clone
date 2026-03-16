@@ -48,6 +48,7 @@ class WebPlatformServices : AppPlatformServices {
     private fun websocketUrl(advertisement: SessionAdvertisementDto): String {
         val pageProtocol = Window.current().location.protocol
         val websocketProtocol = if (pageProtocol.startsWith("https")) "wss" else "ws"
-        return "$websocketProtocol://${advertisement.hostAddress}:${advertisement.serverPort}/session"
+        val pageHost = Window.current().location.host
+        return "$websocketProtocol://$pageHost/session-proxy?hostAddress=${advertisement.hostAddress}&serverPort=${advertisement.serverPort}"
     }
 }
