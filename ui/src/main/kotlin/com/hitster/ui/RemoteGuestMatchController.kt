@@ -16,8 +16,9 @@ import com.hitster.playback.api.PlaybackSessionState
 class RemoteGuestMatchController(
     private val advertisement: SessionAdvertisementDto,
     override val localPlayerId: PlayerId,
-    private val client: GuestSessionClient,
 ) : MatchController {
+    private lateinit var client: GuestSessionClient
+
     override var state: GameState = GameState(
         sessionId = SessionId(advertisement.sessionId),
         hostId = PlayerId(advertisement.hostPlayerId),
@@ -38,6 +39,10 @@ class RemoteGuestMatchController(
 
     override val localPlayer: PlayerState?
         get() = state.requirePlayer(localPlayerId)
+
+    fun attachClient(client: GuestSessionClient) {
+        this.client = client
+    }
 
     fun connect() {
         client.connect()
@@ -69,7 +74,9 @@ class RemoteGuestMatchController(
     override fun canStartLobbyMatch(): Boolean = false
 
     override fun dispose() {
-        client.close()
+        if (this::client.isInitialized) {
+            client.close()
+        }
     }
 
     internal fun handleEvent(event: HostEventDto) {

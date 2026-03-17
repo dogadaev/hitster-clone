@@ -58,11 +58,12 @@ object UiBootstrapper {
         ) -> GuestSessionClient,
     ): RemoteGuestMatchController {
         val playerId = playerIdFactory()
-        lateinit var controller: RemoteGuestMatchController
-        controller = RemoteGuestMatchController(
+        val controller = RemoteGuestMatchController(
             advertisement = advertisement,
             localPlayerId = playerId,
-            client = clientFactory(
+        )
+        controller.attachClient(
+            clientFactory(
                 advertisement,
                 playerId,
                 displayName,
