@@ -2,7 +2,8 @@ package com.hitster.platform.web
 
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.HostEventDto
-import com.hitster.networking.protocolJson
+import com.hitster.networking.decodeHostEventPayload
+import com.hitster.networking.encodeClientCommandPayload
 import com.hitster.ui.GuestSessionClient
 import org.teavm.jso.browser.TimerHandler
 import org.teavm.jso.browser.Window
@@ -17,6 +18,7 @@ import kotlinx.serialization.encodeToString
 private const val webSocketOpenReadyState = 1
 private const val initialReconnectDelayMillis = 350
 private const val maximumInitialConnectAttempts = 3
+private const val hostEventTimeoutMillis = 4_000
 
 class BrowserGuestSessionClient(
     private val websocketUrl: String,
@@ -31,6 +33,7 @@ class BrowserGuestSessionClient(
     private var hasReceivedHostEvent = false
     private var connectAttempts = 0
     private var reconnectScheduled = false
+    private var hostEventTimeoutGeneration = 0
 
     override fun connect() {
         if (socket != null || reconnectScheduled) {
@@ -42,7 +45,7 @@ class BrowserGuestSessionClient(
     }
 
     override fun sendCommand(command: ClientCommandDto) {
-        val payload = protocolJson.encodeToString(command)
+        val payload = encodeClientCommandPayload(command)
         val activeSocket = socket
         if (activeSocket == null || activeSocket.readyState != webSocketOpenReadyState) {
             queuedPayloads += payload
@@ -71,8 +74,9 @@ class BrowserGuestSessionClient(
                         return
                     }
                     disconnected = false
-                    createdSocket.send(protocolJson.encodeToString(joinCommand))
+                    createdSocket.send(encodeClientCommandPayload(joinCommand))
                     flushQueuedPayloads(createdSocket)
+                    scheduleHostEventTimeout(createdSocket)
                 }
             },
         )
@@ -83,9 +87,7 @@ class BrowserGuestSessionClient(
                         return
                     }
                     val text = evt.dataAsString
-                    runCatching {
-                        protocolJson.decodeFromString<HostEventDto>(text)
-                    }.getOrNull()?.let { event ->
+                    decodeHostEventPayload(text)?.let { event ->
                         hasReceivedHostEvent = true
                         onEvent(event)
                     }
@@ -153,10 +155,29 @@ class BrowserGuestSessionClient(
         )
     }
 
+    private fun scheduleHostEventTimeout(activeSocket: WebSocket) {
+        val generation = ++hostEventTimeoutGeneration
+        Window.setTimeout(
+            object : TimerHandler {
+                override fun onTimer() {
+                    if (generation != hostEventTimeoutGeneration) {
+                        return
+                    }
+                    if (closedByClient || socket !== activeSocket || hasReceivedHostEvent) {
+                        return
+                    }
+                    handleSocketDisconnect(activeSocket, "The host did not confirm the join request.")
+                }
+            },
+            hostEventTimeoutMillis,
+        )
+    }
+
     private fun disconnect(message: String) {
         if (disconnected) {
             return
         }
+        hostEventTimeoutGeneration += 1
         disconnected = true
         queuedPayloads.clear()
         onDisconnected(message)
