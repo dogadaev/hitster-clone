@@ -27,9 +27,11 @@ import com.hitster.core.model.TurnPhase
 import com.hitster.playback.api.PlaybackSessionState
 import java.util.Random
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 class MatchScreen(
     private val presenter: MatchController,
@@ -81,6 +83,7 @@ class MatchScreen(
     private val confettiParticles = mutableListOf<ConfettiParticle>()
     private var celebratedResolutionCardId: String? = null
     private var inactiveTurnFilterAlpha = 0f
+    private var overlayAnimationSeconds = 0f
 
     private var draggingDeckGhost = false
     private var draggingPendingCard = false
@@ -98,6 +101,7 @@ class MatchScreen(
     }
 
     override fun render(delta: Float) {
+        overlayAnimationSeconds += delta
         updateLayout()
         updateTimelineVisuals(delta)
         updateCelebration(delta)
@@ -464,17 +468,36 @@ class MatchScreen(
     }
 
     private fun updateInactiveTurnFilter(delta: Float) {
-        val targetAlpha = when {
-            !shouldShowInactiveTurnFilter() -> 0f
-            confettiParticles.isNotEmpty() -> 0f
-            else -> 1f
-        }
-        val fadeRate = if (targetAlpha > inactiveTurnFilterAlpha) 1.85f else 3.4f
+        val targetAlpha = inactiveTurnFilterTargetAlpha()
+        val fadeRate = if (targetAlpha > inactiveTurnFilterAlpha) 1.35f else 2.8f
         inactiveTurnFilterAlpha = when {
             abs(targetAlpha - inactiveTurnFilterAlpha) < 0.02f -> targetAlpha
             targetAlpha > inactiveTurnFilterAlpha -> min(1f, inactiveTurnFilterAlpha + delta * fadeRate)
             else -> max(0f, inactiveTurnFilterAlpha - delta * fadeRate)
         }
+    }
+
+    private fun inactiveTurnFilterTargetAlpha(): Float {
+        if (!shouldShowInactiveTurnFilter()) {
+            return 0f
+        }
+        if (confettiParticles.isEmpty()) {
+            return 1f
+        }
+
+        val blendProgress = confettiWindDownProgress()
+        return clamp(blendProgress * 0.88f, 0f, 1f)
+    }
+
+    private fun confettiWindDownProgress(): Float {
+        if (confettiParticles.isEmpty()) {
+            return 1f
+        }
+        val slowestParticleProgress = confettiParticles.minOf { particle ->
+            particle.ageSeconds / particle.lifeSeconds
+        }
+        return ((slowestParticleProgress - CONFETTI_FILTER_BLEND_START_PROGRESS) /
+            (1f - CONFETTI_FILTER_BLEND_START_PROGRESS)).coerceIn(0f, 1f)
     }
 
     private fun spawnConfetti() {
@@ -958,19 +981,63 @@ class MatchScreen(
     }
 
     private fun drawInactiveTurnFilter(alpha: Float) {
-        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0xBDC7D7FF, alpha * 0.21f))
-        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x7D90ACFF, alpha * 0.15f))
+        val time = overlayAnimationSeconds
+        val slowDriftX = sin(time * 0.17f) * 0.12f
+        val slowDriftY = cos(time * 0.13f) * 0.10f
+        val grainDriftX = time * 0.021f
+        val grainDriftY = time * 0.015f
+        val accentGlowWidth = layoutWorldWidth * (0.54f + 0.05f * sin(time * 0.41f))
+        val accentGlowHeight = layoutWorldHeight * (0.62f + 0.04f * cos(time * 0.37f))
+        val accentGlowX = layoutWorldWidth * (0.18f + 0.06f * sin(time * 0.23f))
+        val accentGlowY = layoutWorldHeight * (0.14f + 0.03f * cos(time * 0.19f))
+        val sweepGlowWidth = layoutWorldWidth * 0.46f
+        val sweepGlowHeight = layoutWorldHeight * 0.72f
+        val sweepGlowX = layoutWorldWidth * (0.52f + 0.08f * cos(time * 0.28f))
+        val sweepGlowY = layoutWorldHeight * (0.08f + 0.04f * sin(time * 0.22f))
+
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0xCFD7E2FF, alpha * 0.34f))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x7C8EADFF, alpha * 0.27f))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x2A3344FF, alpha * 0.12f))
+        drawGlow(
+            accentGlowX,
+            accentGlowY,
+            accentGlowWidth,
+            accentGlowHeight,
+            colorWithAlpha(0xDCE8FFF0, alpha * 0.12f),
+        )
+        drawGlow(
+            sweepGlowX,
+            sweepGlowY,
+            sweepGlowWidth,
+            sweepGlowHeight,
+            colorWithAlpha(0x91A9CFFF, alpha * 0.08f),
+        )
         drawRepeatedTexture(
             grainTexture,
             0f,
             0f,
             layoutWorldWidth,
             layoutWorldHeight,
-            colorWithAlpha(0xD6DFEBFF, alpha * 0.07f),
-            layoutWorldWidth / 96f,
-            layoutWorldHeight / 96f,
+            colorWithAlpha(0xDDE6F1FF, alpha * 0.10f),
+            layoutWorldWidth / 88f,
+            layoutWorldHeight / 88f,
+            grainDriftX,
+            grainDriftY,
         )
-        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x000000FF, alpha * 0.16f))
+        drawRepeatedTexture(
+            grainTexture,
+            0f,
+            0f,
+            layoutWorldWidth,
+            layoutWorldHeight,
+            colorWithAlpha(0x94A6BEFF, alpha * 0.06f),
+            layoutWorldWidth / 58f,
+            layoutWorldHeight / 58f,
+            slowDriftX,
+            slowDriftY,
+        )
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x000000FF, alpha * 0.26f))
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x24334DFF, alpha * 0.13f))
     }
 
     private fun fillHero(rect: Rectangle) {
@@ -1439,8 +1506,23 @@ class MatchScreen(
         repeatX: Float,
         repeatY: Float,
     ) {
+        drawRepeatedTexture(texture, x, y, width, height, tint, repeatX, repeatY, 0f, 0f)
+    }
+
+    private fun drawRepeatedTexture(
+        texture: Texture,
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+        tint: Color,
+        repeatX: Float,
+        repeatY: Float,
+        offsetX: Float,
+        offsetY: Float,
+    ) {
         batch.color = tint
-        batch.draw(texture, x, y, width, height, 0f, 0f, repeatX, repeatY)
+        batch.draw(texture, x, y, width, height, offsetX, offsetY, offsetX + repeatX, offsetY + repeatY)
         batch.setColor(Color.WHITE)
     }
 
@@ -1668,6 +1750,7 @@ class MatchScreen(
         const val DECK_STACK_SPREAD = 14f
         const val CONFETTI_COUNT = 110
         const val CONFETTI_GRAVITY = -520f
+        const val CONFETTI_FILTER_BLEND_START_PROGRESS = 0.72f
         val CONFETTI_COLORS = longArrayOf(
             0xFF7280FF,
             0xFFD86161FF,
