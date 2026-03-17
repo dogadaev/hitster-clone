@@ -27,5 +27,7 @@ interface MatchController {
 
     fun requiresHostPlaybackPairing(): Boolean
 
+    fun canStartLobbyMatch(): Boolean
+
     fun dispose() = Unit
 }

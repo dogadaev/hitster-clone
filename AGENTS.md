@@ -137,6 +137,7 @@ For MVP:
 - the host is the authoritative source of truth for shared game state
 - other players join that session over the local network
 - all important game state changes are validated by the host
+- the lobby player list and advertised player count must track currently connected guests in real time; guests who disconnect in the lobby should be removed from the authoritative lobby state
 
 The architecture must allow future support for:
 - dedicated remote server mode
@@ -313,6 +314,7 @@ Should have:
 - loading and reconnect states
 - clear playback-state feedback
 - a clean lobby and room-join flow
+- the host lobby should only expose the start action once at least one non-host player is connected
 - basic error feedback for networking and playback failures
 
 Do not design core gameplay UI for portrait mode.

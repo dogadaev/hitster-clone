@@ -48,6 +48,39 @@ class HostGameReducerTest {
     }
 
     @Test
+    fun `leave session removes guest from lobby and publishes snapshot`() {
+        val state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("draw-host", 1990),
+            ),
+        )
+
+        val accepted = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.LeaveSession(guestId)))
+
+        assertEquals(listOf(hostId), accepted.state.players.map { it.id })
+        assertTrue(accepted.effects.any { it is GameEffect.PublishSnapshot })
+    }
+
+    @Test
+    fun `leave session is rejected after the match starts`() {
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("draw-host", 1990),
+                entry("draw-guest", 2010),
+            ),
+        )
+        state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
+
+        val rejected = assertIs<ReducerResult.Rejected>(reducer.reduce(state, GameCommand.LeaveSession(guestId)))
+
+        assertEquals("Players can only leave while the match is still in the lobby.", rejected.reason)
+    }
+
+    @Test
     fun `start draw move and end turn advances game`() {
         var state = lobbyWithGuest(
             listOf(

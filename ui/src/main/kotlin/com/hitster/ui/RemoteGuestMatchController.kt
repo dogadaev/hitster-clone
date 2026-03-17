@@ -66,6 +66,8 @@ class RemoteGuestMatchController(
 
     override fun requiresHostPlaybackPairing(): Boolean = false
 
+    override fun canStartLobbyMatch(): Boolean = false
+
     override fun dispose() {
         client.close()
     }

@@ -19,6 +19,7 @@ class HostGameReducer(
     ): ReducerResult {
         return when (command) {
             is GameCommand.JoinSession -> joinSession(state, command)
+            is GameCommand.LeaveSession -> leaveSession(state, command.playerId)
             is GameCommand.StartGame -> startGame(state, command.actorId)
             is GameCommand.DrawCard -> drawCard(state, command.actorId)
             is GameCommand.MovePendingCard -> movePendingCard(state, command.actorId, command.requestedSlotIndex)
@@ -43,6 +44,29 @@ class HostGameReducer(
                 id = command.playerId,
                 displayName = command.displayName,
             ),
+        )
+
+        return accept(nextState)
+    }
+
+    private fun leaveSession(
+        state: GameState,
+        playerId: PlayerId,
+    ): ReducerResult {
+        if (state.status != MatchStatus.LOBBY) {
+            return reject(state, "Players can only leave while the match is still in the lobby.")
+        }
+        if (playerId == state.hostId) {
+            return reject(state, "The host cannot leave the session.")
+        }
+        if (state.players.none { it.id == playerId }) {
+            return reject(state, "Player '${playerId.value}' is not in the session.")
+        }
+
+        val nextState = state.copy(
+            revision = state.revision + 1,
+            players = state.players.filterNot { it.id == playerId },
+            activePlayerIndex = 0,
         )
 
         return accept(nextState)

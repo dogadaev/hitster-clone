@@ -68,6 +68,10 @@ class MatchPresenter(
     }
 
     override fun startMatch() {
+        if (!canStartLobbyMatch()) {
+            lastError = "At least one guest must join before starting."
+            return
+        }
         if (requiresHostPlaybackPairing()) {
             lastError = "Pair Spotify before starting."
             return
@@ -128,6 +132,12 @@ class MatchPresenter(
             playbackSessionState !is PlaybackSessionState.Playing
     }
 
+    override fun canStartLobbyMatch(): Boolean {
+        return isLocalHost &&
+            state.status == MatchStatus.LOBBY &&
+            state.players.size > 1
+    }
+
     fun handleRemoteCommand(command: ClientCommandDto) {
         when (command) {
             is ClientCommandDto.JoinSession -> {
@@ -160,6 +170,19 @@ class MatchPresenter(
                 dispatch(GameCommand.EndTurn(actorId = PlayerId(command.actorId)))
             }
         }
+    }
+
+    fun handleRemoteDisconnect(actorId: String) {
+        val playerId = PlayerId(actorId)
+        val shouldRemove = synchronized(stateLock) {
+            state.status == MatchStatus.LOBBY &&
+                playerId != hostId &&
+                state.players.any { it.id == playerId }
+        }
+        if (!shouldRemove) {
+            return
+        }
+        dispatch(GameCommand.LeaveSession(playerId))
     }
 
     private fun dispatch(command: GameCommand) {
@@ -208,6 +231,7 @@ class MatchPresenter(
 private fun GameCommand.actorId(): PlayerId {
     return when (this) {
         is GameCommand.JoinSession -> playerId
+        is GameCommand.LeaveSession -> playerId
         is GameCommand.StartGame -> actorId
         is GameCommand.DrawCard -> actorId
         is GameCommand.MovePendingCard -> actorId

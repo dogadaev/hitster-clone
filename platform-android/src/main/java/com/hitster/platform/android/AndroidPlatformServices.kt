@@ -49,6 +49,7 @@ class AndroidPlatformServices(
                     private val server = LanSessionServer(
                         port = serverPort,
                         commandListener = presenter::handleRemoteCommand,
+                        onClientDisconnected = presenter::handleRemoteDisconnect,
                         discoveryAnnouncer = discoveryAnnouncer,
                     )
 

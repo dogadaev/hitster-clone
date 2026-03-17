@@ -696,7 +696,7 @@ class MatchScreen(
             )
         } else {
             drawTextBlock(
-                text = "WAITING FOR HOST",
+                text = lobbyWaitingText(),
                 x = startButtonRect.x,
                 y = startButtonRect.y,
                 width = startButtonRect.width,
@@ -1162,7 +1162,8 @@ class MatchScreen(
 
     private fun showLobbyPairingGate(): Boolean = presenter.requiresHostPlaybackPairing()
 
-    private fun showLobbyPrimaryButton(): Boolean = presenter.isLocalHost
+    private fun showLobbyPrimaryButton(): Boolean = presenter.isLocalHost &&
+        (showLobbyPairingGate() || presenter.canStartLobbyMatch())
 
     private fun lobbyPrimaryActionText(): String {
         return if (showLobbyPairingGate()) {
@@ -1173,6 +1174,14 @@ class MatchScreen(
             }
         } else {
             "START"
+        }
+    }
+
+    private fun lobbyWaitingText(): String {
+        return if (presenter.isLocalHost) {
+            "WAITING FOR PLAYERS"
+        } else {
+            "WAITING FOR HOST"
         }
     }
 

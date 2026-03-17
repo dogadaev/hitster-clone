@@ -30,10 +30,12 @@ import java.util.concurrent.ConcurrentHashMap
 class LanSessionServer(
     private val port: Int = DEFAULT_SESSION_SERVER_PORT,
     private val commandListener: HostCommandListener,
+    private val onClientDisconnected: (String) -> Unit = {},
     private val discoveryAnnouncer: LanHostDiscoveryAnnouncer,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val sessions = ConcurrentHashMap.newKeySet<DefaultWebSocketServerSession>()
+    private val sessionActorIds = ConcurrentHashMap<DefaultWebSocketServerSession, String>()
     private var engine: ApplicationEngine? = null
 
     fun start() {
@@ -56,10 +58,14 @@ class LanSessionServer(
                             val command = runCatching {
                                 protocolJson.decodeFromString<ClientCommandDto>(text)
                             }.getOrNull() ?: continue
+                            if (command is ClientCommandDto.JoinSession) {
+                                sessionActorIds[this] = command.actorId
+                            }
                             commandListener.onCommand(command)
                         }
                     } finally {
                         sessions.remove(this)
+                        sessionActorIds.remove(this)?.let(onClientDisconnected)
                     }
                 }
             }
@@ -86,6 +92,7 @@ class LanSessionServer(
         engine?.stop(250, 1_000)
         engine = null
         sessions.clear()
+        sessionActorIds.clear()
         scope.cancel()
     }
 }

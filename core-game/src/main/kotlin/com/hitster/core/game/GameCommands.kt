@@ -10,6 +10,10 @@ sealed interface GameCommand {
         val displayName: String,
     ) : GameCommand
 
+    data class LeaveSession(
+        val playerId: PlayerId,
+    ) : GameCommand
+
     data class StartGame(
         val actorId: PlayerId,
     ) : GameCommand
@@ -51,4 +55,3 @@ sealed interface ReducerResult {
         val reason: String,
     ) : ReducerResult
 }
-

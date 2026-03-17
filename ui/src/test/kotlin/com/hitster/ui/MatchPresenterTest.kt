@@ -118,6 +118,28 @@ class MatchPresenterTest {
     }
 
     @Test
+    fun `host cannot start a lobby without at least one guest`() {
+        val presenter = MatchPresenter(
+            reducer = reducer,
+            playbackController = NoOpPlaybackController(),
+            hostId = hostId,
+            localPlayerId = hostId,
+            initialState = GameSessionFactory.createLobby(
+                sessionId = SessionId("session"),
+                hostId = hostId,
+                hostName = "Host",
+                deckEntries = deckEntries(),
+            ),
+        )
+
+        presenter.startMatch()
+
+        assertEquals("At least one guest must join before starting.", presenter.lastError)
+        assertFalse(presenter.canStartLobbyMatch())
+        assertEquals(com.hitster.core.model.MatchStatus.LOBBY, presenter.state.status)
+    }
+
+    @Test
     fun `prepare host playback updates readiness once the controller connects`() {
         val playbackController = FakePlaybackController(
             initialState = PlaybackSessionState.Disconnected,
@@ -175,6 +197,34 @@ class MatchPresenterTest {
         assertTrue(snapshotPublished.await(1, TimeUnit.SECONDS))
         assertEquals(2, presenter.state.players.size)
         assertEquals("guest-background", presenter.state.players.last().id.value)
+    }
+
+    @Test
+    fun `remote disconnect removes guest from the lobby and publishes a snapshot`() {
+        val presenter = MatchPresenter(
+            reducer = reducer,
+            playbackController = NoOpPlaybackController(),
+            hostId = hostId,
+            localPlayerId = hostId,
+            initialState = lobbyWithGuest(deckEntries()),
+        )
+        val snapshotPublished = CountDownLatch(1)
+        presenter.snapshotListener = { snapshot ->
+            if (snapshot.players.none { it.id == guestId.value }) {
+                snapshotPublished.countDown()
+            }
+        }
+
+        val disconnectThread = Thread {
+            presenter.handleRemoteDisconnect(guestId.value)
+        }
+
+        disconnectThread.start()
+        disconnectThread.join()
+
+        assertTrue(snapshotPublished.await(1, TimeUnit.SECONDS))
+        assertEquals(listOf(hostId), presenter.state.players.map { it.id })
+        assertTrue(!presenter.canStartLobbyMatch())
     }
 
     private fun lobbyWithGuest(entries: List<PlaylistEntry>) =
