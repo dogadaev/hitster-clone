@@ -836,6 +836,9 @@ class MatchScreen(
     private fun drawMatchTextures() {
         drawPanelTexture(heroRect, color(0xCFE1FF10))
         drawPanelTexture(timelinePanelRect, color(0xC9DBFF12))
+        if (showActionButton()) {
+            drawActionButtonGlow(actionButtonRect, isActionButtonEnabled())
+        }
         drawRepeatedTexture(
             grainTexture,
             timelinePanelRect.x + 2f,
@@ -845,6 +848,34 @@ class MatchScreen(
             color(0x7FA9DD0C),
             timelinePanelRect.width / 116f,
             max(1f, (timelinePanelRect.height - panelHeaderHeight) / 116f),
+        )
+    }
+
+    private fun drawActionButtonGlow(rect: Rectangle, enabled: Boolean) {
+        val expansion = if (enabled) 56f else 42f
+        val outerTint = if (enabled) {
+            color(0xF4BA4FFF)
+        } else {
+            color(0xD5B16DCC)
+        }
+        val innerTint = if (enabled) {
+            color(0xFFF2B4FF)
+        } else {
+            color(0xFFF2CFB8)
+        }
+        drawGlow(
+            rect.x - expansion * 0.5f,
+            rect.y - expansion * 0.52f,
+            rect.width + expansion,
+            rect.height + expansion,
+            colorWithAlpha(outerTint.toRgba(), if (enabled) 0.16f else 0.08f),
+        )
+        drawGlow(
+            rect.x + rect.width * 0.04f,
+            rect.y + rect.height * 0.06f,
+            rect.width * 0.92f,
+            rect.height * 0.92f,
+            colorWithAlpha(innerTint.toRgba(), if (enabled) 0.10f else 0.05f),
         )
     }
 
@@ -1065,45 +1096,68 @@ class MatchScreen(
         val radius = min(rect.width, rect.height) / 2f
         val centerX = rect.x + rect.width / 2f
         val centerY = rect.y + rect.height / 2f
-        val rimColor = if (enabled) 0xFFF2C56C else 0xF5D9A1FF
-        val lowerColor = if (enabled) 0xD8891EFF else 0xC9984BFF
-        val upperColor = if (enabled) 0xF7BE52FF else 0xE0BF76FF
+        val outerShadow = if (enabled) 0x170801FFL else 0x1C0E03FFL
+        val outerRing = if (enabled) 0x4A2404FFL else 0x573915FFL
+        val rimColor = if (enabled) 0xFFF3C86EFFL else 0xE1C28CFFL
+        val innerRim = if (enabled) 0xFFF9E2A5FFL else 0xF0DDB3FFL
+        val bodyLower = if (enabled) 0xD78418FFL else 0xBA8E43FFL
+        val bodyUpper = if (enabled) 0xF7C759FFL else 0xD8B36AFFL
+        val coreColor = if (enabled) 0xE8A93CFFL else 0xC59A58FFL
+        val highlightColor = if (enabled) 0xFFF5C6FFL else 0xFFF0D0FFL
+        val lowerShade = if (enabled) 0x8F5310FFL else 0x7E6130FFL
 
-        repeat(4) { layer ->
-            val expansion = 6f + layer * 4f
-            val alpha = 0.15f - layer * 0.025f
-            shapeRenderer.color = colorWithAlpha(0x140901FF, alpha)
-            shapeRenderer.circle(centerX, centerY - 8f + layer * 1.2f, radius + expansion, 64)
+        repeat(5) { layer ->
+            val expansion = 5f + layer * 4.6f
+            val alpha = 0.13f - layer * 0.02f
+            shapeRenderer.color = colorWithAlpha(outerShadow, alpha)
+            shapeRenderer.circle(centerX, centerY - radius * 0.16f + layer * 1.4f, radius + expansion, 72)
         }
 
+        shapeRenderer.color = color(outerRing)
+        shapeRenderer.circle(centerX, centerY - radius * 0.02f, radius * 1.05f, 72)
+
         shapeRenderer.color = color(rimColor)
-        shapeRenderer.circle(centerX, centerY, radius, 64)
+        shapeRenderer.circle(centerX, centerY, radius, 72)
 
-        shapeRenderer.color = color(lowerColor)
-        shapeRenderer.circle(centerX, centerY - radius * 0.04f, radius * 0.94f, 64)
+        shapeRenderer.color = color(innerRim)
+        shapeRenderer.circle(centerX, centerY + radius * 0.02f, radius * 0.93f, 72)
 
-        shapeRenderer.color = color(upperColor)
-        shapeRenderer.circle(centerX, centerY + radius * 0.14f, radius * 0.78f, 64)
+        shapeRenderer.color = color(bodyLower)
+        shapeRenderer.circle(centerX, centerY - radius * 0.03f, radius * 0.86f, 72)
 
-        shapeRenderer.color = colorWithAlpha(0xFFF7D68EFF, if (enabled) 0.34f else 0.20f)
-        shapeRenderer.circle(centerX, centerY + radius * 0.34f, radius * 0.36f, 48)
+        shapeRenderer.color = color(bodyUpper)
+        shapeRenderer.circle(centerX, centerY + radius * 0.17f, radius * 0.72f, 72)
 
-        shapeRenderer.color = colorWithAlpha(0x8E5614FF, if (enabled) 0.28f else 0.18f)
-        shapeRenderer.circle(centerX, centerY - radius * 0.28f, radius * 0.60f, 64)
+        shapeRenderer.color = color(coreColor)
+        shapeRenderer.circle(centerX, centerY - radius * 0.11f, radius * 0.56f, 72)
+
+        shapeRenderer.color = colorWithAlpha(highlightColor, if (enabled) 0.52f else 0.28f)
+        shapeRenderer.circle(centerX - radius * 0.08f, centerY + radius * 0.34f, radius * 0.38f, 54)
+
+        shapeRenderer.color = colorWithAlpha(highlightColor, if (enabled) 0.22f else 0.12f)
+        shapeRenderer.circle(centerX + radius * 0.18f, centerY + radius * 0.12f, radius * 0.18f, 42)
+
+        shapeRenderer.color = colorWithAlpha(lowerShade, if (enabled) 0.22f else 0.16f)
+        shapeRenderer.circle(centerX, centerY - radius * 0.30f, radius * 0.52f, 72)
     }
 
     private fun drawFastForwardGlyph(rect: Rectangle, enabled: Boolean) {
-        val shadowColor = if (enabled) color(0x6A34109E) else color(0x5A34107A)
-        val glyphColor = if (enabled) color(0x28170BFF) else color(0x3D2A12E0)
-        val triangleWidth = rect.width * 0.22f
-        val triangleHeight = rect.height * 0.31f
-        val gap = triangleWidth * 0.10f
-        val centerY = rect.y + rect.height * 0.52f
+        val shadowColor = if (enabled) color(0x703406A8) else color(0x5D3E1D82)
+        val baseGlyphColor = if (enabled) color(0x8B4708FF) else color(0x7A5930FF)
+        val glyphColor = if (enabled) color(0xFFF2D0FF) else color(0xF3E2BCFF)
+        val triangleWidth = rect.width * 0.21f
+        val triangleHeight = rect.height * 0.28f
+        val gap = triangleWidth * 0.12f
+        val centerY = rect.y + rect.height * 0.51f
         val startX = rect.x + (rect.width - (triangleWidth * 2f + gap)) / 2f
 
         shapeRenderer.color = shadowColor
         drawRightTriangle(startX + 4f, centerY - triangleHeight / 2f - 5f, triangleWidth, triangleHeight)
         drawRightTriangle(startX + triangleWidth + gap + 4f, centerY - triangleHeight / 2f - 5f, triangleWidth, triangleHeight)
+
+        shapeRenderer.color = baseGlyphColor
+        drawRightTriangle(startX + 1.5f, centerY - triangleHeight / 2f - 1.5f, triangleWidth, triangleHeight)
+        drawRightTriangle(startX + triangleWidth + gap + 1.5f, centerY - triangleHeight / 2f - 1.5f, triangleWidth, triangleHeight)
 
         shapeRenderer.color = glyphColor
         drawRightTriangle(startX, centerY - triangleHeight / 2f, triangleWidth, triangleHeight)
@@ -1594,6 +1648,14 @@ class MatchScreen(
 
     private fun colorWithAlpha(rgba: Long, alphaMultiplier: Float): Color {
         return color(rgba).also { it.a *= clamp(alphaMultiplier, 0f, 1f) }
+    }
+
+    private fun Color.toRgba(): Long {
+        val red = (r * 255f).roundToInt().coerceIn(0, 255).toLong()
+        val green = (g * 255f).roundToInt().coerceIn(0, 255).toLong()
+        val blue = (b * 255f).roundToInt().coerceIn(0, 255).toLong()
+        val alpha = (a * 255f).roundToInt().coerceIn(0, 255).toLong()
+        return (red shl 24) or (green shl 16) or (blue shl 8) or alpha
     }
 
     private fun clamp(value: Float, minValue: Float, maxValue: Float): Float {
