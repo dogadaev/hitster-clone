@@ -2100,7 +2100,7 @@ class MatchScreen(
 
     private fun drawTargetDoubtArrow() {
         val arrowX = doubtArrowXForMainTimeline() ?: return
-        drawDoubtArrow(arrowX, timelineCardBottom(cardHeight) + cardHeight + 6f)
+        drawDoubtArrow(arrowX, timelineCardBottom(cardHeight) + cardHeight + 2f)
     }
 
     private fun doubtArrowXForMainTimeline(): Float? {
@@ -2125,56 +2125,37 @@ class MatchScreen(
         existingCardCount: Int,
         slotIndex: Int,
     ): Float {
-        if (existingCardCount <= 0) {
-            val arrangement = layout.arrangement(1)
-            return arrangement.cardLefts.first() + arrangement.cardWidth / 2f
-        }
-        val arrangement = layout.arrangement(existingCardCount)
-        val clampedSlot = slotIndex.coerceIn(0, existingCardCount)
-        return when (clampedSlot) {
-            0 -> {
-                arrangement.cardLefts.first() - max(18f, arrangement.cardWidth * 0.18f)
-            }
-
-            existingCardCount -> {
-                arrangement.cardLefts.last() + arrangement.cardWidth + max(18f, arrangement.cardWidth * 0.18f)
-            }
-
-            else -> {
-                val leftCardRight = arrangement.cardLefts[clampedSlot - 1] + arrangement.cardWidth
-                val rightCardLeft = arrangement.cardLefts[clampedSlot]
-                (leftCardRight + rightCardLeft) / 2f
-            }
-        }
+        val centers = layout.insertionSlotCenters(existingCardCount)
+        return centers[slotIndex.coerceIn(0, centers.lastIndex)]
     }
 
     private fun drawDoubtArrow(centerX: Float, tipY: Float) {
-        shapeRenderer.color = colorWithAlpha(0x3A2007FF, 0.28f)
+        shapeRenderer.color = colorWithAlpha(0x3A2007FF, 0.24f)
         shapeRenderer.triangle(
             centerX,
-            tipY - 2f,
-            centerX - 18f,
-            tipY + 22f,
-            centerX + 18f,
-            tipY + 22f,
+            tipY - 3f,
+            centerX - 22f,
+            tipY + 29f,
+            centerX + 22f,
+            tipY + 29f,
         )
         shapeRenderer.color = color(0xFFF5CC63FF)
         shapeRenderer.triangle(
             centerX,
             tipY,
-            centerX - 14f,
-            tipY + 18f,
-            centerX + 14f,
-            tipY + 18f,
+            centerX - 18f,
+            tipY + 24f,
+            centerX + 18f,
+            tipY + 24f,
         )
         shapeRenderer.color = colorWithAlpha(0xFFFCE0A8FF, 0.42f)
         shapeRenderer.triangle(
             centerX,
-            tipY + 5f,
-            centerX - 8f,
-            tipY + 17f,
-            centerX + 8f,
-            tipY + 17f,
+            tipY + 6f,
+            centerX - 10f,
+            tipY + 21f,
+            centerX + 10f,
+            tipY + 21f,
         )
     }
 
