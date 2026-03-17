@@ -4,6 +4,7 @@ import android.content.Context
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.HostEventDto
 import com.hitster.networking.SessionAdvertisementDto
+import com.hitster.core.model.PlayerId
 import com.hitster.playback.api.PlaybackController
 import com.hitster.transport.jvm.DEFAULT_SESSION_SERVER_PORT
 import com.hitster.transport.jvm.LanHostDiscoveryAnnouncer
@@ -17,6 +18,7 @@ import com.hitster.ui.HostDiscoveryService
 import com.hitster.ui.HostedSessionTransport
 import com.hitster.ui.MatchController
 import com.hitster.ui.UiBootstrapper
+import java.util.UUID
 
 class AndroidPlatformServices(
     private val applicationContext: Context,
@@ -92,6 +94,9 @@ class AndroidPlatformServices(
         return UiBootstrapper.createRemoteGuestController(
             advertisement = advertisement,
             displayName = displayName,
+            playerIdFactory = {
+                PlayerId(resolveGuestPlayerId(advertisement.sessionId))
+            },
             clientFactory = { sessionAdvertisement, actorId, playerDisplayName, onEvent, onDisconnected, onStatusChanged ->
                 object : GuestSessionClient {
                     private val client = LanSessionClient(
@@ -101,6 +106,7 @@ class AndroidPlatformServices(
                         displayName = playerDisplayName,
                         clientEventListener = onEvent,
                         onDisconnected = onDisconnected,
+                        onStatusChanged = onStatusChanged,
                     )
 
                     override fun connect() {
@@ -118,5 +124,17 @@ class AndroidPlatformServices(
                 }
             },
         )
+    }
+
+    private fun resolveGuestPlayerId(sessionId: String): String {
+        val preferences = applicationContext.getSharedPreferences("hitster_guest_identity", Context.MODE_PRIVATE)
+        val key = "guest_player_id:$sessionId"
+        val existing = preferences.getString(key, null)?.takeIf { it.isNotBlank() }
+        if (existing != null) {
+            return existing
+        }
+        val generated = "guest-${UUID.randomUUID().toString().replace("-", "")}"
+        preferences.edit().putString(key, generated).apply()
+        return generated
     }
 }

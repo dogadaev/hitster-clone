@@ -81,6 +81,38 @@ class HostGameReducerTest {
     }
 
     @Test
+    fun `existing player can reattach during an active match without duplicating the roster`() {
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("draw-host", 1990),
+                entry("draw-guest", 2010),
+            ),
+        )
+        state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
+        state = state.copy(
+            players = state.players.map { player ->
+                if (player.id == guestId) player.copy(connected = false) else player
+            },
+        )
+
+        val accepted = assertIs<ReducerResult.Accepted>(
+            reducer.reduce(
+                state,
+                GameCommand.JoinSession(
+                    playerId = guestId,
+                    displayName = "Guest",
+                ),
+            ),
+        )
+
+        assertEquals(2, accepted.state.players.size)
+        assertEquals(true, accepted.state.requirePlayer(guestId)?.connected)
+        assertTrue(accepted.effects.any { it is GameEffect.PublishSnapshot })
+    }
+
+    @Test
     fun `start draw move and end turn advances game`() {
         var state = lobbyWithGuest(
             listOf(

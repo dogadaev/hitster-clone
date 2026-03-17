@@ -151,15 +151,24 @@ class BrowserGuestSessionClient(
             scheduleReconnect()
             return
         }
+        if (hasReceivedHostEvent) {
+            scheduleReconnect(message)
+            return
+        }
         disconnect(message)
     }
 
-    private fun scheduleReconnect() {
+    private fun scheduleReconnect(reason: String? = null) {
         if (reconnectScheduled || closedByClient) {
             return
         }
+        sessionId = null
+        nextSequence = 0L
+        pollScheduled = false
+        hostEventTimeoutGeneration += 1
+        clearGuestCloseUrl()
         reconnectScheduled = true
-        onStatusChanged("Retrying guest connection...")
+        onStatusChanged(reason ?: "Retrying guest connection...")
         Window.setTimeout(
             object : TimerHandler {
                 override fun onTimer() {
@@ -243,13 +252,21 @@ class BrowserGuestSessionClient(
                 }
                 nextSequence = response.nextSequence
                 if (response.terminalError != null) {
-                    disconnect(response.terminalError)
+                    if (hasReceivedHostEvent) {
+                        scheduleReconnect("Connection to the host was interrupted. Reconnecting...")
+                    } else {
+                        disconnect(response.terminalError)
+                    }
                     return@getJson
                 }
                 schedulePoll()
             },
-            onFailure = {
+            onFailure = { statusCode ->
                 if (closedByClient) {
+                    return@getJson
+                }
+                if (statusCode == 404 && hasReceivedHostEvent) {
+                    scheduleReconnect("Reconnecting to the host...")
                     return@getJson
                 }
                 onStatusChanged("Retrying host poll...")
@@ -261,7 +278,7 @@ class BrowserGuestSessionClient(
     private fun getJson(
         path: String,
         onSuccess: (String) -> Unit,
-        onFailure: () -> Unit,
+        onFailure: (Int) -> Unit,
     ) {
         val request = XMLHttpRequest.create()
         request.open("GET", path, true)
@@ -275,7 +292,7 @@ class BrowserGuestSessionClient(
                     if (request.status in 200..299) {
                         onSuccess(request.responseText ?: "")
                     } else {
-                        onFailure()
+                        onFailure(request.status.toInt())
                     }
                 }
             },

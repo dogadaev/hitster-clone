@@ -36,6 +36,7 @@ class LanSessionServer(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val sessions = ConcurrentHashMap.newKeySet<DefaultWebSocketServerSession>()
     private val sessionActorIds = ConcurrentHashMap<DefaultWebSocketServerSession, String>()
+    private val actorSessionCounts = ConcurrentHashMap<String, Int>()
     private var engine: ApplicationEngine? = null
 
     fun start() {
@@ -59,13 +60,12 @@ class LanSessionServer(
                                 protocolJson.decodeFromString<ClientCommandDto>(text)
                             }.getOrNull() ?: continue
                             if (command is ClientCommandDto.JoinSession) {
-                                sessionActorIds[this] = command.actorId
+                                registerActor(this, command.actorId)
                             }
                             commandListener.onCommand(command)
                         }
                     } finally {
-                        sessions.remove(this)
-                        sessionActorIds.remove(this)?.let(onClientDisconnected)
+                        removeSession(this)
                     }
                 }
             }
@@ -81,7 +81,7 @@ class LanSessionServer(
                 runCatching {
                     session.send(Frame.Text(payload))
                 }.onFailure {
-                    sessions.remove(session)
+                    removeSession(session)
                 }
             }
         }
@@ -93,6 +93,40 @@ class LanSessionServer(
         engine = null
         sessions.clear()
         sessionActorIds.clear()
+        actorSessionCounts.clear()
         scope.cancel()
+    }
+
+    private fun registerActor(
+        session: DefaultWebSocketServerSession,
+        actorId: String,
+    ) {
+        val previousActorId = sessionActorIds.put(session, actorId)
+        if (previousActorId == actorId) {
+            return
+        }
+        previousActorId?.let(::decrementActorCount)
+        actorSessionCounts.compute(actorId) { _, existingCount ->
+            (existingCount ?: 0) + 1
+        }
+    }
+
+    private fun removeSession(session: DefaultWebSocketServerSession) {
+        sessions.remove(session)
+        sessionActorIds.remove(session)?.let(::decrementActorCount)
+    }
+
+    private fun decrementActorCount(actorId: String) {
+        val remainingCount = actorSessionCounts.compute(actorId) { _, existingCount ->
+            val nextCount = (existingCount ?: 1) - 1
+            if (nextCount > 0) {
+                nextCount
+            } else {
+                null
+            }
+        }
+        if (remainingCount == null) {
+            onClientDisconnected(actorId)
+        }
     }
 }

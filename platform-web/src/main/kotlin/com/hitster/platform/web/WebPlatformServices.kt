@@ -31,6 +31,9 @@ class WebPlatformServices : AppPlatformServices {
         return UiBootstrapper.createRemoteGuestController(
             advertisement = advertisement,
             displayName = displayName,
+            playerIdFactory = {
+                resolveBrowserGuestPlayerId(advertisement.sessionId)
+            },
             clientFactory = { sessionAdvertisement, actorId, playerDisplayName, onEvent, onDisconnected, onStatusChanged ->
                 BrowserGuestSessionClient(
                     startEndpoint = "/api/guest-sessions/start",

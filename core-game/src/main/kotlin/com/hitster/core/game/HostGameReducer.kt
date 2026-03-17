@@ -31,11 +31,20 @@ class HostGameReducer(
         state: GameState,
         command: GameCommand.JoinSession,
     ): ReducerResult {
+        val existingPlayer = state.players.firstOrNull { it.id == command.playerId }
+        if (existingPlayer != null) {
+            val reattachedPlayer = existingPlayer.copy(
+                displayName = command.displayName,
+                connected = true,
+            )
+            val nextState = state.copy(
+                revision = state.revision + 1,
+                players = state.players.replacePlayer(reattachedPlayer),
+            )
+            return accept(nextState)
+        }
         if (state.status != MatchStatus.LOBBY) {
             return reject(state, "Players can only join while the match is still in the lobby.")
-        }
-        if (state.players.any { it.id == command.playerId }) {
-            return reject(state, "Player '${command.playerId.value}' is already in the session.")
         }
 
         val nextState = state.copy(
