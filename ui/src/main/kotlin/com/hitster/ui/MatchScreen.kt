@@ -831,8 +831,9 @@ class MatchScreen(
             width = playerWidth,
             height = heroRect.height,
             scale = if (toolbarStatus == null) 1.08f else 0.96f,
-            color = Color.WHITE,
+            color = activeTurnToolbarColor(),
             verticalAlign = VerticalTextAlign.Center,
+            shadowColor = activeTurnToolbarShadowColor(),
         )
         drawTextBlock(
             text = "Turn ${presenter.state.turn?.number ?: 0}",
@@ -959,19 +960,19 @@ class MatchScreen(
     }
 
     private fun drawInactiveTurnFilter() {
-        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xAAB6C61B))
-        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x7388A212))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xBDC7D736))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x7D90AC26))
         drawRepeatedTexture(
             grainTexture,
             0f,
             0f,
             layoutWorldWidth,
             layoutWorldHeight,
-            color(0xC4CEDB08),
+            color(0xD6DFEB10),
             layoutWorldWidth / 96f,
             layoutWorldHeight / 96f,
         )
-        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x00000022))
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x0000002A))
     }
 
     private fun fillHero(rect: Rectangle) {
@@ -1202,6 +1203,22 @@ class MatchScreen(
             "YOUR TURN"
         } else {
             "${turnPlayer.displayName.uppercase()} TURN"
+        }
+    }
+
+    private fun activeTurnToolbarColor(): Color {
+        return if (isLocalPlayersTurn()) {
+            color(0xF4CF79FF)
+        } else {
+            Color.WHITE
+        }
+    }
+
+    private fun activeTurnToolbarShadowColor(): Color {
+        return if (isLocalPlayersTurn()) {
+            color(0x533106A6)
+        } else {
+            color(0x02060CB8)
         }
     }
 
