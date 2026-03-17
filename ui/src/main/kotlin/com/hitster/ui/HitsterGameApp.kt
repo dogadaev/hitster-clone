@@ -49,6 +49,7 @@ class HitsterGameApp(
             GuestDiscoveryScreen(
                 discoveryService = platformServices.createGuestDiscoveryService(),
                 showBackButton = canGoBack,
+                autoJoinSingleHost = !platformServices.supportsHosting,
                 onBack = ::openRoleSelection,
                 onHostSelected = { advertisement ->
                     val controller = platformServices.createRemoteGuestController(

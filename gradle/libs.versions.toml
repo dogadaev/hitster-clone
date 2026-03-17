@@ -12,6 +12,7 @@ androidx-appcompat = "1.7.0"
 gson = "2.11.0"
 androidx-browser = "1.8.0"
 spotify-auth = "2.1.1"
+jmdns = "3.6.3"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -42,3 +43,4 @@ androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "a
 androidx-browser = { module = "androidx.browser:browser", version.ref = "androidx-browser" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 spotify-auth = { module = "com.spotify.android:auth", version.ref = "spotify-auth" }
+jmdns = { module = "org.jmdns:jmdns", version.ref = "jmdns" }

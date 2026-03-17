@@ -1,20 +1,21 @@
-package com.hitster.platform.web
+package com.hitster.transport.jvm.browser
 
+import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.encodeClientCommandPayload
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.http.HttpMethod
-import io.ktor.websocket.close
 import io.ktor.websocket.Frame
+import io.ktor.websocket.close
 import io.ktor.websocket.readReason
 import io.ktor.websocket.readText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -44,7 +45,7 @@ class BrowserGuestSessionRegistry {
             hostAddress = request.hostAddress,
             serverPort = request.serverPort,
             joinPayload = encodeClientCommandPayload(
-                com.hitster.networking.ClientCommandDto.JoinSession(
+                ClientCommandDto.JoinSession(
                     actorId = request.actorId,
                     displayName = request.displayName,
                 ),

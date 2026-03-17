@@ -18,6 +18,7 @@ import com.hitster.networking.SessionAdvertisementDto
 class GuestDiscoveryScreen(
     private val discoveryService: HostDiscoveryService,
     private val showBackButton: Boolean,
+    private val autoJoinSingleHost: Boolean,
     private val onBack: () -> Unit,
     private val onHostSelected: (SessionAdvertisementDto) -> Unit,
 ) : ScreenAdapter() {
@@ -33,6 +34,7 @@ class GuestDiscoveryScreen(
     private val hostRects = mutableListOf<Pair<Rectangle, SessionAdvertisementDto>>()
     @Volatile
     private var discoveredHosts: List<SessionAdvertisementDto> = emptyList()
+    private var autoJoinSessionId: String? = null
 
     override fun show() {
         titleFont = createUiFont(70)
@@ -46,6 +48,12 @@ class GuestDiscoveryScreen(
 
     override fun render(delta: Float) {
         updateLayout()
+        val autoJoinHost = if (autoJoinSingleHost) discoveredHosts.singleOrNull() else null
+        if (autoJoinHost != null && autoJoinSessionId != autoJoinHost.sessionId) {
+            autoJoinSessionId = autoJoinHost.sessionId
+            onHostSelected(autoJoinHost)
+            return
+        }
         viewport.apply()
         Gdx.gl.glClearColor(0.02f, 0.05f, 0.11f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)

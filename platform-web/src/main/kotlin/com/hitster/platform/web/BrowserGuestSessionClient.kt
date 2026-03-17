@@ -6,6 +6,10 @@ import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.networking.decodeHostEventPayload
 import com.hitster.networking.encodeClientCommandPayload
 import com.hitster.networking.protocolJson
+import com.hitster.transport.jvm.browser.BrowserGuestSessionCommandRequest
+import com.hitster.transport.jvm.browser.BrowserGuestSessionPollResponse
+import com.hitster.transport.jvm.browser.BrowserGuestSessionStartRequest
+import com.hitster.transport.jvm.browser.BrowserGuestSessionStartResponse
 import com.hitster.ui.GuestSessionClient
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -251,11 +255,12 @@ class BrowserGuestSessionClient(
                     onEvent(event)
                 }
                 nextSequence = response.nextSequence
-                if (response.terminalError != null) {
+                val terminalError = response.terminalError
+                if (terminalError != null) {
                     if (hasReceivedHostEvent) {
                         scheduleReconnect("Connection to the host was interrupted. Reconnecting...")
                     } else {
-                        disconnect(response.terminalError)
+                        disconnect(terminalError)
                     }
                     return@getJson
                 }
