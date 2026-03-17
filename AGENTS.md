@@ -468,6 +468,7 @@ When implementing features:
 - prefer simple implementations that preserve future extensibility
 - keep project-local Codex defaults in `.codex/config.toml`; for this repo use `approval_policy = "never"` and `sandbox_mode = "danger-full-access"` unless the user explicitly changes them
 - after creating a commit, push it to the configured remote in the same turn unless the user explicitly says not to
+- when a completed change affects Android/mobile gameplay behavior, rebuild or reuse the latest APK as appropriate and reinstall it on the connected device before closing the task
 - do not sacrifice architecture cleanliness for short-term convenience unless explicitly required
 - when a user request materially affects core functionality or future maintainability, update this file carefully so the requirement is preserved
 - temporary local test automation such as a bot player must remain isolated in separate files/controllers and interact through narrow presenter or player-action APIs rather than UI hotseat switching
