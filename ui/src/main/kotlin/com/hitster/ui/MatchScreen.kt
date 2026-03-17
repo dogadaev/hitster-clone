@@ -340,19 +340,20 @@ class MatchScreen(
             val arrangement = timelineLayout.arrangement(player.timeline.cards.size)
             player.timeline.cards.forEachIndexed { index, card ->
                 val animatedLeft = animatedLeft(card.id, arrangement.cardLefts[index], animationAlpha)
+                val palette = DecadeCardPalettes.forYear(card.releaseYear)
                 visibleCardIds += card.id
                 timelineCardVisuals += TimelineCardVisual(
                     id = card.id,
-                rect = Rectangle(animatedLeft, cardBottom, arrangement.cardWidth, cardHeight),
-                face = CardFace.Revealed,
-                topColor = 0xF7E9D1FF,
-                bottomColor = 0xDCC4A6FF,
-                edgeColor = 0xFFF6E7CA,
-                primaryText = card.title,
-                secondaryText = card.artist,
-                tertiaryText = card.releaseYear.toString(),
-            )
-        }
+                    rect = Rectangle(animatedLeft, cardBottom, arrangement.cardWidth, cardHeight),
+                    face = CardFace.Revealed,
+                    topColor = palette.topColor,
+                    bottomColor = palette.bottomColor,
+                    edgeColor = palette.edgeColor,
+                    primaryText = card.title,
+                    secondaryText = card.artist,
+                    tertiaryText = card.releaseYear.toString(),
+                )
+            }
             animatedPendingCardLeft = null
             animatedCardLefts.keys.retainAll(visibleCardIds)
             return
@@ -376,15 +377,16 @@ class MatchScreen(
         }
         player.timeline.cards.forEachIndexed { index, card ->
             val visualLeft = animatedLeft(card.id, arrangement.committedCardLefts[index], animationAlpha)
+            val palette = DecadeCardPalettes.forYear(card.releaseYear)
             animatedCardLefts[card.id] = visualLeft
             visibleCardIds += card.id
             timelineCardVisuals += TimelineCardVisual(
                 id = card.id,
                 rect = Rectangle(visualLeft, cardBottom, arrangement.cardWidth, cardHeight),
                 face = CardFace.Revealed,
-                topColor = 0xF7E9D1FF,
-                bottomColor = 0xDCC4A6FF,
-                edgeColor = 0xFFF6E7CA,
+                topColor = palette.topColor,
+                bottomColor = palette.bottomColor,
+                edgeColor = palette.edgeColor,
                 primaryText = card.title,
                 secondaryText = card.artist,
                 tertiaryText = card.releaseYear.toString(),
