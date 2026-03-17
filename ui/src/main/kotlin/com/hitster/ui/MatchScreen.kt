@@ -1217,13 +1217,7 @@ class MatchScreen(
             }
 
             showDoubtToggleButton() -> {
-                val isActive = isDoubtToggleActive()
-                fillButton(
-                    doubtButtonRect,
-                    if (isActive) 0x6FD8FFFF else 0xF6C96BFF,
-                    if (isActive) 0x2C8ECAFF else 0xD78B25FF,
-                    if (isActive) 0xD9F6FFFF else 0xFFF2C286,
-                )
+                fillDoubtToggleButton(isDoubtToggleActive())
             }
         }
     }
@@ -1233,6 +1227,7 @@ class MatchScreen(
             drawActionButtonGlow(actionButtonRect, isActionButtonEnabled())
         }
         if (showDoubtToggleButton()) {
+            drawDoubtButtonGlow(isDoubtToggleActive())
             drawPanelTexture(
                 doubtButtonRect,
                 if (isDoubtToggleActive()) color(0xD4F6FF16) else color(0xFFF3D712),
@@ -1245,17 +1240,27 @@ class MatchScreen(
 
     private fun drawFloatingControlsText() {
         if (showDoubtToggleButton()) {
+            val isActive = isDoubtToggleActive()
+            val labelColor = if (isActive) color(0x041C2FFF) else color(0x1A1308FF)
+            val fittedLabel = fitSingleLineText(
+                text = if (isActive) "DOUBTING" else "DOUBT",
+                color = labelColor,
+                maxWidth = doubtButtonRect.width - 28f,
+                preferredScale = 0.92f,
+                minimumScale = 0.70f,
+            )
             drawTextBlock(
-                text = if (isDoubtToggleActive()) "DOUBTING" else "DOUBT",
-                x = doubtButtonRect.x,
-                y = doubtButtonRect.y + doubtButtonRect.height * 0.10f,
-                width = doubtButtonRect.width,
-                height = doubtButtonRect.height * 0.8f,
-                scale = 0.92f,
-                color = if (isDoubtToggleActive()) color(0x041C2FFF) else color(0x1A1308FF),
+                text = fittedLabel.text,
+                x = doubtButtonRect.x + 8f,
+                y = doubtButtonRect.y + doubtButtonRect.height * 0.08f,
+                width = doubtButtonRect.width - 16f,
+                height = doubtButtonRect.height * 0.84f,
+                scale = fittedLabel.scale,
+                color = labelColor,
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0xFFF6E29A2C),
+                shadowColor = if (isActive) color(0xD6F7FF52) else color(0xFFF6E29A2C),
+                enforceMinimumScale = false,
             )
         }
         if (showCoinsShortcutButton()) {
@@ -1518,6 +1523,56 @@ class MatchScreen(
         fillGradientRect(rect.x, rect.y, rect.width, rect.height, bottomColor, bottomColor, topColor, topColor)
         fillRect(rect.x + 8f, rect.y + rect.height - 12f, rect.width - 16f, 3f, 0xFFFFFF1A)
         drawFrame(rect, edgeColor, 2f)
+    }
+
+    private fun fillDoubtToggleButton(isActive: Boolean) {
+        val shadowColor = if (isActive) 0x319BC8FF else 0xD58A22FF
+        val bottomLeft = if (isActive) 0x287FB8FF else 0xC97717FF
+        val bottomRight = if (isActive) 0x2C8CC3FF else 0xD4831FFF
+        val topRight = if (isActive) 0x78DEFFFF else 0xF7D16FFF
+        val topLeft = if (isActive) 0x6FD2F8FF else 0xF3BF56FF
+        val outerEdge = if (isActive) 0xECFCFFFF else 0xFFF4D0FF
+        val innerEdge = if (isActive) 0xCBF3FFB8 else 0xFFF1BF96
+
+        drawDropShadow(doubtButtonRect, 14f, shadowColor)
+        fillGradientRect(
+            doubtButtonRect.x,
+            doubtButtonRect.y,
+            doubtButtonRect.width,
+            doubtButtonRect.height,
+            bottomLeft,
+            bottomRight,
+            topRight,
+            topLeft,
+        )
+        fillRect(
+            doubtButtonRect.x + 8f,
+            doubtButtonRect.y + doubtButtonRect.height - 11f,
+            doubtButtonRect.width - 16f,
+            3f,
+            if (isActive) 0xEFFFFF2A else 0xFFF7D01F,
+        )
+        drawFrame(doubtButtonRect, outerEdge, 2f)
+        drawFrame(
+            doubtButtonRect.x + 3f,
+            doubtButtonRect.y + 3f,
+            doubtButtonRect.width - 6f,
+            doubtButtonRect.height - 6f,
+            innerEdge,
+            1.5f,
+        )
+    }
+
+    private fun drawDoubtButtonGlow(isActive: Boolean) {
+        val glowTint = if (isActive) 0x8EEDFFFF else 0xFFE89DFF
+        val expansion = if (isActive) 42f else 36f
+        drawGlow(
+            doubtButtonRect.x - expansion * 0.42f,
+            doubtButtonRect.y - expansion * 0.36f,
+            doubtButtonRect.width + expansion * 0.84f,
+            doubtButtonRect.height + expansion * 0.72f,
+            colorWithAlpha(glowTint, if (isActive) 0.16f else 0.12f),
+        )
     }
 
     private fun fillCircularActionButton(rect: Rectangle, enabled: Boolean) {
@@ -2007,7 +2062,7 @@ class MatchScreen(
 
     private fun drawTargetDoubtArrow() {
         val arrowX = doubtArrowXForMainTimeline() ?: return
-        drawDoubtArrow(arrowX, timelineTrackRect.y + timelineTrackRect.height + 8f)
+        drawDoubtArrow(arrowX, timelineCardBottom(cardHeight) + cardHeight + 6f)
     }
 
     private fun doubtArrowXForMainTimeline(): Float? {
@@ -2037,51 +2092,51 @@ class MatchScreen(
             return arrangement.cardLefts.first() + arrangement.cardWidth / 2f
         }
         val arrangement = layout.arrangement(existingCardCount)
-        val centers = arrangement.cardLefts.map { it + arrangement.cardWidth / 2f }
         val clampedSlot = slotIndex.coerceIn(0, existingCardCount)
         return when (clampedSlot) {
             0 -> {
-                val delta = if (centers.size > 1) {
-                    (centers[1] - centers[0]) / 2f
-                } else {
-                    arrangement.cardWidth * 0.68f
-                }
-                centers.first() - delta
+                arrangement.cardLefts.first() - max(18f, arrangement.cardWidth * 0.18f)
             }
 
             existingCardCount -> {
-                val delta = if (centers.size > 1) {
-                    (centers.last() - centers[centers.lastIndex - 1]) / 2f
-                } else {
-                    arrangement.cardWidth * 0.68f
-                }
-                centers.last() + delta
+                arrangement.cardLefts.last() + arrangement.cardWidth + max(18f, arrangement.cardWidth * 0.18f)
             }
 
-            else -> (centers[clampedSlot - 1] + centers[clampedSlot]) / 2f
+            else -> {
+                val leftCardRight = arrangement.cardLefts[clampedSlot - 1] + arrangement.cardWidth
+                val rightCardLeft = arrangement.cardLefts[clampedSlot]
+                (leftCardRight + rightCardLeft) / 2f
+            }
         }
     }
 
-    private fun drawDoubtArrow(centerX: Float, bottomY: Float) {
-        shapeRenderer.color = colorWithAlpha(0x3A2007FF, 0.32f)
-        shapeRenderer.rect(centerX - 3f, bottomY - 4f, 6f, 26f)
+    private fun drawDoubtArrow(centerX: Float, tipY: Float) {
+        shapeRenderer.color = colorWithAlpha(0x3A2007FF, 0.28f)
         shapeRenderer.triangle(
             centerX,
-            bottomY + 34f,
+            tipY - 2f,
             centerX - 18f,
-            bottomY + 14f,
+            tipY + 22f,
             centerX + 18f,
-            bottomY + 14f,
+            tipY + 22f,
         )
-        shapeRenderer.color = color(0xFFF0BF56FF)
-        shapeRenderer.rect(centerX - 2f, bottomY, 4f, 24f)
+        shapeRenderer.color = color(0xFFF5CC63FF)
         shapeRenderer.triangle(
             centerX,
-            bottomY + 30f,
+            tipY,
             centerX - 14f,
-            bottomY + 12f,
+            tipY + 18f,
             centerX + 14f,
-            bottomY + 12f,
+            tipY + 18f,
+        )
+        shapeRenderer.color = colorWithAlpha(0xFFFCE0A8FF, 0.42f)
+        shapeRenderer.triangle(
+            centerX,
+            tipY + 5f,
+            centerX - 8f,
+            tipY + 17f,
+            centerX + 8f,
+            tipY + 17f,
         )
     }
 
