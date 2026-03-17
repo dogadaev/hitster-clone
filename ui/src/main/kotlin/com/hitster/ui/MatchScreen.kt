@@ -40,6 +40,7 @@ class MatchScreen(
     private val shapeRenderer = ShapeRenderer()
     private val batch = SpriteBatch()
     private lateinit var font: BitmapFont
+    private lateinit var flatTexture: Texture
     private lateinit var grainTexture: Texture
     private lateinit var glowTexture: Texture
     private lateinit var vignetteTexture: Texture
@@ -87,6 +88,7 @@ class MatchScreen(
 
     override fun show() {
         font = createFont()
+        flatTexture = createFlatTexture()
         grainTexture = createGrainTexture()
         glowTexture = createGlowTexture()
         vignetteTexture = createVignetteTexture()
@@ -149,9 +151,9 @@ class MatchScreen(
         }
 
         if (showInactiveTurnFilter()) {
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+            batch.begin()
             drawInactiveTurnFilter()
-            shapeRenderer.end()
+            batch.end()
         }
     }
 
@@ -165,6 +167,9 @@ class MatchScreen(
         batch.dispose()
         if (this::font.isInitialized) {
             font.dispose()
+        }
+        if (this::flatTexture.isInitialized) {
+            flatTexture.dispose()
         }
         if (this::grainTexture.isInitialized) {
             grainTexture.dispose()
@@ -528,6 +533,16 @@ class MatchScreen(
             pixmap.dispose()
             texture.setFilter(TextureFilter.Linear, TextureFilter.Linear)
             texture.setWrap(TextureWrap.Repeat, TextureWrap.Repeat)
+        }
+    }
+
+    private fun createFlatTexture(): Texture {
+        val pixmap = Pixmap(1, 1, Pixmap.Format.RGBA8888)
+        pixmap.setColor(Color.WHITE)
+        pixmap.fill()
+        return Texture(pixmap).also { texture ->
+            pixmap.dispose()
+            texture.setFilter(TextureFilter.Linear, TextureFilter.Linear)
         }
     }
 
@@ -944,36 +959,19 @@ class MatchScreen(
     }
 
     private fun drawInactiveTurnFilter() {
-        fillGradientRect(
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xAAB6C61B))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x7388A212))
+        drawRepeatedTexture(
+            grainTexture,
             0f,
             0f,
             layoutWorldWidth,
             layoutWorldHeight,
-            0x31384778,
-            0x31384778,
-            0x4C5A7388,
-            0x4C5A7388,
+            color(0xC4CEDB08),
+            layoutWorldWidth / 96f,
+            layoutWorldHeight / 96f,
         )
-        fillGradientRect(
-            0f,
-            0f,
-            layoutWorldWidth,
-            layoutWorldHeight * 0.34f,
-            0x1419227A,
-            0x1419227A,
-            0x00000000,
-            0x00000000,
-        )
-        fillGradientRect(
-            0f,
-            layoutWorldHeight * 0.58f,
-            layoutWorldWidth,
-            layoutWorldHeight * 0.42f,
-            0x00000000,
-            0x00000000,
-            0x1B243679,
-            0x1B243679,
-        )
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x00000022))
     }
 
     private fun fillHero(rect: Rectangle) {
