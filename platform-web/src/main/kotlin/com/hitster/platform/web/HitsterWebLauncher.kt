@@ -6,13 +6,14 @@ import com.github.xpenatan.gdx.backends.teavm.TeaAssetPreloadListener
 import com.github.xpenatan.gdx.backends.teavm.assetloader.AssetLoader
 import com.hitster.playback.api.NoOpPlaybackController
 import com.hitster.ui.HitsterGameApp
+import org.teavm.jso.browser.Window
 
 object HitsterWebLauncher {
     @JvmStatic
     fun main(args: Array<String>) {
         val config = TeaApplicationConfiguration("canvas").apply {
-            width = 0
-            height = 0
+            width = Window.current().innerWidth.coerceAtLeast(1)
+            height = Window.current().innerHeight.coerceAtLeast(1)
             usePhysicalPixels = true
             showDownloadLogs = false
             preloadListener = object : TeaAssetPreloadListener {
