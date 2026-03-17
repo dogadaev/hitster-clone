@@ -11,11 +11,12 @@ import com.hitster.playback.api.NoOpPlaybackController
 import com.hitster.playback.api.PlaybackController
 import com.hitster.playlist.data.PlaylistParseResult
 import com.hitster.playlist.data.PlaylistParser
-import java.util.UUID
+import kotlin.random.Random
 
 object UiBootstrapper {
     private const val samplePlaylistResourcePath = "sample-playlist.json"
     private val hostId = PlayerId("host")
+    private const val idAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 
     fun createHostedMatchController(
         playbackController: PlaybackController = NoOpPlaybackController(),
@@ -24,7 +25,7 @@ object UiBootstrapper {
     ): HostedMatchController {
         val reducer = HostGameReducer()
         val lobby = GameSessionFactory.createLobby(
-            sessionId = SessionId("local-session-${UUID.randomUUID().toString().take(8)}"),
+            sessionId = SessionId("local-session-${randomIdSuffix()}"),
             hostId = hostId,
             hostName = hostDisplayName,
             deckEntries = loadEntries(),
@@ -55,7 +56,7 @@ object UiBootstrapper {
             onDisconnected: (String) -> Unit,
         ) -> GuestSessionClient,
     ): RemoteGuestMatchController {
-        val playerId = PlayerId("guest-${UUID.randomUUID().toString().take(8)}")
+        val playerId = PlayerId("guest-${randomIdSuffix()}")
         lateinit var controller: RemoteGuestMatchController
         controller = RemoteGuestMatchController(
             advertisement = advertisement,
@@ -70,6 +71,13 @@ object UiBootstrapper {
         )
         return controller
     }
+
+    internal fun randomIdSuffix(random: Random = Random.Default): String =
+        buildString(8) {
+            repeat(8) {
+                append(idAlphabet[random.nextInt(idAlphabet.length)])
+            }
+        }
 
     private fun loadEntries(): List<PlaylistEntry> {
         val sampleJson = UiBootstrapper::class.java.classLoader
