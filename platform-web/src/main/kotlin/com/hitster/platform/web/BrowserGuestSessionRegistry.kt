@@ -98,6 +98,7 @@ private class HostedBrowserGuestSession(
         install(WebSockets)
     }
     private val mutex = Mutex()
+    private val sendMutex = Mutex()
     private val events = mutableListOf<QueuedHostEvent>()
     private var nextSequence = 1L
     private var terminalError: String? = null
@@ -127,16 +128,18 @@ private class HostedBrowserGuestSession(
 
     suspend fun send(payload: String): Boolean {
         touch()
-        val session = mutex.withLock { upstreamSession }
-        if (session == null) {
-            return false
-        }
-        return runCatching {
-            session.send(Frame.Text(payload))
-            true
-        }.getOrElse {
-            setTerminalError("Failed to forward guest command to the host.")
-            false
+        return sendMutex.withLock {
+            val session = mutex.withLock { upstreamSession }
+            if (session == null) {
+                return@withLock false
+            }
+            runCatching {
+                session.send(Frame.Text(payload))
+                true
+            }.getOrElse {
+                setTerminalError("Failed to forward guest command to the host.")
+                false
+            }
         }
     }
 
