@@ -25,6 +25,7 @@ class WebGuestSessionProxy(
     }
 
     suspend fun bridge(browserSession: DefaultWebSocketServerSession) {
+        println("Web guest proxy bridging browser to host=$hostAddress:$serverPort")
         val hostSession = client.webSocketSession(
             method = HttpMethod.Get,
             host = hostAddress,
@@ -37,8 +38,13 @@ class WebGuestSessionProxy(
                     try {
                         for (frame in browserSession.incoming) {
                             when (frame) {
-                                is Frame.Text -> hostSession.send(Frame.Text(frame.readText()))
+                                is Frame.Text -> {
+                                    val text = frame.readText()
+                                    println("Web guest proxy browser->host: ${text.take(200)}")
+                                    hostSession.send(Frame.Text(text))
+                                }
                                 is Frame.Close -> {
+                                    println("Web guest proxy browser closed: ${frame.readReason()}")
                                     hostSession.close(frame.readReason() ?: normalClosure())
                                     break
                                 }
@@ -54,8 +60,13 @@ class WebGuestSessionProxy(
                     try {
                         for (frame in hostSession.incoming) {
                             when (frame) {
-                                is Frame.Text -> browserSession.send(Frame.Text(frame.readText()))
+                                is Frame.Text -> {
+                                    val text = frame.readText()
+                                    println("Web guest proxy host->browser: ${text.take(200)}")
+                                    browserSession.send(Frame.Text(text))
+                                }
                                 is Frame.Close -> {
+                                    println("Web guest proxy host closed: ${frame.readReason()}")
                                     browserSession.close(frame.readReason() ?: normalClosure())
                                     break
                                 }
@@ -72,6 +83,7 @@ class WebGuestSessionProxy(
                 hostToBrowser.cancelAndJoin()
             }
         } finally {
+            println("Web guest proxy finished for host=$hostAddress:$serverPort")
             hostSession.close(normalClosure())
             client.close()
         }

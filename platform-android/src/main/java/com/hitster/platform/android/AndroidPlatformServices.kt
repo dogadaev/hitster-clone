@@ -92,7 +92,7 @@ class AndroidPlatformServices(
         return UiBootstrapper.createRemoteGuestController(
             advertisement = advertisement,
             displayName = displayName,
-            clientFactory = { sessionAdvertisement, actorId, playerDisplayName, onEvent, onDisconnected ->
+            clientFactory = { sessionAdvertisement, actorId, playerDisplayName, onEvent, onDisconnected, onStatusChanged ->
                 object : GuestSessionClient {
                     private val client = LanSessionClient(
                         hostAddress = sessionAdvertisement.hostAddress,
@@ -104,6 +104,7 @@ class AndroidPlatformServices(
                     )
 
                     override fun connect() {
+                        onStatusChanged("Opening guest connection...")
                         client.connect()
                     }
 

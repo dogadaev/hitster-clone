@@ -14,6 +14,8 @@ interface MatchController {
     val lastError: String?
     val lastPlaybackIssue: PlaybackIssue?
     val playbackSessionState: PlaybackSessionState
+    val connectionStatus: String?
+        get() = null
 
     fun startMatch()
 

@@ -55,6 +55,7 @@ object UiBootstrapper {
             displayName: String,
             onEvent: (com.hitster.networking.HostEventDto) -> Unit,
             onDisconnected: (String) -> Unit,
+            onStatusChanged: (String) -> Unit,
         ) -> GuestSessionClient,
     ): RemoteGuestMatchController {
         val playerId = playerIdFactory()
@@ -69,6 +70,7 @@ object UiBootstrapper {
                 displayName,
                 { event -> runOnGameThread { controller.handleEvent(event) } },
                 { reason -> runOnGameThread { controller.handleDisconnect(reason) } },
+                { status -> runOnGameThread { controller.updateConnectionStatus(status) } },
             ),
         )
         controller.connect()

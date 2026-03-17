@@ -31,6 +31,9 @@ class RemoteGuestMatchController(
     override var lastError: String? = null
         private set
 
+    override var connectionStatus: String? = "Preparing guest connection..."
+        private set
+
     override val lastPlaybackIssue: PlaybackIssue? = null
 
     override val playbackSessionState: PlaybackSessionState = PlaybackSessionState.Ready
@@ -42,9 +45,11 @@ class RemoteGuestMatchController(
 
     fun attachClient(client: GuestSessionClient) {
         this.client = client
+        connectionStatus = "Guest client attached."
     }
 
     fun connect() {
+        connectionStatus = "Opening guest connection..."
         client.connect()
     }
 
@@ -85,16 +90,31 @@ class RemoteGuestMatchController(
                 if (event.actorId == localPlayerId.value) {
                     lastError = event.reason
                 }
+                connectionStatus = "Host rejected the latest guest command."
             }
 
             is HostEventDto.SnapshotPublished -> {
                 lastError = null
                 state = GameStateMapper.fromDto(event.state)
+                connectionStatus = when {
+                    state.requirePlayer(localPlayerId) != null ->
+                        "Host snapshot confirmed ${localPlayerId.value}."
+
+                    else ->
+                        "Snapshot received, waiting for ${localPlayerId.value}. Players: ${
+                            state.players.joinToString(", ") { it.id.value }
+                        }"
+                }
             }
         }
     }
 
     internal fun handleDisconnect(reason: String) {
         lastError = reason
+        connectionStatus = reason
+    }
+
+    internal fun updateConnectionStatus(status: String) {
+        connectionStatus = status
     }
 }

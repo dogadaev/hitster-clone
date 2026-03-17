@@ -31,24 +31,19 @@ class WebPlatformServices : AppPlatformServices {
         return UiBootstrapper.createRemoteGuestController(
             advertisement = advertisement,
             displayName = displayName,
-            clientFactory = { sessionAdvertisement, actorId, playerDisplayName, onEvent, onDisconnected ->
+            clientFactory = { sessionAdvertisement, actorId, playerDisplayName, onEvent, onDisconnected, onStatusChanged ->
                 BrowserGuestSessionClient(
-                    websocketUrl = websocketUrl(sessionAdvertisement),
+                    startEndpoint = "/api/guest-sessions/start",
                     joinCommand = ClientCommandDto.JoinSession(
                         actorId = actorId.value,
                         displayName = playerDisplayName,
                     ),
+                    advertisement = sessionAdvertisement,
                     onEvent = onEvent,
                     onDisconnected = onDisconnected,
+                    onStatusChanged = onStatusChanged,
                 )
             },
         )
-    }
-
-    private fun websocketUrl(advertisement: SessionAdvertisementDto): String {
-        val pageProtocol = Window.current().location.protocol
-        val websocketProtocol = if (pageProtocol.startsWith("https")) "wss" else "ws"
-        val pageHost = Window.current().location.host
-        return "$websocketProtocol://$pageHost/session-proxy?hostAddress=${advertisement.hostAddress}&serverPort=${advertisement.serverPort}"
     }
 }

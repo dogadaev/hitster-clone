@@ -27,13 +27,16 @@ class GuestConnectingScreen(
     private val touchPoint = Vector3()
     private lateinit var titleFont: BitmapFont
     private lateinit var bodyFont: BitmapFont
+    private lateinit var detailFont: BitmapFont
     private val titleLayout = GlyphLayout()
+    private val detailLayout = GlyphLayout()
     private val buttonRect = Rectangle()
     private var transitionDispatched = false
 
     override fun show() {
         titleFont = createUiFont(72)
         bodyFont = createUiFont(36)
+        detailFont = createUiFont(26)
         Gdx.input.inputProcessor = ConnectingInput()
         updateLayout()
     }
@@ -69,6 +72,15 @@ class GuestConnectingScreen(
 
         val message = controller.lastError ?: "Connecting to the host..."
         drawText(bodyFont, message, 0f, viewport.worldHeight * 0.44f, viewport.worldWidth, true)
+        controller.connectionStatus?.let { status ->
+            drawWrappedText(
+                detailFont,
+                status,
+                180f,
+                viewport.worldHeight * 0.34f,
+                viewport.worldWidth - 360f,
+            )
+        }
 
         if (controller.lastError != null) {
             drawText(bodyFont, "BACK TO HOSTS", buttonRect.x, buttonRect.y + buttonRect.height * 0.66f, buttonRect.width, true)
@@ -89,6 +101,9 @@ class GuestConnectingScreen(
         }
         if (this::bodyFont.isInitialized) {
             bodyFont.dispose()
+        }
+        if (this::detailFont.isInitialized) {
+            detailFont.dispose()
         }
     }
 
@@ -116,6 +131,18 @@ class GuestConnectingScreen(
         } else {
             font.draw(batch, text, x, y)
         }
+    }
+
+    private fun drawWrappedText(
+        font: BitmapFont,
+        text: String,
+        x: Float,
+        y: Float,
+        width: Float,
+    ) {
+        font.color = Color(0.76f, 0.82f, 0.95f, 1f)
+        detailLayout.setText(font, text, font.color, width, 1, true)
+        font.draw(batch, detailLayout, x, y)
     }
 
     private inner class ConnectingInput : InputAdapter() {

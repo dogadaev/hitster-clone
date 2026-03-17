@@ -59,7 +59,7 @@ class UiBootstrapperTest {
         val controller = UiBootstrapper.createRemoteGuestController(
             advertisement = advertisement,
             displayName = expectedGuest.displayName,
-            clientFactory = { _, actorId, _, onEvent, _ ->
+            clientFactory = { _, actorId, _, onEvent, _, _ ->
                 assertEquals(expectedGuestId, actorId)
                 object : GuestSessionClient {
                     override fun connect() {
