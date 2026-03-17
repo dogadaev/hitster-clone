@@ -27,7 +27,16 @@ object BuildHitsterWeb {
 
         val indexHtml = File(buildConfiguration.webappPath, "webapp/index.html")
         if (indexHtml.exists()) {
-            indexHtml.writeText(WebIndexHtmlPatcher.patch(indexHtml.readText()))
+            val cacheBustToken = File(buildConfiguration.webappPath, "webapp/app.js")
+                .takeIf(File::exists)
+                ?.lastModified()
+                ?.toString()
+            indexHtml.writeText(
+                WebIndexHtmlPatcher.patch(
+                    html = indexHtml.readText(),
+                    cacheBustToken = cacheBustToken,
+                ),
+            )
         }
     }
 }

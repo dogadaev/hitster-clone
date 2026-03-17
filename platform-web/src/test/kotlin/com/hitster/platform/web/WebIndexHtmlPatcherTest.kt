@@ -2,6 +2,7 @@ package com.hitster.platform.web
 
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 
 class WebIndexHtmlPatcherTest {
     @Test
@@ -60,6 +61,23 @@ class WebIndexHtmlPatcherTest {
         val patchedOnce = WebIndexHtmlPatcher.patch(originalHtml)
         val patchedTwice = WebIndexHtmlPatcher.patch(patchedOnce)
 
-        kotlin.test.assertEquals(patchedOnce, patchedTwice)
+        assertEquals(patchedOnce, patchedTwice)
+    }
+
+    @Test
+    fun patchAddsCacheBustingToTeaVmBundleReference() {
+        val originalHtml = """
+            <!DOCTYPE html>
+            <html>
+            <head></head>
+            <body>
+            <script type="text/javascript" charset="utf-8" src="app.js"></script>
+            </body>
+            </html>
+        """.trimIndent()
+
+        val patchedHtml = WebIndexHtmlPatcher.patch(originalHtml, cacheBustToken = "123")
+
+        assertContains(patchedHtml, """src="app.js?v=123"""")
     }
 }

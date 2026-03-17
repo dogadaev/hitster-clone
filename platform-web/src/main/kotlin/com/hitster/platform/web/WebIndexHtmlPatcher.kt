@@ -349,8 +349,13 @@ internal object WebIndexHtmlPatcher {
         </script>
     """.trimIndent()
 
-    fun patch(html: String): String {
+    fun patch(html: String, cacheBustToken: String? = null): String {
         var patched = html
+        cacheBustToken?.let { token ->
+            patched = patched
+                .replace("src=\"app.js\"", "src=\"app.js?v=$token\"")
+                .replace("src='app.js'", "src='app.js?v=$token'")
+        }
         if (!patched.contains(viewportMeta)) {
             patched = patched.replace("</head>", "    $viewportMeta\n</head>")
         }
