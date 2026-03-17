@@ -230,6 +230,32 @@ class HostGameReducerTest {
     }
 
     @Test
+    fun `armed doubt keeps playback running until doubt resolution completes`() {
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1990),
+                entry("seed-guest", 2005),
+                entry("mid", 1995),
+                entry("reserve", 2022),
+            ),
+        )
+
+        state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.AdjustPlayerCoins(hostId, guestId, 1)))
+        state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.MovePendingCard(hostId, 1)))
+        state = acceptedState(reducer.reduce(state, GameCommand.ToggleDoubt(guestId)))
+
+        val enterDoubt = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.EndTurn(hostId)))
+        assertEquals(TurnPhase.AWAITING_DOUBT_PLACEMENT, enterDoubt.state.turn?.phase)
+        assertTrue(enterDoubt.effects.none { it is GameEffect.PausePlayback })
+
+        val placedDoubt = acceptedState(reducer.reduce(enterDoubt.state, GameCommand.MoveDoubtCard(guestId, 0)))
+        val resolveDoubt = assertIs<ReducerResult.Accepted>(reducer.reduce(placedDoubt, GameCommand.EndTurn(guestId)))
+        assertTrue(resolveDoubt.effects.any { it is GameEffect.PausePlayback })
+    }
+
+    @Test
     fun `invalid placement discards card and completes match when deck is exhausted`() {
         var state = lobbyWithGuest(
             listOf(

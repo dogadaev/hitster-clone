@@ -176,6 +176,28 @@ class MatchScreen(
             drawInactiveTurnFilter(inactiveTurnFilterAlpha)
             batch.end()
         }
+
+        if (presenter.state.status != MatchStatus.LOBBY) {
+            if (showDoubtPlacementPopup() || coinPanelOpen) {
+                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+                drawModalShapes()
+                shapeRenderer.end()
+
+                batch.begin()
+                drawModalTextures()
+                drawModalText()
+                batch.end()
+            }
+
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+            drawFloatingControlsShapes()
+            shapeRenderer.end()
+
+            batch.begin()
+            drawFloatingControlsTextures()
+            drawFloatingControlsText()
+            batch.end()
+        }
     }
 
     override fun resize(width: Int, height: Int) {
@@ -979,71 +1001,28 @@ class MatchScreen(
     private fun drawMatch(includeOverlay: Boolean) {
         fillHero(heroRect)
         fillPanel(timelinePanelRect, 0x14264DFF, 0x0D1B37FF, 0x556EABFF, 0x41598FFF, 0xB4C7F144)
-        if (showHostCoinsButton() || coinPanelOpen) {
-            fillButton(hostCoinsButtonRect, 0xF4C55BFF, 0xDA8E2CFF, 0xFFF3C07D)
-        }
-        when {
-            showActionButton() -> {
-            val enabled = isActionButtonEnabled()
-            fillCircularActionButton(actionButtonRect, enabled)
-            drawFastForwardGlyph(actionButtonRect, enabled)
-            }
-
-            showDoubtToggleButton() -> {
-                val isActive = isDoubtToggleActive()
-                fillButton(
-                    doubtButtonRect,
-                    if (isActive) 0x6FD8FFFF else 0xF6C96BFF,
-                    if (isActive) 0x2C8ECAFF else 0xD78B25FF,
-                    if (isActive) 0xD9F6FFFF else 0xFFF2C286,
+        if (!showActionButton() && !showDoubtToggleButton()) {
+            repeat(DECK_STACK_DEPTH) { index ->
+                val offset = centeredDeckStackOffset(index)
+                drawCardSurface(
+                    left = deckRect.x + offset,
+                    bottom = deckRect.y - offset,
+                    width = deckRect.width,
+                    height = deckRect.height,
+                    topColor = 0xE87853FF,
+                    bottomColor = 0xCC5D3EFF,
+                    edgeColor = 0xFFD3A28FFF,
                 )
-            }
-
-            else -> {
-                repeat(DECK_STACK_DEPTH) { index ->
-                    val offset = centeredDeckStackOffset(index)
-                    drawCardSurface(
-                        left = deckRect.x + offset,
-                        bottom = deckRect.y - offset,
-                        width = deckRect.width,
-                        height = deckRect.height,
-                        topColor = 0xE87853FF,
-                        bottomColor = 0xCC5D3EFF,
-                        edgeColor = 0xFFD3A28FFF,
-                    )
-                }
             }
         }
 
         drawTimelineCards(includeOverlay)
         drawTargetDoubtArrow()
-
-        if (showDoubtPlacementPopup() || coinPanelOpen) {
-            fillRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x03060CB2)
-        }
-        if (showDoubtPlacementPopup()) {
-            drawDoubtPopupShapes()
-        }
-        if (coinPanelOpen) {
-            drawCoinPanelShapes()
-        }
     }
 
     private fun drawMatchTextures() {
         drawPanelTexture(heroRect, color(0xCFE1FF10))
         drawPanelTexture(timelinePanelRect, color(0xC9DBFF12))
-        if (showActionButton()) {
-            drawActionButtonGlow(actionButtonRect, isActionButtonEnabled())
-        }
-        if (showDoubtToggleButton()) {
-            drawPanelTexture(
-                doubtButtonRect,
-                if (isDoubtToggleActive()) color(0xD4F6FF16) else color(0xFFF3D712),
-            )
-        }
-        if (showHostCoinsButton() || coinPanelOpen) {
-            drawPanelTexture(hostCoinsButtonRect, color(0xFFE7B313))
-        }
         drawRepeatedTexture(
             grainTexture,
             timelinePanelRect.x + 2f,
@@ -1054,12 +1033,6 @@ class MatchScreen(
             timelinePanelRect.width / 116f,
             max(1f, (timelinePanelRect.height - panelHeaderHeight) / 116f),
         )
-        if (showDoubtPlacementPopup()) {
-            drawDoubtPopupTextures()
-        }
-        if (coinPanelOpen) {
-            drawCoinPanelTextures()
-        }
     }
 
     private fun drawActionButtonGlow(rect: Rectangle, enabled: Boolean) {
@@ -1163,46 +1136,6 @@ class MatchScreen(
                 shadowColor = color(0x441A0C99),
             )
         }
-        if (showDoubtToggleButton()) {
-            drawTextBlock(
-                text = if (isDoubtToggleActive()) "DOUBTING" else "DOUBT",
-                x = doubtButtonRect.x,
-                y = doubtButtonRect.y + doubtButtonRect.height * 0.14f,
-                width = doubtButtonRect.width,
-                height = doubtButtonRect.height * 0.56f,
-                scale = 0.92f,
-                color = if (isDoubtToggleActive()) color(0x041C2FFF) else color(0x1A1308FF),
-                align = Align.center,
-                verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0xFFF6E29A2C),
-            )
-            drawTextBlock(
-                text = "COINS ${localPlayer()?.coins ?: 0}",
-                x = doubtButtonRect.x,
-                y = doubtButtonRect.y + doubtButtonRect.height * 0.02f,
-                width = doubtButtonRect.width,
-                height = doubtButtonRect.height * 0.24f,
-                scale = 0.56f,
-                color = if (isDoubtToggleActive()) color(0x03314BFF) else color(0x33200BFF),
-                align = Align.center,
-                verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0xFFF4E3B022),
-            )
-        }
-        if (showHostCoinsButton() || coinPanelOpen) {
-            drawTextBlock(
-                text = "COINS",
-                x = hostCoinsButtonRect.x,
-                y = hostCoinsButtonRect.y,
-                width = hostCoinsButtonRect.width,
-                height = hostCoinsButtonRect.height,
-                scale = 0.64f,
-                color = color(0x1A1308FF),
-                align = Align.center,
-                verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0xFFF8E29F33),
-            )
-        }
 
         drawTextBlock(
             text = "Timeline",
@@ -1242,11 +1175,114 @@ class MatchScreen(
         }
 
         drawTimelineCardText(includeOverlay)
+    }
+
+    private fun drawModalShapes() {
+        fillRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x03060CB2)
+        if (showDoubtPlacementPopup()) {
+            drawDoubtPopupShapes()
+        }
+        if (coinPanelOpen) {
+            drawCoinPanelShapes()
+        }
+    }
+
+    private fun drawModalTextures() {
+        if (showDoubtPlacementPopup()) {
+            drawDoubtPopupTextures()
+        }
+        if (coinPanelOpen) {
+            drawCoinPanelTextures()
+        }
+    }
+
+    private fun drawModalText() {
         if (showDoubtPlacementPopup()) {
             drawDoubtPopupText()
         }
         if (coinPanelOpen) {
             drawCoinPanelText()
+        }
+    }
+
+    private fun drawFloatingControlsShapes() {
+        if (showCoinsShortcutButton()) {
+            fillButton(hostCoinsButtonRect, 0xF4C55BFF, 0xDA8E2CFF, 0xFFF3C07D)
+        }
+        when {
+            showActionButton() -> {
+                val enabled = isActionButtonEnabled()
+                fillCircularActionButton(actionButtonRect, enabled)
+                drawFastForwardGlyph(actionButtonRect, enabled)
+            }
+
+            showDoubtToggleButton() -> {
+                val isActive = isDoubtToggleActive()
+                fillButton(
+                    doubtButtonRect,
+                    if (isActive) 0x6FD8FFFF else 0xF6C96BFF,
+                    if (isActive) 0x2C8ECAFF else 0xD78B25FF,
+                    if (isActive) 0xD9F6FFFF else 0xFFF2C286,
+                )
+            }
+        }
+    }
+
+    private fun drawFloatingControlsTextures() {
+        if (showActionButton()) {
+            drawActionButtonGlow(actionButtonRect, isActionButtonEnabled())
+        }
+        if (showDoubtToggleButton()) {
+            drawPanelTexture(
+                doubtButtonRect,
+                if (isDoubtToggleActive()) color(0xD4F6FF16) else color(0xFFF3D712),
+            )
+        }
+        if (showCoinsShortcutButton()) {
+            drawPanelTexture(hostCoinsButtonRect, color(0xFFE7B313))
+        }
+    }
+
+    private fun drawFloatingControlsText() {
+        if (showDoubtToggleButton()) {
+            drawTextBlock(
+                text = if (isDoubtToggleActive()) "DOUBTING" else "DOUBT",
+                x = doubtButtonRect.x,
+                y = doubtButtonRect.y + doubtButtonRect.height * 0.14f,
+                width = doubtButtonRect.width,
+                height = doubtButtonRect.height * 0.56f,
+                scale = 0.92f,
+                color = if (isDoubtToggleActive()) color(0x041C2FFF) else color(0x1A1308FF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = color(0xFFF6E29A2C),
+            )
+            drawTextBlock(
+                text = "COINS ${localPlayer()?.coins ?: 0}",
+                x = doubtButtonRect.x,
+                y = doubtButtonRect.y + doubtButtonRect.height * 0.02f,
+                width = doubtButtonRect.width,
+                height = doubtButtonRect.height * 0.24f,
+                scale = 0.56f,
+                color = if (isDoubtToggleActive()) color(0x03314BFF) else color(0x33200BFF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = color(0xFFF4E3B022),
+            )
+        }
+        if (showCoinsShortcutButton()) {
+            drawTextBlock(
+                text = "COINS",
+                x = hostCoinsButtonRect.x,
+                y = hostCoinsButtonRect.y,
+                width = hostCoinsButtonRect.width,
+                height = hostCoinsButtonRect.height,
+                scale = 0.64f,
+                color = color(0x1A1308FF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = color(0xFFF8E29F33),
+            )
         }
     }
 
@@ -1830,6 +1866,11 @@ class MatchScreen(
     private fun showActionButton(): Boolean = canEndTurn()
 
     private fun showHostCoinsButton(): Boolean = presenter.isLocalHost && presenter.state.status == MatchStatus.ACTIVE
+
+    private fun showCoinsShortcutButton(): Boolean =
+        showHostCoinsButton() &&
+            !coinPanelOpen &&
+            !showDoubtPlacementPopup()
 
     private fun showDoubtToggleButton(): Boolean {
         if (presenter.state.status != MatchStatus.ACTIVE || showDoubtPlacementPopup()) {

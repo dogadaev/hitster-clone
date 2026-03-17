@@ -337,10 +337,7 @@ class HostGameReducer(
                 lastResolution = null,
             )
 
-            return accept(
-                nextState,
-                GameEffect.PausePlayback,
-            )
+            return accept(nextState)
         }
         val validation = placementValidator.validate(
             timeline = activePlayer.timeline.cards,
@@ -537,6 +534,7 @@ class HostGameReducer(
                 doubt = null,
                 lastResolution = resolution,
             ),
+            GameEffect.PausePlayback,
         )
     }
 
