@@ -48,6 +48,7 @@ object UiBootstrapper {
     fun createRemoteGuestController(
         advertisement: SessionAdvertisementDto,
         displayName: String = "Guest Player",
+        playerIdFactory: () -> PlayerId = { PlayerId("guest-${randomIdSuffix()}") },
         clientFactory: (
             advertisement: SessionAdvertisementDto,
             actorId: PlayerId,
@@ -56,7 +57,7 @@ object UiBootstrapper {
             onDisconnected: (String) -> Unit,
         ) -> GuestSessionClient,
     ): RemoteGuestMatchController {
-        val playerId = PlayerId("guest-${randomIdSuffix()}")
+        val playerId = playerIdFactory()
         lateinit var controller: RemoteGuestMatchController
         controller = RemoteGuestMatchController(
             advertisement = advertisement,
@@ -69,6 +70,7 @@ object UiBootstrapper {
                 { reason -> runOnGameThread { controller.handleDisconnect(reason) } },
             ),
         )
+        controller.connect()
         return controller
     }
 

@@ -39,7 +39,7 @@ class RemoteGuestMatchController(
     override val localPlayer: PlayerState?
         get() = state.requirePlayer(localPlayerId)
 
-    init {
+    fun connect() {
         client.connect()
     }
 
