@@ -2113,20 +2113,40 @@ class MatchScreen(
             return null
         }
         val targetPlayer = localPlayer() ?: return null
-        return slotMarkerX(
-            layout = timelineLayout,
-            existingCardCount = targetPlayer.timeline.cards.size,
-            slotIndex = doubt.proposedSlotIndex ?: targetPlayer.pendingCard?.proposedSlotIndex ?: 0,
-        )
-    }
+        val pendingCard = targetPlayer.pendingCard ?: return null
+        val pendingVisual = pendingCardVisual ?: return null
+        val committedVisuals = timelineCardVisuals
+            .asSequence()
+            .filter { it.id != pendingCard.entry.id }
+            .sortedBy { it.rect.x }
+            .toList()
+        val visibleRects = buildList {
+            for (index in 0..committedVisuals.size) {
+                if (index == pendingCard.proposedSlotIndex) {
+                    add(pendingVisual.rect)
+                }
+                if (index < committedVisuals.size) {
+                    add(committedVisuals[index].rect)
+                }
+            }
+        }
+        if (visibleRects.isEmpty()) {
+            return null
+        }
 
-    private fun slotMarkerX(
-        layout: TimelineLayoutCalculator,
-        existingCardCount: Int,
-        slotIndex: Int,
-    ): Float {
-        val centers = layout.insertionSlotCenters(existingCardCount)
-        return centers[slotIndex.coerceIn(0, centers.lastIndex)]
+        val doubtSlot = doubt.proposedSlotIndex ?: pendingCard.proposedSlotIndex
+        val boundaryIndex = (doubtSlot + if (doubtSlot > pendingCard.proposedSlotIndex) 1 else 0)
+            .coerceIn(0, visibleRects.size)
+        val edgeOffset = max(18f, pendingVisual.rect.width * 0.16f)
+        return when (boundaryIndex) {
+            0 -> visibleRects.first().x - edgeOffset
+            visibleRects.size -> visibleRects.last().x + visibleRects.last().width + edgeOffset
+            else -> {
+                val leftRect = visibleRects[boundaryIndex - 1]
+                val rightRect = visibleRects[boundaryIndex]
+                (leftRect.x + leftRect.width + rightRect.x) / 2f
+            }
+        }
     }
 
     private fun drawDoubtArrow(centerX: Float, tipY: Float) {
