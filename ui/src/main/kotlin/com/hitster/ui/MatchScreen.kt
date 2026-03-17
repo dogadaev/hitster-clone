@@ -1012,6 +1012,7 @@ class MatchScreen(
     private fun drawMatch(includeOverlay: Boolean) {
         fillHero(heroRect)
         fillPanel(timelinePanelRect, 0x14264DFF, 0x0D1B37FF, 0x556EABFF, 0x41598FFF, 0xB4C7F144)
+        fillActionWell()
         if (!showActionButton() && !showDoubtToggleButton()) {
             repeat(DECK_STACK_DEPTH) { index ->
                 val offset = centeredDeckStackOffset(index)
@@ -1034,6 +1035,7 @@ class MatchScreen(
     private fun drawMatchTextures() {
         drawPanelTexture(heroRect, color(0xCFE1FF10))
         drawPanelTexture(timelinePanelRect, color(0xC9DBFF12))
+        drawActionWellTexture()
         drawRepeatedTexture(
             grainTexture,
             timelinePanelRect.x + 2f,
@@ -1675,6 +1677,61 @@ class MatchScreen(
         fillGradientRect(rect.x, rect.y + rect.height - panelHeaderHeight, rect.width, panelHeaderHeight, headerBottom, headerBottom, headerTop, headerTop)
         fillRect(rect.x + 10f, rect.y + rect.height - panelHeaderHeight + 8f, rect.width - 20f, 2f, 0xFFFFFF16)
         drawFrame(rect, edgeColor, 2f)
+    }
+
+    private fun fillActionWell() {
+        val rect = actionWellRect()
+        drawDropShadow(rect, 16f, 0x01050B38)
+        fillGradientRect(
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height,
+            0x0A1425D8,
+            0x0C1629D8,
+            0x111D34EA,
+            0x13203AEA,
+        )
+        fillRect(rect.x + 10f, rect.y + rect.height - 12f, rect.width - 20f, 2f, 0xFFFFFF12)
+        drawFrame(rect, 0xA1B9E228, 2f)
+    }
+
+    private fun drawActionWellTexture() {
+        val rect = actionWellRect()
+        drawPanelTexture(rect, color(0xB8D3FF0A))
+    }
+
+    private fun actionWellRect(): Rectangle {
+        val margin = clamp(deckPanelRect.width * 0.06f, 12f, 18f)
+        return when {
+            showActionButton() -> Rectangle(
+                actionButtonRect.x - margin,
+                actionButtonRect.y - margin,
+                actionButtonRect.width + margin * 2f,
+                actionButtonRect.height + margin * 2f,
+            )
+
+            showDoubtToggleButton() -> Rectangle(
+                doubtButtonRect.x - margin,
+                doubtButtonRect.y - margin,
+                doubtButtonRect.width + margin * 2f,
+                doubtButtonRect.height + margin * 2f,
+            )
+
+            showCoinsShortcutButton() -> Rectangle(
+                hostCoinsButtonRect.x - margin * 0.5f,
+                hostCoinsButtonRect.y - margin * 0.5f,
+                hostCoinsButtonRect.width + margin,
+                hostCoinsButtonRect.height + margin,
+            )
+
+            else -> Rectangle(
+                deckPanelRect.x + margin,
+                deckPanelRect.y + margin,
+                deckPanelRect.width - margin * 2f,
+                deckPanelRect.height - margin * 2f,
+            )
+        }
     }
 
     private fun drawCardSurface(
