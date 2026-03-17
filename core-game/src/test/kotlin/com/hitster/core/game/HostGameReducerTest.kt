@@ -167,7 +167,7 @@ class HostGameReducerTest {
         var state = lobbyWithGuest(
             listOf(
                 entry("seed-host", 1990),
-                entry("seed-guest", 2005),
+                entry("seed-guest", 2020),
                 entry("late", 2010),
                 entry("reserve", 2022),
             ),
@@ -188,12 +188,13 @@ class HostGameReducerTest {
         assertEquals(guestId, accepted.state.turn?.activePlayerId)
         assertEquals(1, host?.timeline?.cards?.size)
         assertEquals(2, guest?.timeline?.cards?.size)
-        assertEquals("late", guest?.timeline?.cards?.last()?.id)
+        assertEquals(listOf("late", "seed-guest"), guest?.timeline?.cards?.map { it.id })
         assertEquals(0, guest?.coins)
         assertEquals(2, guest?.score)
         assertEquals(null, accepted.state.doubt)
         assertEquals(guestId, accepted.state.lastResolution?.playerId)
         assertEquals(true, accepted.state.lastResolution?.correct)
+        assertEquals(0, accepted.state.lastResolution?.attemptedSlotIndex)
     }
 
     @Test

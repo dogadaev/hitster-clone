@@ -1278,9 +1278,6 @@ class MatchScreen(
         fillPanel(doubtPopupRect, 0x113255FF, 0x0B2139FF, 0x4AA5D8FF, 0x3687BBFF, 0xC9F5FF48)
         fillTrack(doubtPopupTrackRect)
         doubtTimelineCardVisuals.forEach(::drawCardVisual)
-        doubtArrowXForPopup()?.let { arrowX ->
-            drawDoubtArrow(arrowX, doubtPopupTrackRect.y + doubtPopupTrackRect.height + 8f)
-        }
     }
 
     private fun drawDoubtPopupTextures() {
@@ -2023,31 +2020,46 @@ class MatchScreen(
             return null
         }
         val targetPlayer = localPlayer() ?: return null
-        val pendingCard = targetPlayer.pendingCard ?: return null
-        val arrangement = timelineLayout.pendingArrangement(
+        return slotMarkerX(
+            layout = timelineLayout,
             existingCardCount = targetPlayer.timeline.cards.size,
-            pendingSlotIndex = doubt.proposedSlotIndex ?: pendingCard.proposedSlotIndex,
+            slotIndex = doubt.proposedSlotIndex ?: targetPlayer.pendingCard?.proposedSlotIndex ?: 0,
         )
-        return arrangement.pendingCardLeft + arrangement.cardWidth / 2f
     }
 
-    private fun doubtArrowXForPopup(): Float? {
-        val doubt = presenter.state.doubt ?: return null
-        val targetPlayer = presenter.state.requirePlayer(doubt.targetPlayerId) ?: return null
-        val pendingCard = targetPlayer.pendingCard ?: return null
-        val popupLayout = TimelineLayoutCalculator(
-            trackX = doubtPopupTrackRect.x + panelPadding * 0.18f,
-            trackWidth = doubtPopupTrackRect.width - panelPadding * 0.36f,
-            preferredCardWidth = clamp(doubtPopupTrackRect.width * 0.18f, 148f, 208f),
-            minCardWidth = clamp(doubtPopupTrackRect.width * 0.118f, 108f, 136f),
-            preferredGap = clamp(doubtPopupTrackRect.width * 0.024f, 18f, 30f),
-            minGap = 12f,
-        )
-        val arrangement = popupLayout.pendingArrangement(
-            existingCardCount = targetPlayer.timeline.cards.size,
-            pendingSlotIndex = doubt.proposedSlotIndex ?: pendingCard.proposedSlotIndex,
-        )
-        return arrangement.pendingCardLeft + arrangement.cardWidth / 2f
+    private fun slotMarkerX(
+        layout: TimelineLayoutCalculator,
+        existingCardCount: Int,
+        slotIndex: Int,
+    ): Float {
+        if (existingCardCount <= 0) {
+            val arrangement = layout.arrangement(1)
+            return arrangement.cardLefts.first() + arrangement.cardWidth / 2f
+        }
+        val arrangement = layout.arrangement(existingCardCount)
+        val centers = arrangement.cardLefts.map { it + arrangement.cardWidth / 2f }
+        val clampedSlot = slotIndex.coerceIn(0, existingCardCount)
+        return when (clampedSlot) {
+            0 -> {
+                val delta = if (centers.size > 1) {
+                    (centers[1] - centers[0]) / 2f
+                } else {
+                    arrangement.cardWidth * 0.68f
+                }
+                centers.first() - delta
+            }
+
+            existingCardCount -> {
+                val delta = if (centers.size > 1) {
+                    (centers.last() - centers[centers.lastIndex - 1]) / 2f
+                } else {
+                    arrangement.cardWidth * 0.68f
+                }
+                centers.last() + delta
+            }
+
+            else -> (centers[clampedSlot - 1] + centers[clampedSlot]) / 2f
+        }
     }
 
     private fun drawDoubtArrow(centerX: Float, bottomY: Float) {

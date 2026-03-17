@@ -439,6 +439,7 @@ class HostGameReducer(
         )
         val doubtSpentPlayer = doubter.copy(coins = maxOf(0, doubter.coins - 1))
         val stealSucceeded = !targetValidation.isValid && doubtValidation.isValid
+        val doubterInsertionSlot = correctTimelineInsertionSlot(doubtSpentPlayer.timeline.cards, pendingCard.entry)
 
         val nextPlayers: List<PlayerState>
         val nextDiscardPile: List<com.hitster.core.model.PlaylistEntry>
@@ -449,7 +450,7 @@ class HostGameReducer(
             val resolvedTarget = targetPlayer.copy(pendingCard = null)
             val resolvedDoubter = doubtSpentPlayer.copy(
                 score = doubtSpentPlayer.score + 1,
-                timeline = doubtSpentPlayer.timeline.insertAt(doubtValidation.slotIndex, pendingCard.entry),
+                timeline = doubtSpentPlayer.timeline.insertAt(doubterInsertionSlot, pendingCard.entry),
             )
             nextPlayers = state.players
                 .replacePlayer(resolvedTarget)
@@ -459,7 +460,7 @@ class HostGameReducer(
             resolution = TurnResolution(
                 playerId = doubt.doubterId,
                 cardId = pendingCard.entry.id,
-                attemptedSlotIndex = doubtValidation.slotIndex,
+                attemptedSlotIndex = doubterInsertionSlot,
                 correct = true,
                 releaseYear = pendingCard.entry.releaseYear,
                 message = when {
@@ -552,6 +553,15 @@ class HostGameReducer(
         state: GameState,
         reason: String,
     ): ReducerResult = ReducerResult.Rejected(state, reason)
+
+    private fun correctTimelineInsertionSlot(
+        timeline: List<com.hitster.core.model.PlaylistEntry>,
+        entry: com.hitster.core.model.PlaylistEntry,
+    ): Int {
+        return timeline.indexOfFirst { existing -> existing.releaseYear > entry.releaseYear }
+            .takeIf { it >= 0 }
+            ?: timeline.size
+    }
 
     private fun dealOpeningTimelines(
         players: List<PlayerState>,
