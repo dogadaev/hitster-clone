@@ -187,6 +187,16 @@ class MatchScreen(
                 drawModalTextures()
                 drawModalText()
                 batch.end()
+
+                if (hasOverlayDoubtTimelineVisuals()) {
+                    shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+                    drawDoubtPopupCards(includeOverlay = true)
+                    shapeRenderer.end()
+
+                    batch.begin()
+                    drawDoubtPopupCardText(includeOverlay = true)
+                    batch.end()
+                }
             }
 
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
@@ -352,7 +362,7 @@ class MatchScreen(
             48f,
         )
 
-        val doubtPopupWidth = clamp(timelinePanelRect.width * 0.84f, 680f, 1080f)
+        val doubtPopupWidth = clamp(timelinePanelRect.width * 0.93f, 760f, 1220f)
         val doubtPopupHeight = clamp(timelinePanelRect.height * 0.76f, 400f, 620f)
         doubtPopupRect.set(
             timelinePanelRect.x + (timelinePanelRect.width - doubtPopupWidth) / 2f,
@@ -366,9 +376,9 @@ class MatchScreen(
             doubtPopupRect.width,
             panelHeaderHeight,
         )
-        val doubtTrackInsetX = panelPadding * 0.82f
+        val doubtTrackInsetX = panelPadding * 0.48f
         val doubtTrackInsetBottom = panelPadding * 0.82f
-        val doubtTrackInsetTop = panelPadding * 0.56f
+        val doubtTrackInsetTop = panelPadding * 0.42f
         doubtPopupTrackRect.set(
             doubtPopupRect.x + doubtTrackInsetX,
             doubtPopupRect.y + doubtTrackInsetBottom,
@@ -542,17 +552,17 @@ class MatchScreen(
         val targetPlayer = presenter.state.requirePlayer(doubt.targetPlayerId) ?: return
         val pendingCard = targetPlayer.pendingCard ?: return
         val animationAlpha = clamp(delta * 12f, 0f, 1f)
-        val popupTrackX = doubtPopupTrackRect.x + panelPadding * 0.18f
-        val popupTrackWidth = doubtPopupTrackRect.width - panelPadding * 0.36f
-        val cardWidthPreferred = clamp(doubtPopupTrackRect.width * 0.18f, 148f, 208f)
-        val cardWidthMin = clamp(doubtPopupTrackRect.width * 0.118f, 108f, 136f)
+        val popupTrackX = doubtPopupTimelineX()
+        val popupTrackWidth = doubtPopupTimelineWidth()
+        val cardWidthPreferred = clamp(doubtPopupTrackRect.width * 0.16f, 134f, 184f)
+        val cardWidthMin = clamp(doubtPopupTrackRect.width * 0.088f, 92f, 118f)
         val popupLayout = TimelineLayoutCalculator(
             trackX = popupTrackX,
             trackWidth = popupTrackWidth,
             preferredCardWidth = cardWidthPreferred,
             minCardWidth = cardWidthMin,
-            preferredGap = clamp(doubtPopupTrackRect.width * 0.024f, 18f, 30f),
-            minGap = 12f,
+            preferredGap = clamp(doubtPopupTrackRect.width * 0.018f, 14f, 24f),
+            minGap = 10f,
         )
         val arrangement = popupLayout.pendingArrangement(
             existingCardCount = targetPlayer.timeline.cards.size,
@@ -1282,7 +1292,7 @@ class MatchScreen(
     private fun drawDoubtPopupShapes() {
         fillPanel(doubtPopupRect, 0x113255FF, 0x0B2139FF, 0x4AA5D8FF, 0x3687BBFF, 0xC9F5FF48)
         fillTrack(doubtPopupTrackRect)
-        doubtTimelineCardVisuals.forEach(::drawCardVisual)
+        drawDoubtPopupCards(includeOverlay = false)
     }
 
     private fun drawDoubtPopupTextures() {
@@ -1324,7 +1334,7 @@ class MatchScreen(
             align = Align.right,
             verticalAlign = VerticalTextAlign.Center,
         )
-        doubtTimelineCardVisuals.forEach(::drawCardText)
+        drawDoubtPopupCardText(includeOverlay = false)
     }
 
     private fun drawCoinPanelShapes() {
@@ -1717,12 +1727,36 @@ class MatchScreen(
         }
     }
 
+    private fun drawDoubtPopupCards(includeOverlay: Boolean) {
+        doubtTimelineCardVisuals.forEach { visual ->
+            if (isDoubtOverlayVisual(visual) == includeOverlay) {
+                drawCardVisual(visual)
+            }
+        }
+    }
+
+    private fun drawDoubtPopupCardText(includeOverlay: Boolean) {
+        doubtTimelineCardVisuals.forEach { visual ->
+            if (isDoubtOverlayVisual(visual) == includeOverlay) {
+                drawCardText(visual)
+            }
+        }
+    }
+
     private fun hasOverlayTimelineVisuals(): Boolean {
         return draggingPendingCard && pendingCardVisual != null || transientCardVisual != null
     }
 
+    private fun hasOverlayDoubtTimelineVisuals(): Boolean {
+        return draggingDoubtCard && doubtPendingCardVisual != null
+    }
+
     private fun isOverlayVisual(visual: TimelineCardVisual): Boolean {
         return draggingPendingCard && pendingCardVisual?.id == visual.id
+    }
+
+    private fun isDoubtOverlayVisual(visual: TimelineCardVisual): Boolean {
+        return draggingDoubtCard && doubtPendingCardVisual?.id == visual.id
     }
 
     private fun drawCardVisual(visual: TimelineCardVisual) {
@@ -2033,15 +2067,15 @@ class MatchScreen(
         val doubt = presenter.state.doubt ?: return 0
         val targetPlayer = presenter.state.requirePlayer(doubt.targetPlayerId) ?: return 0
         val pendingCard = targetPlayer.pendingCard ?: return 0
-        val popupTrackX = doubtPopupTrackRect.x + panelPadding * 0.18f
-        val popupTrackWidth = doubtPopupTrackRect.width - panelPadding * 0.36f
+        val popupTrackX = doubtPopupTimelineX()
+        val popupTrackWidth = doubtPopupTimelineWidth()
         val popupLayout = TimelineLayoutCalculator(
             trackX = popupTrackX,
             trackWidth = popupTrackWidth,
-            preferredCardWidth = clamp(doubtPopupTrackRect.width * 0.18f, 148f, 208f),
-            minCardWidth = clamp(doubtPopupTrackRect.width * 0.118f, 108f, 136f),
-            preferredGap = clamp(doubtPopupTrackRect.width * 0.024f, 18f, 30f),
-            minGap = 12f,
+            preferredCardWidth = clamp(doubtPopupTrackRect.width * 0.16f, 134f, 184f),
+            minCardWidth = clamp(doubtPopupTrackRect.width * 0.088f, 92f, 118f),
+            preferredGap = clamp(doubtPopupTrackRect.width * 0.018f, 14f, 24f),
+            minGap = 10f,
         )
         if (!draggingDoubtCard) {
             return popupLayout.nearestSlotIndex(targetPlayer.timeline.cards.size, x)
@@ -2059,6 +2093,10 @@ class MatchScreen(
         val probeX = pendingLeft + arrangement.cardWidth * 0.5f
         return popupLayout.nearestSlotIndex(targetPlayer.timeline.cards.size, probeX)
     }
+
+    private fun doubtPopupTimelineX(): Float = doubtPopupTrackRect.x + panelPadding * 0.08f
+
+    private fun doubtPopupTimelineWidth(): Float = doubtPopupTrackRect.width - panelPadding * 0.16f
 
     private fun drawTargetDoubtArrow() {
         val arrowX = doubtArrowXForMainTimeline() ?: return
