@@ -1012,7 +1012,9 @@ class MatchScreen(
     private fun drawMatch(includeOverlay: Boolean) {
         fillHero(heroRect)
         fillPanel(timelinePanelRect, 0x14264DFF, 0x0D1B37FF, 0x556EABFF, 0x41598FFF, 0xB4C7F144)
-        fillActionWell()
+        if (showActionWell()) {
+            fillActionWell()
+        }
         if (!showActionButton() && !showDoubtToggleButton()) {
             repeat(DECK_STACK_DEPTH) { index ->
                 val offset = centeredDeckStackOffset(index)
@@ -1035,7 +1037,9 @@ class MatchScreen(
     private fun drawMatchTextures() {
         drawPanelTexture(heroRect, color(0xCFE1FF10))
         drawPanelTexture(timelinePanelRect, color(0xC9DBFF12))
-        drawActionWellTexture()
+        if (showActionWell()) {
+            drawActionWellTexture()
+        }
         drawRepeatedTexture(
             grainTexture,
             timelinePanelRect.x + 2f,
@@ -1701,16 +1705,11 @@ class MatchScreen(
         drawPanelTexture(rect, color(0xB8D3FF0A))
     }
 
+    private fun showActionWell(): Boolean = showDoubtToggleButton() || showCoinsShortcutButton()
+
     private fun actionWellRect(): Rectangle {
         val margin = clamp(deckPanelRect.width * 0.06f, 12f, 18f)
         return when {
-            showActionButton() -> Rectangle(
-                actionButtonRect.x - margin,
-                actionButtonRect.y - margin,
-                actionButtonRect.width + margin * 2f,
-                actionButtonRect.height + margin * 2f,
-            )
-
             showDoubtToggleButton() -> Rectangle(
                 doubtButtonRect.x - margin,
                 doubtButtonRect.y - margin,
