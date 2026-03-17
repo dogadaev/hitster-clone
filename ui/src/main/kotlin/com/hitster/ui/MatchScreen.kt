@@ -80,6 +80,7 @@ class MatchScreen(
     private var animatedPendingCardLeft: Float? = null
     private val confettiParticles = mutableListOf<ConfettiParticle>()
     private var celebratedResolutionCardId: String? = null
+    private var inactiveTurnFilterAlpha = 0f
 
     private var draggingDeckGhost = false
     private var draggingPendingCard = false
@@ -100,6 +101,7 @@ class MatchScreen(
         updateLayout()
         updateTimelineVisuals(delta)
         updateCelebration(delta)
+        updateInactiveTurnFilter(delta)
         viewport.apply()
         Gdx.gl.glClearColor(0.02f, 0.04f, 0.10f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
@@ -150,9 +152,9 @@ class MatchScreen(
             shapeRenderer.end()
         }
 
-        if (showInactiveTurnFilter()) {
+        if (inactiveTurnFilterAlpha > 0.01f) {
             batch.begin()
-            drawInactiveTurnFilter()
+            drawInactiveTurnFilter(inactiveTurnFilterAlpha)
             batch.end()
         }
     }
@@ -459,6 +461,20 @@ class MatchScreen(
             particle.y += particle.velocityY * delta
             particle.velocityY += CONFETTI_GRAVITY * delta
             particle.rotation += particle.angularVelocity * delta
+        }
+    }
+
+    private fun updateInactiveTurnFilter(delta: Float) {
+        val targetAlpha = when {
+            !shouldShowInactiveTurnFilter() -> 0f
+            confettiParticles.isNotEmpty() -> 0f
+            else -> 1f
+        }
+        val fadeRate = if (targetAlpha > inactiveTurnFilterAlpha) 1.85f else 3.4f
+        inactiveTurnFilterAlpha = when {
+            abs(targetAlpha - inactiveTurnFilterAlpha) < 0.02f -> targetAlpha
+            targetAlpha > inactiveTurnFilterAlpha -> min(1f, inactiveTurnFilterAlpha + delta * fadeRate)
+            else -> max(0f, inactiveTurnFilterAlpha - delta * fadeRate)
         }
     }
 
@@ -964,20 +980,20 @@ class MatchScreen(
         }
     }
 
-    private fun drawInactiveTurnFilter() {
-        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xBDC7D736))
-        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x7D90AC26))
+    private fun drawInactiveTurnFilter(alpha: Float) {
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0xBDC7D7FF, alpha * 0.21f))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x7D90ACFF, alpha * 0.15f))
         drawRepeatedTexture(
             grainTexture,
             0f,
             0f,
             layoutWorldWidth,
             layoutWorldHeight,
-            color(0xD6DFEB10),
+            colorWithAlpha(0xD6DFEBFF, alpha * 0.07f),
             layoutWorldWidth / 96f,
             layoutWorldHeight / 96f,
         )
-        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x0000002A))
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x000000FF, alpha * 0.16f))
     }
 
     private fun fillHero(rect: Rectangle) {
@@ -1256,7 +1272,7 @@ class MatchScreen(
         }
     }
 
-    private fun showInactiveTurnFilter(): Boolean {
+    private fun shouldShowInactiveTurnFilter(): Boolean {
         return presenter.state.status == MatchStatus.ACTIVE && !isLocalPlayersTurn()
     }
 
