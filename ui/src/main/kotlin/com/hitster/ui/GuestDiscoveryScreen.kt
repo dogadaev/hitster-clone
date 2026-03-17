@@ -27,18 +27,22 @@ class GuestDiscoveryScreen(
     private val shapeRenderer = ShapeRenderer()
     private val batch = SpriteBatch()
     private val touchPoint = Vector3()
+    private val backdrop = AtmosphericBackdrop()
     private lateinit var titleFont: BitmapFont
     private lateinit var itemFont: BitmapFont
     private val titleLayout = GlyphLayout()
     private val backRect = Rectangle()
+    private val titleRect = Rectangle()
     private val hostRects = mutableListOf<Pair<Rectangle, SessionAdvertisementDto>>()
     @Volatile
     private var discoveredHosts: List<SessionAdvertisementDto> = emptyList()
     private var autoJoinSessionId: String? = null
+    private var animationSeconds = 0f
 
     override fun show() {
         titleFont = createUiFont(70)
         itemFont = createUiFont(34)
+        backdrop.load()
         discoveryService.start { hosts ->
             discoveredHosts = hosts
         }
@@ -47,6 +51,7 @@ class GuestDiscoveryScreen(
     }
 
     override fun render(delta: Float) {
+        animationSeconds += delta
         updateLayout()
         val autoJoinHost = if (autoJoinSingleHost) discoveredHosts.singleOrNull() else null
         if (autoJoinHost != null && autoJoinSessionId != autoJoinHost.sessionId) {
@@ -62,30 +67,36 @@ class GuestDiscoveryScreen(
         batch.projectionMatrix = camera.combined
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        shapeRenderer.color = Color(0.03f, 0.08f, 0.17f, 1f)
-        shapeRenderer.rect(0f, 0f, viewport.worldWidth, viewport.worldHeight)
+        backdrop.drawShapes(shapeRenderer, viewport.worldWidth, viewport.worldHeight, 34f)
+        fillPanel(titleRect, 0x223868FF, 0x15284BFF, 0x9EC3FF2A)
         if (showBackButton) {
-            shapeRenderer.color = Color(0.16f, 0.22f, 0.42f, 1f)
-            shapeRenderer.rect(backRect.x, backRect.y, backRect.width, backRect.height)
+            fillPanel(backRect, 0x294A86FF, 0x18345DFF, 0xC7D8FF4A)
         }
         hostRects.forEachIndexed { index, (rect, _) ->
-            shapeRenderer.color = if (index % 2 == 0) {
-                Color(0.12f, 0.18f, 0.34f, 1f)
+            if (index % 2 == 0) {
+                fillPanel(rect, 0x203968FF, 0x12233FFF, 0xB6CAE832)
             } else {
-                Color(0.09f, 0.15f, 0.29f, 1f)
+                fillPanel(rect, 0x1A3159FF, 0x10203AFF, 0xA8BEE028)
             }
-            shapeRenderer.rect(rect.x, rect.y, rect.width, rect.height)
         }
         shapeRenderer.end()
 
         batch.begin()
+        backdrop.drawTextures(batch, viewport.worldWidth, viewport.worldHeight, animationSeconds, 1.02f)
+        backdrop.drawPanelTexture(batch, titleRect, Color(0.78f, 0.86f, 1f, 0.08f), animationSeconds)
+        if (showBackButton) {
+            backdrop.drawPanelTexture(batch, backRect, Color(0.84f, 0.92f, 1f, 0.08f), animationSeconds)
+        }
+        hostRects.forEach { (rect, _) ->
+            backdrop.drawPanelTexture(batch, rect, Color(0.83f, 0.90f, 1f, 0.06f), animationSeconds)
+        }
         titleLayout.setText(titleFont, "Available Hosts")
-        titleFont.draw(batch, titleLayout, (viewport.worldWidth - titleLayout.width) / 2f, viewport.worldHeight - 70f)
+        titleFont.draw(batch, titleLayout, (viewport.worldWidth - titleLayout.width) / 2f, titleRect.y + (titleRect.height + titleLayout.height) / 2f)
         if (showBackButton) {
             drawText(itemFont, "BACK", backRect.x + 22f, backRect.y + backRect.height * 0.68f)
         }
         if (hostRects.isEmpty()) {
-            drawText(itemFont, "Searching your local network for hosts...", 120f, viewport.worldHeight * 0.48f)
+            drawCenteredText(itemFont, "Searching your local network for hosts...", 0f, viewport.worldHeight * 0.48f, viewport.worldWidth)
         } else {
             hostRects.forEach { (rect, host) ->
                 drawText(itemFont, host.hostDisplayName, rect.x + 28f, rect.y + rect.height * 0.70f)
@@ -112,6 +123,7 @@ class GuestDiscoveryScreen(
     override fun dispose() {
         shapeRenderer.dispose()
         batch.dispose()
+        backdrop.dispose()
         if (this::titleFont.isInitialized) {
             titleFont.dispose()
         }
@@ -121,6 +133,7 @@ class GuestDiscoveryScreen(
     }
 
     private fun updateLayout() {
+        titleRect.set(42f, viewport.worldHeight - 132f, viewport.worldWidth - 84f, 88f)
         backRect.set(42f, viewport.worldHeight - 128f, 182f, 74f)
         val rowHeight = 124f
         val rowGap = 18f
@@ -140,6 +153,73 @@ class GuestDiscoveryScreen(
     private fun drawText(font: BitmapFont, text: String, x: Float, y: Float) {
         font.color = Color.WHITE
         font.draw(batch, text, x, y)
+    }
+
+    private fun drawCenteredText(font: BitmapFont, text: String, x: Float, y: Float, width: Float) {
+        font.color = Color.WHITE
+        val layout = GlyphLayout(font, text)
+        font.draw(batch, layout, x + (width - layout.width) / 2f, y)
+    }
+
+    private fun fillPanel(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
+        drawDropShadow(rect, 18f, 0x01050B30)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, bottomColor, bottomColor, topColor, topColor)
+        fillRect(rect.x + 10f, rect.y + rect.height - 12f, rect.width - 20f, 2f, 0xFFFFFF12)
+        drawFrame(rect, edgeColor, 2f)
+    }
+
+    private fun fillGradientRect(x: Float, y: Float, width: Float, height: Float, bottomLeft: Long, bottomRight: Long, topRight: Long, topLeft: Long) {
+        shapeRenderer.rect(
+            x,
+            y,
+            width,
+            height,
+            color(bottomLeft),
+            color(bottomRight),
+            color(topRight),
+            color(topLeft),
+        )
+    }
+
+    private fun fillRect(x: Float, y: Float, width: Float, height: Float, rgba: Long) {
+        shapeRenderer.color = color(rgba)
+        shapeRenderer.rect(x, y, width, height)
+    }
+
+    private fun drawFrame(rect: Rectangle, rgba: Long, thickness: Float) {
+        fillRect(rect.x, rect.y, rect.width, thickness, rgba)
+        fillRect(rect.x, rect.y + rect.height - thickness, rect.width, thickness, rgba)
+        fillRect(rect.x, rect.y + thickness, thickness, rect.height - thickness * 2f, rgba)
+        fillRect(rect.x + rect.width - thickness, rect.y + thickness, thickness, rect.height - thickness * 2f, rgba)
+    }
+
+    private fun drawDropShadow(rect: Rectangle, spread: Float, rgba: Long) {
+        repeat(4) { layer ->
+            val expansion = spread * (layer + 1) / 4f
+            val alpha = when (layer) {
+                0 -> 0x24L
+                1 -> 0x18L
+                2 -> 0x10L
+                else -> 0x08L
+            }
+            val shadow = (rgba and 0xFFFFFF00) or alpha
+            fillRect(
+                rect.x - expansion,
+                rect.y - expansion * 0.72f,
+                rect.width + expansion * 2f,
+                rect.height + expansion * 1.44f,
+                shadow,
+            )
+        }
+    }
+
+    private fun color(rgba: Long): Color {
+        return Color(
+            (((rgba shr 24) and 0xFF) / 255f).toFloat(),
+            (((rgba shr 16) and 0xFF) / 255f).toFloat(),
+            (((rgba shr 8) and 0xFF) / 255f).toFloat(),
+            ((rgba and 0xFF) / 255f).toFloat(),
+        )
     }
 
     private inner class DiscoveryInput : InputAdapter() {

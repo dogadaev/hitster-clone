@@ -25,23 +25,28 @@ class GuestConnectingScreen(
     private val shapeRenderer = ShapeRenderer()
     private val batch = SpriteBatch()
     private val touchPoint = Vector3()
+    private val backdrop = AtmosphericBackdrop()
     private lateinit var titleFont: BitmapFont
     private lateinit var bodyFont: BitmapFont
     private lateinit var detailFont: BitmapFont
     private val titleLayout = GlyphLayout()
     private val detailLayout = GlyphLayout()
+    private val titleRect = Rectangle()
     private val buttonRect = Rectangle()
     private var transitionDispatched = false
+    private var animationSeconds = 0f
 
     override fun show() {
         titleFont = createUiFont(72)
         bodyFont = createUiFont(36)
         detailFont = createUiFont(26)
+        backdrop.load()
         Gdx.input.inputProcessor = ConnectingInput()
         updateLayout()
     }
 
     override fun render(delta: Float) {
+        animationSeconds += delta
         if (!transitionDispatched && controller.localPlayer != null) {
             transitionDispatched = true
             onConnected()
@@ -57,17 +62,21 @@ class GuestConnectingScreen(
         batch.projectionMatrix = camera.combined
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        shapeRenderer.color = Color(0.03f, 0.08f, 0.17f, 1f)
-        shapeRenderer.rect(0f, 0f, viewport.worldWidth, viewport.worldHeight)
+        backdrop.drawShapes(shapeRenderer, viewport.worldWidth, viewport.worldHeight, 34f)
+        fillPanel(titleRect, 0x223868FF, 0x15284BFF, 0x9EC3FF2A)
         if (controller.lastError != null) {
-            shapeRenderer.color = Color(0.12f, 0.18f, 0.34f, 1f)
-            shapeRenderer.rect(buttonRect.x, buttonRect.y, buttonRect.width, buttonRect.height)
+            fillPanel(buttonRect, 0x2F4E87FF, 0x1B3158FF, 0xC7D8FF42)
         }
         shapeRenderer.end()
 
         batch.begin()
+        backdrop.drawTextures(batch, viewport.worldWidth, viewport.worldHeight, animationSeconds, 1.02f)
+        backdrop.drawPanelTexture(batch, titleRect, Color(0.78f, 0.86f, 1f, 0.08f), animationSeconds)
+        if (controller.lastError != null) {
+            backdrop.drawPanelTexture(batch, buttonRect, Color(0.84f, 0.92f, 1f, 0.08f), animationSeconds)
+        }
         titleLayout.setText(titleFont, "Joining Host")
-        titleFont.draw(batch, titleLayout, (viewport.worldWidth - titleLayout.width) / 2f, viewport.worldHeight - 110f)
+        titleFont.draw(batch, titleLayout, (viewport.worldWidth - titleLayout.width) / 2f, titleRect.y + (titleRect.height + titleLayout.height) / 2f)
         drawText(bodyFont, hostDisplayName, 0f, viewport.worldHeight * 0.55f, viewport.worldWidth, true)
 
         val message = controller.lastError ?: "Connecting to the host..."
@@ -96,6 +105,7 @@ class GuestConnectingScreen(
     override fun dispose() {
         shapeRenderer.dispose()
         batch.dispose()
+        backdrop.dispose()
         if (this::titleFont.isInitialized) {
             titleFont.dispose()
         }
@@ -108,6 +118,7 @@ class GuestConnectingScreen(
     }
 
     private fun updateLayout() {
+        titleRect.set(42f, viewport.worldHeight - 132f, viewport.worldWidth - 84f, 88f)
         buttonRect.set(
             (viewport.worldWidth - 360f) / 2f,
             viewport.worldHeight * 0.22f,
@@ -143,6 +154,67 @@ class GuestConnectingScreen(
         font.color = Color(0.76f, 0.82f, 0.95f, 1f)
         detailLayout.setText(font, text, font.color, width, 1, true)
         font.draw(batch, detailLayout, x, y)
+    }
+
+    private fun fillPanel(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
+        drawDropShadow(rect, 18f, 0x01050B30)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, bottomColor, bottomColor, topColor, topColor)
+        fillRect(rect.x + 10f, rect.y + rect.height - 12f, rect.width - 20f, 2f, 0xFFFFFF12)
+        drawFrame(rect, edgeColor, 2f)
+    }
+
+    private fun fillGradientRect(x: Float, y: Float, width: Float, height: Float, bottomLeft: Long, bottomRight: Long, topRight: Long, topLeft: Long) {
+        shapeRenderer.rect(
+            x,
+            y,
+            width,
+            height,
+            color(bottomLeft),
+            color(bottomRight),
+            color(topRight),
+            color(topLeft),
+        )
+    }
+
+    private fun fillRect(x: Float, y: Float, width: Float, height: Float, rgba: Long) {
+        shapeRenderer.color = color(rgba)
+        shapeRenderer.rect(x, y, width, height)
+    }
+
+    private fun drawFrame(rect: Rectangle, rgba: Long, thickness: Float) {
+        fillRect(rect.x, rect.y, rect.width, thickness, rgba)
+        fillRect(rect.x, rect.y + rect.height - thickness, rect.width, thickness, rgba)
+        fillRect(rect.x, rect.y + thickness, thickness, rect.height - thickness * 2f, rgba)
+        fillRect(rect.x + rect.width - thickness, rect.y + thickness, thickness, rect.height - thickness * 2f, rgba)
+    }
+
+    private fun drawDropShadow(rect: Rectangle, spread: Float, rgba: Long) {
+        repeat(4) { layer ->
+            val expansion = spread * (layer + 1) / 4f
+            val alpha = when (layer) {
+                0 -> 0x24L
+                1 -> 0x18L
+                2 -> 0x10L
+                else -> 0x08L
+            }
+            val shadow = (rgba and 0xFFFFFF00) or alpha
+            fillRect(
+                rect.x - expansion,
+                rect.y - expansion * 0.72f,
+                rect.width + expansion * 2f,
+                rect.height + expansion * 1.44f,
+                shadow,
+            )
+        }
+    }
+
+    private fun color(rgba: Long): Color {
+        return Color(
+            (((rgba shr 24) and 0xFF) / 255f).toFloat(),
+            (((rgba shr 16) and 0xFF) / 255f).toFloat(),
+            (((rgba shr 8) and 0xFF) / 255f).toFloat(),
+            ((rgba and 0xFF) / 255f).toFloat(),
+        )
     }
 
     private inner class ConnectingInput : InputAdapter() {

@@ -828,11 +828,11 @@ class MatchScreen(
     }
 
     private fun drawBackground() {
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x041019FF, 0x071626FF, 0x132B46FF, 0x0D2139FF)
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x03060C66, 0x050A1066, 0x00000000, 0x00000000)
-        fillGradientRect(0f, layoutWorldHeight * 0.56f, layoutWorldWidth, layoutWorldHeight * 0.44f, 0x00000000, 0x00000000, 0x274B84A8, 0x1C3A6999)
-        fillGradientRect(0f, 0f, layoutWorldWidth * 0.34f, layoutWorldHeight, 0x0F1B2B66, 0x00000000, 0x00000000, 0x18355B8C)
-        fillGradientRect(layoutWorldWidth * 0.66f, 0f, layoutWorldWidth * 0.34f, layoutWorldHeight, 0x00000000, 0x1020305E, 0x1A355C7E, 0x00000000)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x04101AFF, 0x071522FF, 0x16355CFF, 0x102948FF)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x02060C78, 0x050A104E, 0x00000000, 0x0F244000)
+        fillGradientRect(0f, layoutWorldHeight * 0.54f, layoutWorldWidth, layoutWorldHeight * 0.46f, 0x00000000, 0x02060A00, 0x3769AC82, 0x284F845E)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight * 0.36f, 0x10182724, 0x0B132014, 0x00000000, 0x00000000)
+        fillGradientRect(0f, layoutWorldHeight * 0.20f, layoutWorldWidth, layoutWorldHeight * 0.24f, 0x14243A08, 0x0F1C2B00, 0x274B7A00, 0x21436F10)
 
         val crownHeight = clamp(layoutWorldHeight * 0.09f, 60f, 76f)
         fillGradientRect(
@@ -856,22 +856,22 @@ class MatchScreen(
 
     private fun drawAtmosphereTextures() {
         val time = overlayAnimationSeconds
-        val auroraLeftX = layoutWorldWidth * 0.10f + sin(time * 0.09f) * 70f
-        val auroraLeftY = layoutWorldHeight * 0.46f + cos(time * 0.12f) * 26f
-        val auroraRightX = layoutWorldWidth * 0.48f + cos(time * 0.07f) * 82f
-        val auroraRightY = layoutWorldHeight * 0.58f + sin(time * 0.10f) * 30f
-        val emberX = -layoutWorldWidth * 0.08f + cos(time * 0.06f) * 54f
-        val emberY = -layoutWorldHeight * 0.06f + sin(time * 0.08f) * 36f
-        val topBloomX = layoutWorldWidth * 0.58f + sin(time * 0.05f) * 46f
-        val topBloomY = layoutWorldHeight * 0.78f + cos(time * 0.07f) * 22f
-        val sweepX = -layoutWorldWidth * 0.18f + sin(time * 0.04f) * 40f
-        val sweepY = layoutWorldHeight * 0.26f + cos(time * 0.05f) * 18f
+        val leftBloomX = layoutWorldWidth * 0.04f + sin(time * 0.11f) * 86f
+        val leftBloomY = layoutWorldHeight * 0.35f + cos(time * 0.15f) * 32f
+        val centerBloomX = layoutWorldWidth * 0.34f + cos(time * 0.08f) * 118f
+        val centerBloomY = layoutWorldHeight * 0.58f + sin(time * 0.10f) * 36f
+        val rightBloomX = layoutWorldWidth * 0.64f + sin(time * 0.07f) * 126f
+        val rightBloomY = layoutWorldHeight * 0.54f + cos(time * 0.09f) * 30f
+        val emberX = -layoutWorldWidth * 0.05f + cos(time * 0.06f) * 70f
+        val emberY = -layoutWorldHeight * 0.03f + sin(time * 0.08f) * 40f
+        val sweepX = -layoutWorldWidth * 0.20f + sin(time * 0.05f) * 68f
+        val sweepY = layoutWorldHeight * 0.22f + cos(time * 0.04f) * 24f
 
-        drawGlow(auroraLeftX, auroraLeftY, layoutWorldWidth * 0.54f, layoutWorldHeight * 0.34f, color(0x2C8CC645))
-        drawGlow(auroraRightX, auroraRightY, layoutWorldWidth * 0.62f, layoutWorldHeight * 0.38f, color(0x4A74D23A))
-        drawGlow(emberX, emberY, layoutWorldWidth * 0.44f, layoutWorldWidth * 0.44f, color(0xF29A3A20))
-        drawGlow(topBloomX, topBloomY, layoutWorldWidth * 0.36f, layoutWorldHeight * 0.22f, color(0xD9F2FF18))
-        drawGlow(sweepX, sweepY, layoutWorldWidth * 1.06f, layoutWorldHeight * 0.18f, color(0xB4D9FF10))
+        drawGlow(leftBloomX, leftBloomY, layoutWorldWidth * 0.46f, layoutWorldHeight * 0.34f, color(0x2F89D855))
+        drawGlow(centerBloomX, centerBloomY, layoutWorldWidth * 0.66f, layoutWorldHeight * 0.42f, color(0x6B98F34A))
+        drawGlow(rightBloomX, rightBloomY, layoutWorldWidth * 0.52f, layoutWorldHeight * 0.36f, color(0x1E5FA846))
+        drawGlow(emberX, emberY, layoutWorldWidth * 0.46f, layoutWorldWidth * 0.46f, color(0xF2B45728))
+        drawGlow(sweepX, sweepY, layoutWorldWidth * 1.12f, layoutWorldHeight * 0.22f, color(0xCCE3FF18))
 
         drawRepeatedTexture(
             grainTexture,
@@ -879,11 +879,11 @@ class MatchScreen(
             0f,
             layoutWorldWidth,
             layoutWorldHeight,
-            color(0xE4EEFF0D),
-            layoutWorldWidth / 112f,
-            layoutWorldHeight / 112f,
+            color(0xEAF2FF14),
+            layoutWorldWidth / 114f,
+            layoutWorldHeight / 114f,
+            time * 0.012f,
             time * 0.010f,
-            time * 0.008f,
         )
         drawRepeatedTexture(
             grainTexture,
@@ -891,13 +891,14 @@ class MatchScreen(
             0f,
             layoutWorldWidth,
             layoutWorldHeight,
-            color(0x6BA9D10A),
-            layoutWorldWidth / 72f,
-            layoutWorldHeight / 72f,
-            -time * 0.006f,
-            time * 0.004f,
+            color(0x78AED70D),
+            layoutWorldWidth / 76f,
+            layoutWorldHeight / 76f,
+            -time * 0.007f,
+            time * 0.005f,
         )
         drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x000000B6))
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x21304B26))
     }
 
     private fun drawLobby() {
@@ -939,7 +940,42 @@ class MatchScreen(
     private fun drawLobbyTextures() {
         if (showLobbyPrimaryButton()) {
             drawPanelTexture(startButtonRect, color(0xFFF5D41E))
+            val time = overlayAnimationSeconds
+            drawGlow(
+                startButtonRect.x - startButtonRect.width * 0.14f + sin(time * 0.20f) * 14f,
+                startButtonRect.y - startButtonRect.height * 0.32f,
+                startButtonRect.width * 1.28f,
+                startButtonRect.height * 1.58f,
+                color(0xF9D06D24),
+            )
         }
+        val time = overlayAnimationSeconds
+        drawGlow(
+            lobbyCardRect.x + lobbyCardRect.width * 0.23f + sin(time * 0.16f) * 22f,
+            lobbyCardRect.y + lobbyCardRect.height * 0.16f + cos(time * 0.14f) * 14f,
+            lobbyCardRect.width * 0.54f,
+            lobbyCardRect.height * 0.56f,
+            color(0xF5C96E1A),
+        )
+        drawGlow(
+            lobbyCardRect.x + lobbyCardRect.width * 0.04f + cos(time * 0.12f) * 18f,
+            lobbyCardRect.y + lobbyCardRect.height * 0.38f + sin(time * 0.10f) * 12f,
+            lobbyCardRect.width * 0.88f,
+            lobbyCardRect.height * 0.44f,
+            color(0x80B8FF14),
+        )
+        drawRepeatedTexture(
+            grainTexture,
+            lobbyCardRect.x,
+            lobbyCardRect.y,
+            lobbyCardRect.width,
+            lobbyCardRect.height,
+            color(0xDCE8FF06),
+            max(1f, lobbyCardRect.width / 138f),
+            max(1f, lobbyCardRect.height / 110f),
+            time * 0.005f,
+            time * 0.004f,
+        )
         lobbyPlayerBadgeRects().forEach { rect ->
             drawPanelTexture(rect, color(0xC7DAFF10))
         }
