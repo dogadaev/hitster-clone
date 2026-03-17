@@ -259,8 +259,8 @@ class MatchScreen(
         val actionHeight = clamp(heroRect.height * 0.62f, 64f, 80f)
         val actionWidth = clamp(worldWidth * 0.165f, 214f, 280f)
         actionButtonRect.set(
-            heroRect.x + heroRect.width - panelPadding - actionWidth,
-            heroRect.y + (heroRect.height - actionHeight) / 2f,
+            timelinePanelRect.x + panelPadding,
+            timelinePanelRect.y + panelPadding,
             actionWidth,
             actionHeight,
         )
@@ -796,11 +796,7 @@ class MatchScreen(
         val player = localPlayer()
         val toolbarStatus = toolbarStatusText()
         val turnLabelWidth = if (toolbarStatus == null) 170f else 154f
-        val turnX = if (showActionButton()) {
-            actionButtonRect.x - panelGap - turnLabelWidth
-        } else {
-            heroRect.x + heroRect.width - panelPadding - turnLabelWidth
-        }
+        val turnX = heroRect.x + heroRect.width - panelPadding - turnLabelWidth
         val playerWidth = if (toolbarStatus == null) {
             heroRect.width * 0.46f
         } else {
@@ -1197,6 +1193,11 @@ class MatchScreen(
 
     private fun canEndTurn(): Boolean = isLocalPlayersTurn() && presenter.state.turn?.phase == TurnPhase.CARD_POSITIONED
 
+    private fun drawDropSlotIndexFor(x: Float): Int {
+        val player = localPlayer() ?: return 0
+        return timelineLayout.nearestSlotIndex(player.timeline.cards.size, x)
+    }
+
     private fun requestedSlotIndexFor(x: Float): Int {
         val player = localPlayer() ?: return 0
         val pendingCard = player.pendingCard ?: return timelineLayout.nearestSlotIndex(player.timeline.cards.size, x)
@@ -1429,8 +1430,9 @@ class MatchScreen(
             val world = viewport.unproject(worldTouch.set(screenX.toFloat(), screenY.toFloat()))
 
             if (draggingDeckGhost) {
+                val drawDropSlotIndex = drawDropSlotIndexFor(world.x)
                 presenter.drawCard()
-                presenter.movePendingCard(requestedSlotIndexFor(world.x))
+                presenter.movePendingCard(drawDropSlotIndex)
             } else if (draggingPendingCard) {
                 presenter.movePendingCard(requestedSlotIndexFor(world.x))
             }
