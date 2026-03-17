@@ -315,6 +315,7 @@ Should have:
 - clear playback-state feedback
 - a clean lobby and room-join flow
 - the host lobby should only expose the start action once at least one non-host player is connected
+- guest join flow should stay in an explicit connecting state until the authoritative host snapshot confirms that guest; do not transition guests into a fake empty lobby with `0 PLAYERS`
 - basic error feedback for networking and playback failures
 
 Do not design core gameplay UI for portrait mode.

@@ -56,7 +56,14 @@ class HitsterGameApp(
                         displayName = localDisplayName,
                     )
                     activeMatchController = controller
-                    setScreen(MatchScreen(controller, animationCatalog))
+                    setScreen(
+                        GuestConnectingScreen(
+                            controller = controller,
+                            hostDisplayName = advertisement.hostDisplayName,
+                            onConnected = { setScreen(MatchScreen(controller, animationCatalog)) },
+                            onCancel = { openGuestDiscovery(canGoBack = canGoBack) },
+                        ),
+                    )
                 },
             ),
         )
