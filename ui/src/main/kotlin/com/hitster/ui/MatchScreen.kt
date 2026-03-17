@@ -17,6 +17,7 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
+import com.badlogic.gdx.scenes.scene2d.utils.ScissorStack
 import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.animations.AnimationCatalog
@@ -1717,10 +1718,9 @@ class MatchScreen(
     }
 
     private fun drawTimelineCardText(includeOverlay: Boolean) {
-        timelineCardVisuals.forEach { visual ->
-            if (isOverlayVisual(visual) == includeOverlay) {
-                drawCardText(visual)
-            }
+        val layerVisuals = timelineCardVisuals.filter { isOverlayVisual(it) == includeOverlay }
+        layerVisuals.forEachIndexed { index, visual ->
+            drawClippedCardText(visual, layerVisuals, index)
         }
         if (includeOverlay) {
             transientCardVisual?.let(::drawCardText)
@@ -1736,10 +1736,69 @@ class MatchScreen(
     }
 
     private fun drawDoubtPopupCardText(includeOverlay: Boolean) {
-        doubtTimelineCardVisuals.forEach { visual ->
-            if (isDoubtOverlayVisual(visual) == includeOverlay) {
-                drawCardText(visual)
+        val layerVisuals = doubtTimelineCardVisuals.filter { isDoubtOverlayVisual(it) == includeOverlay }
+        layerVisuals.forEachIndexed { index, visual ->
+            drawClippedCardText(visual, layerVisuals, index)
+        }
+    }
+
+    private fun drawClippedCardText(
+        visual: TimelineCardVisual,
+        layeredVisuals: List<TimelineCardVisual>,
+        index: Int,
+    ) {
+        val clipBounds = visibleTextClipBounds(visual, layeredVisuals, index)
+        if (clipBounds.width <= 6f || clipBounds.height <= 6f) {
+            return
+        }
+        withBatchClip(clipBounds) {
+            drawCardText(visual)
+        }
+    }
+
+    private fun visibleTextClipBounds(
+        visual: TimelineCardVisual,
+        layeredVisuals: List<TimelineCardVisual>,
+        index: Int,
+    ): Rectangle {
+        var visibleLeft = visual.rect.x
+        var visibleRight = visual.rect.x + visual.rect.width
+        val top = visual.rect.y + visual.rect.height
+        for (laterIndex in index + 1 until layeredVisuals.size) {
+            val laterRect = layeredVisuals[laterIndex].rect
+            val overlapsVertically = laterRect.y < top && laterRect.y + laterRect.height > visual.rect.y
+            if (!overlapsVertically) {
+                continue
             }
+            if (laterRect.x <= visibleLeft && laterRect.x + laterRect.width > visibleLeft) {
+                visibleLeft = min(visibleRight, laterRect.x + laterRect.width)
+            } else if (laterRect.x in (visibleLeft + 0.5f)..<visibleRight) {
+                visibleRight = laterRect.x
+            }
+        }
+        val insetX = 3f
+        val insetY = 2f
+        return Rectangle(
+            visibleLeft + insetX,
+            visual.rect.y + insetY,
+            max(0f, visibleRight - visibleLeft - insetX * 2f),
+            max(0f, visual.rect.height - insetY * 2f),
+        )
+    }
+
+    private fun withBatchClip(clipBounds: Rectangle, block: () -> Unit) {
+        batch.flush()
+        val scissors = Rectangle()
+        viewport.calculateScissors(batch.transformMatrix, clipBounds, scissors)
+        if (ScissorStack.pushScissors(scissors)) {
+            try {
+                block()
+                batch.flush()
+            } finally {
+                ScissorStack.popScissors()
+            }
+        } else {
+            block()
         }
     }
 
