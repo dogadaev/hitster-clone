@@ -147,6 +147,12 @@ class MatchScreen(
             drawConfetti()
             shapeRenderer.end()
         }
+
+        if (showInactiveTurnFilter()) {
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+            drawInactiveTurnFilter()
+            shapeRenderer.end()
+        }
     }
 
     override fun resize(width: Int, height: Int) {
@@ -800,16 +806,16 @@ class MatchScreen(
         val playerWidth = if (toolbarStatus == null) {
             heroRect.width * 0.46f
         } else {
-            clamp(heroRect.width * 0.21f, 240f, 320f)
+            clamp(heroRect.width * 0.28f, 260f, 420f)
         }
 
         drawTextBlock(
-            text = player?.displayName ?: "Waiting",
+            text = activeTurnToolbarLabel(),
             x = heroRect.x + panelPadding,
             y = heroRect.y,
             width = playerWidth,
             height = heroRect.height,
-            scale = 1.12f,
+            scale = if (toolbarStatus == null) 1.08f else 0.96f,
             color = Color.WHITE,
             verticalAlign = VerticalTextAlign.Center,
         )
@@ -935,6 +941,39 @@ class MatchScreen(
                 particle.rotation,
             )
         }
+    }
+
+    private fun drawInactiveTurnFilter() {
+        fillGradientRect(
+            0f,
+            0f,
+            layoutWorldWidth,
+            layoutWorldHeight,
+            0x31384778,
+            0x31384778,
+            0x4C5A7388,
+            0x4C5A7388,
+        )
+        fillGradientRect(
+            0f,
+            0f,
+            layoutWorldWidth,
+            layoutWorldHeight * 0.34f,
+            0x1419227A,
+            0x1419227A,
+            0x00000000,
+            0x00000000,
+        )
+        fillGradientRect(
+            0f,
+            layoutWorldHeight * 0.58f,
+            layoutWorldWidth,
+            layoutWorldHeight * 0.42f,
+            0x00000000,
+            0x00000000,
+            0x1B243679,
+            0x1B243679,
+        )
     }
 
     private fun fillHero(rect: Rectangle) {
@@ -1154,6 +1193,22 @@ class MatchScreen(
             .firstOrNull { it.id == cardId }
             ?.let { return it }
         return null
+    }
+
+    private fun activeTurnToolbarLabel(): String {
+        val turnPlayer = presenter.state.turn
+            ?.activePlayerId
+            ?.let { playerId -> presenter.state.requirePlayer(playerId) }
+            ?: return "Waiting"
+        return if (turnPlayer.id == presenter.localPlayerId) {
+            "YOUR TURN"
+        } else {
+            "${turnPlayer.displayName.uppercase()} TURN"
+        }
+    }
+
+    private fun showInactiveTurnFilter(): Boolean {
+        return presenter.state.status == MatchStatus.ACTIVE && !isLocalPlayersTurn()
     }
 
     private fun showActionButton(): Boolean = canEndTurn()
