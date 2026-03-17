@@ -242,11 +242,14 @@ class MatchScreen(
             panelHeaderHeight,
         )
 
-        val trackHeight = timelinePanelRect.height - panelHeaderHeight - panelPadding * 2f
+        val trackInsetX = panelPadding * 0.48f
+        val trackInsetBottom = panelPadding * 0.44f
+        val trackInsetTop = panelPadding * 0.34f
+        val trackHeight = timelinePanelRect.height - panelHeaderHeight - trackInsetBottom - trackInsetTop
         timelineTrackRect.set(
-            timelinePanelRect.x + panelPadding,
-            timelinePanelRect.y + panelPadding,
-            timelinePanelRect.width - panelPadding * 2f,
+            timelinePanelRect.x + trackInsetX,
+            timelinePanelRect.y + trackInsetBottom,
+            timelinePanelRect.width - trackInsetX * 2f,
             trackHeight,
         )
 
@@ -772,7 +775,6 @@ class MatchScreen(
         fillHero(heroRect)
         fillPanel(deckPanelRect, 0x14264DFF, 0x0D1B37FF, 0x4C67A4FF, 0x3D568DFF, 0xAFC2F040)
         fillPanel(timelinePanelRect, 0x14264DFF, 0x0D1B37FF, 0x556EABFF, 0x41598FFF, 0xB4C7F144)
-        fillTrack(timelineTrackRect)
         if (showActionButton()) {
             fillButton(actionButtonRect, 0xF6B447FF, 0xE6972CFF, 0xFFF2C56C)
         }
@@ -797,16 +799,15 @@ class MatchScreen(
         drawPanelTexture(heroRect, color(0xCFE1FF10))
         drawPanelTexture(deckPanelRect, color(0xC9DBFF18))
         drawPanelTexture(timelinePanelRect, color(0xC9DBFF12))
-        drawPanelTexture(timelineTrackRect, color(0xE1E8FF0E))
         drawRepeatedTexture(
             grainTexture,
-            timelineTrackRect.x,
-            timelineTrackRect.y,
-            timelineTrackRect.width,
-            timelineTrackRect.height,
-            color(0x99B7EB12),
-            timelineTrackRect.width / 92f,
-            timelineTrackRect.height / 92f,
+            timelinePanelRect.x + 2f,
+            timelinePanelRect.y + 2f,
+            timelinePanelRect.width - 4f,
+            timelinePanelRect.height - panelHeaderHeight - 4f,
+            color(0x7FA9DD0C),
+            timelinePanelRect.width / 116f,
+            max(1f, (timelinePanelRect.height - panelHeaderHeight) / 116f),
         )
         if (showActionButton()) {
             drawPanelTexture(actionButtonRect, color(0xFFF2D028))
