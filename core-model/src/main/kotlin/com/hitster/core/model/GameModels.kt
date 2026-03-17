@@ -10,7 +10,15 @@ enum class TurnPhase {
     WAITING_FOR_DRAW,
     AWAITING_PLACEMENT,
     CARD_POSITIONED,
+    AWAITING_DOUBT_PLACEMENT,
+    DOUBT_POSITIONED,
     COMPLETE,
+}
+
+enum class DoubtPhase {
+    ARMED,
+    POSITIONING,
+    POSITIONED,
 }
 
 data class PendingCard(
@@ -36,8 +44,16 @@ data class PlayerState(
     val displayName: String,
     val connected: Boolean = true,
     val score: Int = 0,
+    val coins: Int = 0,
     val timeline: PlayerTimeline = PlayerTimeline(),
     val pendingCard: PendingCard? = null,
+)
+
+data class DoubtState(
+    val doubterId: PlayerId,
+    val targetPlayerId: PlayerId,
+    val phase: DoubtPhase,
+    val proposedSlotIndex: Int? = null,
 )
 
 data class TurnState(
@@ -65,6 +81,7 @@ data class GameState(
     val deck: DeckState,
     val discardPile: List<PlaylistEntry> = emptyList(),
     val turn: TurnState? = null,
+    val doubt: DoubtState? = null,
     val lastResolution: TurnResolution? = null,
 ) {
     val activePlayer: PlayerState?
@@ -72,4 +89,3 @@ data class GameState(
 
     fun requirePlayer(playerId: PlayerId): PlayerState? = players.firstOrNull { it.id == playerId }
 }
-

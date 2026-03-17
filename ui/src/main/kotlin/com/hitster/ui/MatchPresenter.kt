@@ -96,8 +96,20 @@ class MatchPresenter(
         drawCardAs(localPlayerId)
     }
 
+    override fun toggleDoubt() {
+        toggleDoubtAs(localPlayerId)
+    }
+
     override fun movePendingCard(requestedSlotIndex: Int) {
         movePendingCardAs(localPlayerId, requestedSlotIndex)
+    }
+
+    override fun moveDoubtCard(requestedSlotIndex: Int) {
+        moveDoubtCardAs(localPlayerId, requestedSlotIndex)
+    }
+
+    override fun adjustPlayerCoins(playerId: PlayerId, delta: Int) {
+        adjustPlayerCoinsAs(localPlayerId, playerId, delta)
     }
 
     override fun endTurn() {
@@ -116,6 +128,36 @@ class MatchPresenter(
             GameCommand.MovePendingCard(
                 actorId = actorId,
                 requestedSlotIndex = requestedSlotIndex,
+            ),
+        )
+    }
+
+    internal fun toggleDoubtAs(actorId: PlayerId) {
+        dispatch(GameCommand.ToggleDoubt(actorId = actorId))
+    }
+
+    internal fun moveDoubtCardAs(
+        actorId: PlayerId,
+        requestedSlotIndex: Int,
+    ) {
+        dispatch(
+            GameCommand.MoveDoubtCard(
+                actorId = actorId,
+                requestedSlotIndex = requestedSlotIndex,
+            ),
+        )
+    }
+
+    internal fun adjustPlayerCoinsAs(
+        actorId: PlayerId,
+        playerId: PlayerId,
+        delta: Int,
+    ) {
+        dispatch(
+            GameCommand.AdjustPlayerCoins(
+                actorId = actorId,
+                playerId = playerId,
+                delta = delta,
             ),
         )
     }
@@ -157,11 +199,34 @@ class MatchPresenter(
                 dispatch(GameCommand.DrawCard(actorId = PlayerId(command.actorId)))
             }
 
+            is ClientCommandDto.ToggleDoubt -> {
+                dispatch(GameCommand.ToggleDoubt(actorId = PlayerId(command.actorId)))
+            }
+
             is ClientCommandDto.MovePendingCard -> {
                 dispatch(
                     GameCommand.MovePendingCard(
                         actorId = PlayerId(command.actorId),
                         requestedSlotIndex = command.requestedSlotIndex,
+                    ),
+                )
+            }
+
+            is ClientCommandDto.MoveDoubtCard -> {
+                dispatch(
+                    GameCommand.MoveDoubtCard(
+                        actorId = PlayerId(command.actorId),
+                        requestedSlotIndex = command.requestedSlotIndex,
+                    ),
+                )
+            }
+
+            is ClientCommandDto.AdjustPlayerCoins -> {
+                dispatch(
+                    GameCommand.AdjustPlayerCoins(
+                        actorId = PlayerId(command.actorId),
+                        playerId = PlayerId(command.playerId),
+                        delta = command.delta,
                     ),
                 )
             }
@@ -234,7 +299,10 @@ private fun GameCommand.actorId(): PlayerId {
         is GameCommand.LeaveSession -> playerId
         is GameCommand.StartGame -> actorId
         is GameCommand.DrawCard -> actorId
+        is GameCommand.ToggleDoubt -> actorId
         is GameCommand.MovePendingCard -> actorId
+        is GameCommand.MoveDoubtCard -> actorId
+        is GameCommand.AdjustPlayerCoins -> actorId
         is GameCommand.EndTurn -> actorId
     }
 }

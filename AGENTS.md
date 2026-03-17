@@ -238,6 +238,7 @@ Turn flow:
 - the host-created deck must be shuffled per session before the match starts; do not ship a fixed deterministic draw order outside explicit tests
 - each player begins the match with one random revealed card already placed on their own timeline
 - that seeded opening card counts toward the player's score / progress, so each player starts at 1
+- the host must be able to manually award or remove coins for players, because the song-name / artist-name bonus check is judged socially rather than by the app
 - the active player draws a card from the deck on their own device using drag and drop
 - drawing the card starts playback for the associated track
 - the player must not see song-identifying details such as title, artist, or release year before ending the turn
@@ -252,8 +253,11 @@ Turn flow:
 - after insertion, all cards in the timeline must automatically adjust their positions to make space for the new card
 - the timeline must visually fit up to 10 cards; committed cards may overlap slightly when compressed, but the hidden in-turn card must never overlap adjacent cards
 - after insertion or rearrangement, the full set of cards in the player's timeline must remain visually centered as a group
+- waiting players with at least one coin may arm a single active doubt before reveal; only one doubt may be armed at a time
 - the player confirms the move using an end-turn button
 - ending the turn pauses playback
+- if a doubt is armed, the active player's turn pauses after their placement and the doubting player receives a temporary isolated placement UI for that same hidden card against the target timeline, without mutating the target timeline directly
+- a successful doubt on an otherwise wrong placement spends one coin and steals the card into the doubter's own timeline; in all other doubt outcomes the coin is still spent and the original turn resolves normally
 - the host validates whether the placement is chronologically correct
 - the result is synchronized to all players
 - the match continues with updated shared state

@@ -1,6 +1,7 @@
 package com.hitster.core.game
 
 import com.hitster.core.model.GameState
+import com.hitster.core.model.DoubtPhase
 import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.PlaybackReference
 import com.hitster.core.model.PlayerId
@@ -136,6 +137,96 @@ class HostGameReducerTest {
         assertEquals(2, accepted.state.players.first().timeline.cards.size)
         assertTrue(accepted.effects.any { it is GameEffect.PausePlayback })
         assertTrue(accepted.effects.any { it is GameEffect.PublishSnapshot })
+    }
+
+    @Test
+    fun `guest can arm and clear a doubt while waiting`() {
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("draw-host", 1990),
+                entry("draw-guest", 2010),
+            ),
+        )
+
+        state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.AdjustPlayerCoins(hostId, guestId, 1)))
+        state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
+
+        val armed = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.ToggleDoubt(guestId)))
+        assertEquals(guestId, armed.state.doubt?.doubterId)
+        assertEquals(DoubtPhase.ARMED, armed.state.doubt?.phase)
+
+        val cleared = assertIs<ReducerResult.Accepted>(reducer.reduce(armed.state, GameCommand.ToggleDoubt(guestId)))
+        assertEquals(null, cleared.state.doubt)
+    }
+
+    @Test
+    fun `successful doubt steals the card and spends the coin`() {
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1990),
+                entry("seed-guest", 2005),
+                entry("late", 2010),
+                entry("reserve", 2022),
+            ),
+        )
+
+        state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.AdjustPlayerCoins(hostId, guestId, 1)))
+        state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.MovePendingCard(hostId, 0)))
+        state = acceptedState(reducer.reduce(state, GameCommand.ToggleDoubt(guestId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.EndTurn(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.MoveDoubtCard(guestId, 1)))
+
+        val accepted = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.EndTurn(guestId)))
+        val host = accepted.state.requirePlayer(hostId)
+        val guest = accepted.state.requirePlayer(guestId)
+
+        assertEquals(guestId, accepted.state.turn?.activePlayerId)
+        assertEquals(1, host?.timeline?.cards?.size)
+        assertEquals(2, guest?.timeline?.cards?.size)
+        assertEquals("late", guest?.timeline?.cards?.last()?.id)
+        assertEquals(0, guest?.coins)
+        assertEquals(2, guest?.score)
+        assertEquals(null, accepted.state.doubt)
+        assertEquals(guestId, accepted.state.lastResolution?.playerId)
+        assertEquals(true, accepted.state.lastResolution?.correct)
+    }
+
+    @Test
+    fun `failed doubt spends the coin and keeps the card with the original player when correct`() {
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1990),
+                entry("seed-guest", 2005),
+                entry("mid", 1995),
+                entry("reserve", 2022),
+            ),
+        )
+
+        state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.AdjustPlayerCoins(hostId, guestId, 1)))
+        state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.MovePendingCard(hostId, 1)))
+        state = acceptedState(reducer.reduce(state, GameCommand.ToggleDoubt(guestId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.EndTurn(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.MoveDoubtCard(guestId, 0)))
+
+        val accepted = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.EndTurn(guestId)))
+        val host = accepted.state.requirePlayer(hostId)
+        val guest = accepted.state.requirePlayer(guestId)
+
+        assertEquals(guestId, accepted.state.turn?.activePlayerId)
+        assertEquals(2, host?.timeline?.cards?.size)
+        assertEquals("mid", host?.timeline?.cards?.last()?.id)
+        assertEquals(2, host?.score)
+        assertEquals(0, guest?.coins)
+        assertEquals(1, guest?.score)
+        assertEquals(true, accepted.state.lastResolution?.correct)
+        assertEquals(hostId, accepted.state.lastResolution?.playerId)
     }
 
     @Test

@@ -22,9 +22,24 @@ sealed interface GameCommand {
         val actorId: PlayerId,
     ) : GameCommand
 
+    data class ToggleDoubt(
+        val actorId: PlayerId,
+    ) : GameCommand
+
     data class MovePendingCard(
         val actorId: PlayerId,
         val requestedSlotIndex: Int,
+    ) : GameCommand
+
+    data class MoveDoubtCard(
+        val actorId: PlayerId,
+        val requestedSlotIndex: Int,
+    ) : GameCommand
+
+    data class AdjustPlayerCoins(
+        val actorId: PlayerId,
+        val playerId: PlayerId,
+        val delta: Int,
     ) : GameCommand
 
     data class EndTurn(

@@ -3,6 +3,8 @@ package com.hitster.networking
 import com.hitster.core.model.GameState
 import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.DeckState
+import com.hitster.core.model.DoubtPhase
+import com.hitster.core.model.DoubtState
 import com.hitster.core.model.PendingCard
 import com.hitster.core.model.PlaybackReference
 import com.hitster.core.model.PlayerId
@@ -61,10 +63,31 @@ sealed class ClientCommandDto {
     ) : ClientCommandDto()
 
     @Serializable
+    @SerialName("toggle_doubt")
+    data class ToggleDoubt(
+        override val actorId: String,
+    ) : ClientCommandDto()
+
+    @Serializable
     @SerialName("move_pending_card")
     data class MovePendingCard(
         override val actorId: String,
         val requestedSlotIndex: Int,
+    ) : ClientCommandDto()
+
+    @Serializable
+    @SerialName("move_doubt_card")
+    data class MoveDoubtCard(
+        override val actorId: String,
+        val requestedSlotIndex: Int,
+    ) : ClientCommandDto()
+
+    @Serializable
+    @SerialName("adjust_player_coins")
+    data class AdjustPlayerCoins(
+        override val actorId: String,
+        val playerId: String,
+        val delta: Int,
     ) : ClientCommandDto()
 
     @Serializable
@@ -102,6 +125,7 @@ data class GameStateDto(
     val discardPile: List<TimelineCardDto>,
     val players: List<PlayerStateDto>,
     val turn: TurnStateDto?,
+    val doubt: DoubtStateDto?,
     val lastResolution: TurnResolutionDto?,
 )
 
@@ -118,8 +142,17 @@ data class PlayerStateDto(
     val displayName: String,
     val connected: Boolean,
     val score: Int,
+    val coins: Int,
     val timeline: List<TimelineCardDto>,
     val pendingCard: PendingCardDto?,
+)
+
+@Serializable
+data class DoubtStateDto(
+    val doubterId: String,
+    val targetPlayerId: String,
+    val phase: String,
+    val proposedSlotIndex: Int? = null,
 )
 
 @Serializable
@@ -199,6 +232,14 @@ object GameStateMapper {
                     phase = it.phase.name,
                 )
             },
+            doubt = state.doubt?.let {
+                DoubtStateDto(
+                    doubterId = it.doubterId.value,
+                    targetPlayerId = it.targetPlayerId.value,
+                    phase = it.phase.name,
+                    proposedSlotIndex = it.proposedSlotIndex,
+                )
+            },
             lastResolution = state.lastResolution?.let {
                 TurnResolutionDto(
                     playerId = it.playerId.value,
@@ -218,6 +259,7 @@ object GameStateMapper {
             displayName = player.displayName,
             connected = player.connected,
             score = player.score,
+            coins = player.coins,
             timeline = player.timeline.cards.map(::toTimelineCardDto),
             pendingCard = player.pendingCard?.toDto(),
         )
@@ -267,6 +309,14 @@ object GameStateMapper {
                     phase = TurnPhase.valueOf(it.phase),
                 )
             },
+            doubt = state.doubt?.let {
+                DoubtState(
+                    doubterId = PlayerId(it.doubterId),
+                    targetPlayerId = PlayerId(it.targetPlayerId),
+                    phase = DoubtPhase.valueOf(it.phase),
+                    proposedSlotIndex = it.proposedSlotIndex,
+                )
+            },
             lastResolution = state.lastResolution?.let {
                 TurnResolution(
                     playerId = PlayerId(it.playerId),
@@ -286,6 +336,7 @@ object GameStateMapper {
             displayName = player.displayName,
             connected = player.connected,
             score = player.score,
+            coins = player.coins,
             timeline = PlayerTimeline(player.timeline.map(::toPlaylistEntry)),
             pendingCard = player.pendingCard?.let {
                 PendingCard(
