@@ -253,12 +253,9 @@ class MatchScreen(
             trackHeight,
         )
 
-        val actionHeight = clamp(heroRect.height * 0.62f, 64f, 80f)
-        val actionWidth = clamp(worldWidth * 0.165f, 214f, 280f)
-        val actionGap = clamp(panelGap * 0.8f, 16f, 24f)
-        val deckCardWidth = clamp(deckPanelRect.width * 0.60f, 152f, 192f)
-        val deckCardHeight = clamp(deckPanelRect.height * 0.44f, 214f, 272f)
-        val deckContentHeight = deckPanelRect.height - panelHeaderHeight - panelPadding * 2f - actionHeight - actionGap
+        val deckCardWidth = clamp(deckPanelRect.width * 0.78f, 164f, 208f)
+        val deckCardHeight = clamp(deckPanelRect.height * 0.46f, 222f, 296f)
+        val deckContentHeight = deckPanelRect.height - panelPadding * 2f
         val stackOffset = deckStackOffset()
         deckRect.set(
             deckPanelRect.x + (deckPanelRect.width - deckCardWidth) / 2f,
@@ -273,9 +270,11 @@ class MatchScreen(
             deckRect.height,
         )
 
+        val actionWidth = clamp(deckPanelRect.width * 0.84f, 176f, 214f)
+        val actionHeight = clamp(actionWidth * 0.88f, 152f, 196f)
         actionButtonRect.set(
             deckPanelRect.x + (deckPanelRect.width - actionWidth) / 2f,
-            deckPanelRect.y + panelPadding,
+            deckPanelRect.y + (deckPanelRect.height - actionHeight) / 2f,
             actionWidth,
             actionHeight,
         )
@@ -773,23 +772,29 @@ class MatchScreen(
 
     private fun drawMatch(includeOverlay: Boolean) {
         fillHero(heroRect)
-        fillPanel(deckPanelRect, 0x14264DFF, 0x0D1B37FF, 0x4C67A4FF, 0x3D568DFF, 0xAFC2F040)
         fillPanel(timelinePanelRect, 0x14264DFF, 0x0D1B37FF, 0x556EABFF, 0x41598FFF, 0xB4C7F144)
         if (showActionButton()) {
-            fillButton(actionButtonRect, 0xF6B447FF, 0xE6972CFF, 0xFFF2C56C)
-        }
-
-        repeat(DECK_STACK_DEPTH) { index ->
-            val offset = centeredDeckStackOffset(index)
-            drawCardSurface(
-                left = deckRect.x + offset,
-                bottom = deckRect.y - offset,
-                width = deckRect.width,
-                height = deckRect.height,
-                topColor = 0xE87853FF,
-                bottomColor = 0xCC5D3EFF,
-                edgeColor = 0xFFD3A28FFF,
+            val enabled = isActionButtonEnabled()
+            fillButton(
+                actionButtonRect,
+                topColor = if (enabled) 0xF6B447FF else 0xE0BF76FF,
+                bottomColor = if (enabled) 0xE6972CFF else 0xC9984BFF,
+                edgeColor = if (enabled) 0xFFF2C56C else 0xF5D9A1FF,
             )
+            drawFastForwardGlyph(actionButtonRect, enabled)
+        } else {
+            repeat(DECK_STACK_DEPTH) { index ->
+                val offset = centeredDeckStackOffset(index)
+                drawCardSurface(
+                    left = deckRect.x + offset,
+                    bottom = deckRect.y - offset,
+                    width = deckRect.width,
+                    height = deckRect.height,
+                    topColor = 0xE87853FF,
+                    bottomColor = 0xCC5D3EFF,
+                    edgeColor = 0xFFD3A28FFF,
+                )
+            }
         }
 
         drawTimelineCards(includeOverlay)
@@ -797,7 +802,6 @@ class MatchScreen(
 
     private fun drawMatchTextures() {
         drawPanelTexture(heroRect, color(0xCFE1FF10))
-        drawPanelTexture(deckPanelRect, color(0xC9DBFF18))
         drawPanelTexture(timelinePanelRect, color(0xC9DBFF12))
         drawRepeatedTexture(
             grainTexture,
@@ -851,13 +855,13 @@ class MatchScreen(
             drawTextBlock(
                 text = "END TURN",
                 x = actionButtonRect.x,
-                y = actionButtonRect.y,
+                y = actionButtonRect.y + actionButtonRect.height * 0.06f,
                 width = actionButtonRect.width,
-                height = actionButtonRect.height,
-                scale = 1.06f,
+                height = actionButtonRect.height * 0.22f,
+                scale = 0.88f,
                 color = color(0x1A1308FF),
                 align = Align.center,
-                verticalAlign = VerticalTextAlign.Center,
+                verticalAlign = VerticalTextAlign.Bottom,
                 shadowColor = color(0xFFF7DA9638),
             )
         }
@@ -887,29 +891,20 @@ class MatchScreen(
             )
         }
 
-        drawTextBlock(
-            text = "Deck",
-            x = deckPanelRect.x,
-            y = deckPanelRect.y + deckPanelRect.height - panelHeaderHeight,
-            width = deckPanelRect.width,
-            height = panelHeaderHeight,
-            scale = 1.02f,
-            color = Color.WHITE,
-            insetX = panelPadding,
-            verticalAlign = VerticalTextAlign.Center,
-        )
-        drawTextBlock(
-            text = presenter.state.deck.size.toString(),
-            x = deckFrontCardRect.x,
-            y = deckFrontCardRect.y,
-            width = deckFrontCardRect.width,
-            height = deckFrontCardRect.height,
-            scale = 1.34f,
-            color = color(0xFFF5E8D0),
-            align = Align.center,
-            verticalAlign = VerticalTextAlign.Center,
-            shadowColor = color(0x441A0C99),
-        )
+        if (!showActionButton()) {
+            drawTextBlock(
+                text = presenter.state.deck.size.toString(),
+                x = deckFrontCardRect.x,
+                y = deckFrontCardRect.y,
+                width = deckFrontCardRect.width,
+                height = deckFrontCardRect.height,
+                scale = 1.34f,
+                color = color(0xFFF5E8D0),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = color(0x441A0C99),
+            )
+        }
 
         drawTextBlock(
             text = "Timeline",
@@ -1004,6 +999,35 @@ class MatchScreen(
         fillGradientRect(rect.x, rect.y, rect.width, rect.height, bottomColor, bottomColor, topColor, topColor)
         fillRect(rect.x + 8f, rect.y + rect.height - 12f, rect.width - 16f, 3f, 0xFFFFFF1A)
         drawFrame(rect, edgeColor, 2f)
+    }
+
+    private fun drawFastForwardGlyph(rect: Rectangle, enabled: Boolean) {
+        val shadowColor = if (enabled) color(0x6A34109E) else color(0x5A34107A)
+        val glyphColor = if (enabled) color(0x28170BFF) else color(0x3D2A12E0)
+        val triangleWidth = rect.width * 0.18f
+        val triangleHeight = rect.height * 0.26f
+        val gap = triangleWidth * 0.16f
+        val centerY = rect.y + rect.height * 0.57f
+        val startX = rect.x + (rect.width - (triangleWidth * 2f + gap)) / 2f
+
+        shapeRenderer.color = shadowColor
+        drawRightTriangle(startX + 4f, centerY - triangleHeight / 2f - 4f, triangleWidth, triangleHeight)
+        drawRightTriangle(startX + triangleWidth + gap + 4f, centerY - triangleHeight / 2f - 4f, triangleWidth, triangleHeight)
+
+        shapeRenderer.color = glyphColor
+        drawRightTriangle(startX, centerY - triangleHeight / 2f, triangleWidth, triangleHeight)
+        drawRightTriangle(startX + triangleWidth + gap, centerY - triangleHeight / 2f, triangleWidth, triangleHeight)
+    }
+
+    private fun drawRightTriangle(left: Float, bottom: Float, width: Float, height: Float) {
+        shapeRenderer.triangle(
+            left,
+            bottom,
+            left,
+            bottom + height,
+            left + width,
+            bottom + height / 2f,
+        )
     }
 
     private fun fillPanel(rect: Rectangle, bodyTop: Long, bodyBottom: Long, headerTop: Long, headerBottom: Long, edgeColor: Long) {
@@ -1236,7 +1260,13 @@ class MatchScreen(
         return presenter.state.status == MatchStatus.ACTIVE && !isLocalPlayersTurn()
     }
 
-    private fun showActionButton(): Boolean = canEndTurn()
+    private fun showActionButton(): Boolean = showDeckActionButton()
+
+    private fun showDeckActionButton(): Boolean {
+        return isLocalPlayersTurn() && presenter.state.turn?.phase != TurnPhase.WAITING_FOR_DRAW
+    }
+
+    private fun isActionButtonEnabled(): Boolean = canEndTurn()
 
     private fun showLobbyPairingGate(): Boolean = presenter.requiresHostPlaybackPairing()
 
