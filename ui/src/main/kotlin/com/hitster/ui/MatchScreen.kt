@@ -817,12 +817,12 @@ class MatchScreen(
     private fun drawMatchText(includeOverlay: Boolean) {
         val player = localPlayer()
         val toolbarStatus = toolbarStatusText()
-        val turnLabelWidth = if (toolbarStatus == null) 170f else 154f
+        val turnLabelWidth = if (toolbarStatus == null) 170f else 142f
         val turnX = heroRect.x + heroRect.width - panelPadding - turnLabelWidth
         val playerWidth = if (toolbarStatus == null) {
             heroRect.width * 0.46f
         } else {
-            clamp(heroRect.width * 0.28f, 260f, 420f)
+            clamp(heroRect.width * 0.25f, 230f, 360f)
         }
 
         drawTextBlock(
@@ -864,17 +864,26 @@ class MatchScreen(
         toolbarStatus?.let { text ->
             val messageX = heroRect.x + panelPadding + playerWidth + panelGap
             val messageRight = turnX - panelGap
-            drawTextBlock(
+            val messageWidth = max(1f, messageRight - messageX)
+            val fittedStatus = fitSingleLineText(
                 text = text,
+                color = toolbarStatusColor(),
+                maxWidth = max(1f, messageWidth - 12f),
+                preferredScale = 0.82f,
+                minimumScale = 0.62f,
+            )
+            drawTextBlock(
+                text = fittedStatus.text,
                 x = messageX,
                 y = heroRect.y,
-                width = max(1f, messageRight - messageX),
+                width = messageWidth,
                 height = heroRect.height,
-                scale = 0.82f,
+                scale = fittedStatus.scale,
                 color = toolbarStatusColor(),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
                 shadowColor = color(0x02060C8A),
+                enforceMinimumScale = false,
             )
         }
 
@@ -1183,7 +1192,7 @@ class MatchScreen(
 
     private fun resolvedTrackLabel(cardId: String): String {
         val entry = resolvedTrackEntry(cardId) ?: return "Unknown Track"
-        return "${entry.artist} - ${entry.title}"
+        return "${entry.artist} - ${entry.title} (${entry.releaseYear})"
     }
 
     private fun resolvedTrackEntry(cardId: String): PlaylistEntry? {
@@ -1292,6 +1301,36 @@ class MatchScreen(
         }
         val probeX = pendingLeft + arrangement.cardWidth * probeRatio
         return timelineLayout.nearestSlotIndex(player.timeline.cards.size, probeX)
+    }
+
+    private fun fitSingleLineText(
+        text: String,
+        color: Color,
+        maxWidth: Float,
+        preferredScale: Float,
+        minimumScale: Float,
+    ): FittedTextLine {
+        val width = max(1f, maxWidth)
+        var scale = preferredScale
+        while (scale >= minimumScale) {
+            font.data.setScale(scale * fontScaleMultiplier)
+            textLayout.setText(font, text, color, 0f, Align.left, false)
+            if (textLayout.width <= width) {
+                return FittedTextLine(text = text, scale = scale)
+            }
+            scale -= 0.04f
+        }
+
+        val ellipsis = "..."
+        font.data.setScale(minimumScale * fontScaleMultiplier)
+        for (endExclusive in text.length downTo 1) {
+            val candidate = text.take(endExclusive).trimEnd() + ellipsis
+            textLayout.setText(font, candidate, color, 0f, Align.left, false)
+            if (textLayout.width <= width) {
+                return FittedTextLine(text = candidate, scale = minimumScale)
+            }
+        }
+        return FittedTextLine(text = ellipsis, scale = minimumScale)
     }
 
     private fun drawTextBlock(
@@ -1526,6 +1565,11 @@ class MatchScreen(
         val primaryText: String? = null,
         val secondaryText: String? = null,
         val tertiaryText: String? = null,
+    )
+
+    private data class FittedTextLine(
+        val text: String,
+        val scale: Float,
     )
 
     private data class ConfettiParticle(
