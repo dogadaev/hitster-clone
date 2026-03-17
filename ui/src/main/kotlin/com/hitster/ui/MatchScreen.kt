@@ -239,9 +239,12 @@ class MatchScreen(
             trackHeight,
         )
 
+        val actionHeight = clamp(heroRect.height * 0.62f, 64f, 80f)
+        val actionWidth = clamp(worldWidth * 0.165f, 214f, 280f)
+        val actionGap = clamp(panelGap * 0.8f, 16f, 24f)
         val deckCardWidth = clamp(deckPanelRect.width * 0.60f, 152f, 192f)
         val deckCardHeight = clamp(deckPanelRect.height * 0.44f, 214f, 272f)
-        val deckContentHeight = deckPanelRect.height - panelHeaderHeight - panelPadding * 2f
+        val deckContentHeight = deckPanelRect.height - panelHeaderHeight - panelPadding * 2f - actionHeight - actionGap
         val stackOffset = deckStackOffset()
         deckRect.set(
             deckPanelRect.x + (deckPanelRect.width - deckCardWidth) / 2f,
@@ -256,11 +259,9 @@ class MatchScreen(
             deckRect.height,
         )
 
-        val actionHeight = clamp(heroRect.height * 0.62f, 64f, 80f)
-        val actionWidth = clamp(worldWidth * 0.165f, 214f, 280f)
         actionButtonRect.set(
-            timelinePanelRect.x + panelPadding,
-            timelinePanelRect.y + panelPadding,
+            deckPanelRect.x + (deckPanelRect.width - actionWidth) / 2f,
+            deckPanelRect.y + panelPadding,
             actionWidth,
             actionHeight,
         )
@@ -748,13 +749,12 @@ class MatchScreen(
 
     private fun drawMatch(includeOverlay: Boolean) {
         fillHero(heroRect)
-        if (showActionButton()) {
-            fillButton(actionButtonRect, 0xF6B447FF, 0xE6972CFF, 0xFFF2C56C)
-        }
-
         fillPanel(deckPanelRect, 0x14264DFF, 0x0D1B37FF, 0x4C67A4FF, 0x3D568DFF, 0xAFC2F040)
         fillPanel(timelinePanelRect, 0x14264DFF, 0x0D1B37FF, 0x556EABFF, 0x41598FFF, 0xB4C7F144)
         fillTrack(timelineTrackRect)
+        if (showActionButton()) {
+            fillButton(actionButtonRect, 0xF6B447FF, 0xE6972CFF, 0xFFF2C56C)
+        }
 
         repeat(DECK_STACK_DEPTH) { index ->
             val offset = centeredDeckStackOffset(index)
