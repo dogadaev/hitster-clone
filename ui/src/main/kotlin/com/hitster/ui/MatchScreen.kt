@@ -828,9 +828,11 @@ class MatchScreen(
     }
 
     private fun drawBackground() {
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x030814FF, 0x071327FF, 0x0C1E39FF, 0x08172FFF)
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight * 0.28f, 0x06101CFF, 0x0A1530FF, 0x00000000, 0x00000000)
-        fillGradientRect(0f, layoutWorldHeight * 0.68f, layoutWorldWidth, layoutWorldHeight * 0.32f, 0x0B1734D8, 0x081628D8, 0x172C56E4, 0x22396CE4)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x041019FF, 0x071626FF, 0x132B46FF, 0x0D2139FF)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x03060C66, 0x050A1066, 0x00000000, 0x00000000)
+        fillGradientRect(0f, layoutWorldHeight * 0.56f, layoutWorldWidth, layoutWorldHeight * 0.44f, 0x00000000, 0x00000000, 0x274B84A8, 0x1C3A6999)
+        fillGradientRect(0f, 0f, layoutWorldWidth * 0.34f, layoutWorldHeight, 0x0F1B2B66, 0x00000000, 0x00000000, 0x18355B8C)
+        fillGradientRect(layoutWorldWidth * 0.66f, 0f, layoutWorldWidth * 0.34f, layoutWorldHeight, 0x00000000, 0x1020305E, 0x1A355C7E, 0x00000000)
 
         val crownHeight = clamp(layoutWorldHeight * 0.09f, 60f, 76f)
         fillGradientRect(
@@ -853,10 +855,49 @@ class MatchScreen(
     }
 
     private fun drawAtmosphereTextures() {
-        drawGlow(layoutWorldWidth * 0.52f, layoutWorldHeight * 0.50f, 760f, 540f, color(0x356AA136))
-        drawGlow(-180f, -80f, 860f, 860f, color(0xE39B3826))
-        drawRepeatedTexture(grainTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xDCE6FF0D), layoutWorldWidth / 96f, layoutWorldHeight / 96f)
-        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x000000C3))
+        val time = overlayAnimationSeconds
+        val auroraLeftX = layoutWorldWidth * 0.10f + sin(time * 0.09f) * 70f
+        val auroraLeftY = layoutWorldHeight * 0.46f + cos(time * 0.12f) * 26f
+        val auroraRightX = layoutWorldWidth * 0.48f + cos(time * 0.07f) * 82f
+        val auroraRightY = layoutWorldHeight * 0.58f + sin(time * 0.10f) * 30f
+        val emberX = -layoutWorldWidth * 0.08f + cos(time * 0.06f) * 54f
+        val emberY = -layoutWorldHeight * 0.06f + sin(time * 0.08f) * 36f
+        val topBloomX = layoutWorldWidth * 0.58f + sin(time * 0.05f) * 46f
+        val topBloomY = layoutWorldHeight * 0.78f + cos(time * 0.07f) * 22f
+        val sweepX = -layoutWorldWidth * 0.18f + sin(time * 0.04f) * 40f
+        val sweepY = layoutWorldHeight * 0.26f + cos(time * 0.05f) * 18f
+
+        drawGlow(auroraLeftX, auroraLeftY, layoutWorldWidth * 0.54f, layoutWorldHeight * 0.34f, color(0x2C8CC645))
+        drawGlow(auroraRightX, auroraRightY, layoutWorldWidth * 0.62f, layoutWorldHeight * 0.38f, color(0x4A74D23A))
+        drawGlow(emberX, emberY, layoutWorldWidth * 0.44f, layoutWorldWidth * 0.44f, color(0xF29A3A20))
+        drawGlow(topBloomX, topBloomY, layoutWorldWidth * 0.36f, layoutWorldHeight * 0.22f, color(0xD9F2FF18))
+        drawGlow(sweepX, sweepY, layoutWorldWidth * 1.06f, layoutWorldHeight * 0.18f, color(0xB4D9FF10))
+
+        drawRepeatedTexture(
+            grainTexture,
+            0f,
+            0f,
+            layoutWorldWidth,
+            layoutWorldHeight,
+            color(0xE4EEFF0D),
+            layoutWorldWidth / 112f,
+            layoutWorldHeight / 112f,
+            time * 0.010f,
+            time * 0.008f,
+        )
+        drawRepeatedTexture(
+            grainTexture,
+            0f,
+            0f,
+            layoutWorldWidth,
+            layoutWorldHeight,
+            color(0x6BA9D10A),
+            layoutWorldWidth / 72f,
+            layoutWorldHeight / 72f,
+            -time * 0.006f,
+            time * 0.004f,
+        )
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x000000B6))
     }
 
     private fun drawLobby() {
