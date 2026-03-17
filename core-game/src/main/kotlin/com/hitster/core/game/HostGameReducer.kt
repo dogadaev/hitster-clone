@@ -294,6 +294,7 @@ class HostGameReducer(
             val draw = remainingDeck.drawTop() ?: return null
             remainingDeck = draw.nextDeck
             player.copy(
+                score = 1,
                 timeline = player.timeline.insertAt(0, draw.card),
                 pendingCard = null,
             )

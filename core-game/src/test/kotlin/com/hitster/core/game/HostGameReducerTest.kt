@@ -35,6 +35,8 @@ class HostGameReducerTest {
         assertEquals(TurnPhase.WAITING_FOR_DRAW, accepted.state.turn?.phase)
         assertEquals("seed-host", accepted.state.players[0].timeline.cards.single().id)
         assertEquals("seed-guest", accepted.state.players[1].timeline.cards.single().id)
+        assertEquals(1, accepted.state.players[0].score)
+        assertEquals(1, accepted.state.players[1].score)
         assertEquals(2, accepted.state.deck.size)
     }
 
@@ -164,7 +166,7 @@ class HostGameReducerTest {
 
         assertEquals(MatchStatus.COMPLETE, accepted.state.status)
         assertEquals(1, accepted.state.discardPile.size)
-        assertEquals(0, accepted.state.players.first().score)
+        assertEquals(1, accepted.state.players.first().score)
         assertEquals(false, accepted.state.lastResolution?.correct)
     }
 
