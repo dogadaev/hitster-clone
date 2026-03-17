@@ -363,7 +363,7 @@ class MatchScreen(
             48f,
         )
 
-        val doubtPopupWidth = clamp(timelinePanelRect.width * 0.93f, 760f, 1220f)
+        val doubtPopupWidth = clamp(timelinePanelRect.width * 0.97f, 840f, 1320f)
         val doubtPopupHeight = clamp(timelinePanelRect.height * 0.76f, 400f, 620f)
         doubtPopupRect.set(
             timelinePanelRect.x + (timelinePanelRect.width - doubtPopupWidth) / 2f,
@@ -377,7 +377,7 @@ class MatchScreen(
             doubtPopupRect.width,
             panelHeaderHeight,
         )
-        val doubtTrackInsetX = panelPadding * 0.48f
+        val doubtTrackInsetX = panelPadding * 0.30f
         val doubtTrackInsetBottom = panelPadding * 0.82f
         val doubtTrackInsetTop = panelPadding * 0.42f
         doubtPopupTrackRect.set(
@@ -2153,9 +2153,9 @@ class MatchScreen(
         return popupLayout.nearestSlotIndex(targetPlayer.timeline.cards.size, probeX)
     }
 
-    private fun doubtPopupTimelineX(): Float = doubtPopupTrackRect.x + panelPadding * 0.08f
+    private fun doubtPopupTimelineX(): Float = doubtPopupTrackRect.x + panelPadding * 0.03f
 
-    private fun doubtPopupTimelineWidth(): Float = doubtPopupTrackRect.width - panelPadding * 0.16f
+    private fun doubtPopupTimelineWidth(): Float = doubtPopupTrackRect.width - panelPadding * 0.06f
 
     private fun drawTargetDoubtArrow() {
         val arrowX = doubtArrowXForMainTimeline() ?: return
