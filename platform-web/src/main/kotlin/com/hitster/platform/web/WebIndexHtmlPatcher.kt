@@ -159,9 +159,16 @@ internal object WebIndexHtmlPatcher {
                 var viewport = window.visualViewport;
                 var visibleWidth = viewport ? viewport.width : window.innerWidth;
                 var visibleHeight = viewport ? viewport.height : window.innerHeight;
+                var pixelRatio = window.devicePixelRatio || 1;
+                var canvasContainer = canvas.parentElement || canvas.parentNode;
+                var targetCssWidth = canvasContainer && canvasContainer.clientWidth ? canvasContainer.clientWidth : visibleWidth;
+                var targetCssHeight = canvasContainer && canvasContainer.clientHeight ? canvasContainer.clientHeight : visibleHeight;
                 var signature = [
                   Math.round(visibleWidth * 100),
                   Math.round(visibleHeight * 100),
+                  Math.round(targetCssWidth * 100),
+                  Math.round(targetCssHeight * 100),
+                  Math.round(pixelRatio * 100),
                   Math.round(readRootPixels("--hitster-safe-top") * 100),
                   Math.round(readRootPixels("--hitster-safe-right") * 100),
                   Math.round(readRootPixels("--hitster-safe-bottom") * 100),
@@ -173,6 +180,18 @@ internal object WebIndexHtmlPatcher {
                 lastViewportSignature = signature;
                 root.style.setProperty("--hitster-visible-width", Math.max(0, visibleWidth) + "px");
                 root.style.setProperty("--hitster-visible-height", Math.max(0, visibleHeight) + "px");
+                targetCssWidth = canvasContainer && canvasContainer.clientWidth ? canvasContainer.clientWidth : visibleWidth;
+                targetCssHeight = canvasContainer && canvasContainer.clientHeight ? canvasContainer.clientHeight : visibleHeight;
+                canvas.style.width = Math.max(0, targetCssWidth) + "px";
+                canvas.style.height = Math.max(0, targetCssHeight) + "px";
+                var backingWidth = Math.max(1, Math.round(targetCssWidth * pixelRatio));
+                var backingHeight = Math.max(1, Math.round(targetCssHeight * pixelRatio));
+                if (canvas.width !== backingWidth) {
+                  canvas.width = backingWidth;
+                }
+                if (canvas.height !== backingHeight) {
+                  canvas.height = backingHeight;
+                }
                 window.scrollTo(0, 0);
                 window.setTimeout(function() {
                   window.dispatchEvent(new Event("resize"));
