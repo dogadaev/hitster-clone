@@ -12,6 +12,7 @@ import com.hitster.networking.SessionAdvertisementDto
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -22,6 +23,46 @@ class UiBootstrapperTest {
 
         assertEquals(8, suffix.length)
         assertTrue(suffix.all { it in 'a'..'z' || it in '0'..'9' })
+    }
+
+    @Test
+    fun `shuffle seed comes from the provided random source`() {
+        assertEquals(Random(1234).nextLong(), UiBootstrapper.nextShuffleSeed(Random(1234)))
+    }
+
+    @Test
+    fun `hosted lobby deck order changes with different shuffle seeds`() {
+        fun buildController(shuffleSeed: Long): HostedMatchController {
+            return UiBootstrapper.createHostedMatchController(
+                hostDisplayName = "Host",
+                shuffleSeed = shuffleSeed,
+                sessionTransportFactory = {
+                    object : HostedSessionTransport {
+                        override fun start() = Unit
+
+                        override fun broadcast(event: HostEventDto) = Unit
+
+                        override fun close() = Unit
+                    }
+                },
+            )
+        }
+
+        val first = buildController(11L)
+        val second = buildController(11L)
+        val third = buildController(29L)
+        try {
+            val firstDeck = first.state.deck.remainingCards.map { it.id }
+            val secondDeck = second.state.deck.remainingCards.map { it.id }
+            val thirdDeck = third.state.deck.remainingCards.map { it.id }
+
+            assertEquals(firstDeck, secondDeck)
+            assertNotEquals(firstDeck, thirdDeck)
+        } finally {
+            first.dispose()
+            second.dispose()
+            third.dispose()
+        }
     }
 
     @Test

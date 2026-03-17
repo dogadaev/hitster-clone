@@ -21,6 +21,7 @@ object UiBootstrapper {
     fun createHostedMatchController(
         playbackController: PlaybackController = NoOpPlaybackController(),
         hostDisplayName: String = "Host Player",
+        shuffleSeed: Long = nextShuffleSeed(),
         sessionTransportFactory: (MatchPresenter) -> HostedSessionTransport,
     ): HostedMatchController {
         val reducer = HostGameReducer()
@@ -29,7 +30,7 @@ object UiBootstrapper {
             hostId = hostId,
             hostName = hostDisplayName,
             deckEntries = loadEntries(),
-            shuffleSeed = 42L,
+            shuffleSeed = shuffleSeed,
         )
         val presenter = MatchPresenter(
             reducer = reducer,
@@ -83,6 +84,8 @@ object UiBootstrapper {
                 append(idAlphabet[random.nextInt(idAlphabet.length)])
             }
         }
+
+    internal fun nextShuffleSeed(random: Random = Random.Default): Long = random.nextLong()
 
     private fun loadEntries(): List<PlaylistEntry> {
         val sampleJson = UiBootstrapper::class.java.classLoader

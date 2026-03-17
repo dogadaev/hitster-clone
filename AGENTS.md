@@ -234,6 +234,7 @@ Do not leave shipped sample data on placeholder values such as `spotify:track:tr
 The gameplay loop should mirror the physical game as closely as practical.
 
 Turn flow:
+- the host-created deck must be shuffled per session before the match starts; do not ship a fixed deterministic draw order outside explicit tests
 - each player begins the match with one random revealed card already placed on their own timeline
 - the active player draws a card from the deck on their own device using drag and drop
 - drawing the card starts playback for the associated track
