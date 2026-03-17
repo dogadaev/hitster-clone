@@ -272,13 +272,12 @@ class MatchScreen(
             deckRect.height,
         )
 
-        val actionWidth = clamp(deckPanelRect.width * 0.84f, 176f, 214f)
-        val actionHeight = clamp(actionWidth * 0.88f, 152f, 196f)
+        val actionSize = clamp(deckPanelRect.width * 0.84f, 176f, 214f)
         actionButtonRect.set(
-            deckPanelRect.x + (deckPanelRect.width - actionWidth) / 2f,
-            deckPanelRect.y + (deckPanelRect.height - actionHeight) / 2f,
-            actionWidth,
-            actionHeight,
+            deckPanelRect.x + (deckPanelRect.width - actionSize) / 2f,
+            deckPanelRect.y + (deckPanelRect.height - actionSize) / 2f,
+            actionSize,
+            actionSize,
         )
 
         val lobbyButtonWidth = clamp(worldWidth * 0.23f, 360f, 500f)
@@ -791,12 +790,7 @@ class MatchScreen(
         fillPanel(timelinePanelRect, 0x14264DFF, 0x0D1B37FF, 0x556EABFF, 0x41598FFF, 0xB4C7F144)
         if (showActionButton()) {
             val enabled = isActionButtonEnabled()
-            fillButton(
-                actionButtonRect,
-                topColor = if (enabled) 0xF6B447FF else 0xE0BF76FF,
-                bottomColor = if (enabled) 0xE6972CFF else 0xC9984BFF,
-                edgeColor = if (enabled) 0xFFF2C56C else 0xF5D9A1FF,
-            )
+            fillCircularActionButton(actionButtonRect, enabled)
             drawFastForwardGlyph(actionButtonRect, enabled)
         } else {
             repeat(DECK_STACK_DEPTH) { index ->
@@ -829,9 +823,6 @@ class MatchScreen(
             timelinePanelRect.width / 116f,
             max(1f, (timelinePanelRect.height - panelHeaderHeight) / 116f),
         )
-        if (showActionButton()) {
-            drawPanelTexture(actionButtonRect, color(0xFFF2D028))
-        }
     }
 
     private fun drawMatchText(includeOverlay: Boolean) {
@@ -867,20 +858,6 @@ class MatchScreen(
             align = Align.right,
             verticalAlign = VerticalTextAlign.Center,
         )
-        if (showActionButton()) {
-            drawTextBlock(
-                text = "END TURN",
-                x = actionButtonRect.x,
-                y = actionButtonRect.y + actionButtonRect.height * 0.06f,
-                width = actionButtonRect.width,
-                height = actionButtonRect.height * 0.22f,
-                scale = 0.88f,
-                color = color(0x1A1308FF),
-                align = Align.center,
-                verticalAlign = VerticalTextAlign.Bottom,
-                shadowColor = color(0xFFF7DA9638),
-            )
-        }
         toolbarStatus?.let { text ->
             val messageX = heroRect.x + panelPadding + playerWidth + panelGap
             val messageRight = turnX - panelGap
@@ -1017,18 +994,49 @@ class MatchScreen(
         drawFrame(rect, edgeColor, 2f)
     }
 
+    private fun fillCircularActionButton(rect: Rectangle, enabled: Boolean) {
+        val radius = min(rect.width, rect.height) / 2f
+        val centerX = rect.x + rect.width / 2f
+        val centerY = rect.y + rect.height / 2f
+        val rimColor = if (enabled) 0xFFF2C56C else 0xF5D9A1FF
+        val lowerColor = if (enabled) 0xD8891EFF else 0xC9984BFF
+        val upperColor = if (enabled) 0xF7BE52FF else 0xE0BF76FF
+
+        repeat(4) { layer ->
+            val expansion = 6f + layer * 4f
+            val alpha = 0.15f - layer * 0.025f
+            shapeRenderer.color = colorWithAlpha(0x140901FF, alpha)
+            shapeRenderer.circle(centerX, centerY - 8f + layer * 1.2f, radius + expansion, 64)
+        }
+
+        shapeRenderer.color = color(rimColor)
+        shapeRenderer.circle(centerX, centerY, radius, 64)
+
+        shapeRenderer.color = color(lowerColor)
+        shapeRenderer.circle(centerX, centerY - radius * 0.04f, radius * 0.94f, 64)
+
+        shapeRenderer.color = color(upperColor)
+        shapeRenderer.circle(centerX, centerY + radius * 0.14f, radius * 0.78f, 64)
+
+        shapeRenderer.color = colorWithAlpha(0xFFF7D68EFF, if (enabled) 0.34f else 0.20f)
+        shapeRenderer.circle(centerX, centerY + radius * 0.34f, radius * 0.36f, 48)
+
+        shapeRenderer.color = colorWithAlpha(0x8E5614FF, if (enabled) 0.28f else 0.18f)
+        shapeRenderer.circle(centerX, centerY - radius * 0.28f, radius * 0.60f, 64)
+    }
+
     private fun drawFastForwardGlyph(rect: Rectangle, enabled: Boolean) {
         val shadowColor = if (enabled) color(0x6A34109E) else color(0x5A34107A)
         val glyphColor = if (enabled) color(0x28170BFF) else color(0x3D2A12E0)
-        val triangleWidth = rect.width * 0.18f
-        val triangleHeight = rect.height * 0.26f
-        val gap = triangleWidth * 0.16f
-        val centerY = rect.y + rect.height * 0.57f
+        val triangleWidth = rect.width * 0.22f
+        val triangleHeight = rect.height * 0.31f
+        val gap = triangleWidth * 0.10f
+        val centerY = rect.y + rect.height * 0.52f
         val startX = rect.x + (rect.width - (triangleWidth * 2f + gap)) / 2f
 
         shapeRenderer.color = shadowColor
-        drawRightTriangle(startX + 4f, centerY - triangleHeight / 2f - 4f, triangleWidth, triangleHeight)
-        drawRightTriangle(startX + triangleWidth + gap + 4f, centerY - triangleHeight / 2f - 4f, triangleWidth, triangleHeight)
+        drawRightTriangle(startX + 4f, centerY - triangleHeight / 2f - 5f, triangleWidth, triangleHeight)
+        drawRightTriangle(startX + triangleWidth + gap + 4f, centerY - triangleHeight / 2f - 5f, triangleWidth, triangleHeight)
 
         shapeRenderer.color = glyphColor
         drawRightTriangle(startX, centerY - triangleHeight / 2f, triangleWidth, triangleHeight)
@@ -1518,6 +1526,15 @@ class MatchScreen(
         return (DECK_STACK_DEPTH - 1) * DECK_STACK_SPREAD / 2f
     }
 
+    private fun actionButtonContains(x: Float, y: Float): Boolean {
+        val radius = min(actionButtonRect.width, actionButtonRect.height) / 2f
+        val centerX = actionButtonRect.x + actionButtonRect.width / 2f
+        val centerY = actionButtonRect.y + actionButtonRect.height / 2f
+        val dx = x - centerX
+        val dy = y - centerY
+        return dx * dx + dy * dy <= radius * radius
+    }
+
     private inner class MatchInputController : InputAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             updateLayout()
@@ -1538,7 +1555,7 @@ class MatchScreen(
                 return false
             }
 
-            if (canEndTurn() && actionButtonRect.contains(world.x, world.y)) {
+            if (canEndTurn() && actionButtonContains(world.x, world.y)) {
                 presenter.endTurn()
                 return true
             }
