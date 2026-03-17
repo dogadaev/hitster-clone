@@ -2194,6 +2194,9 @@ class MatchScreen(
         }
 
         val doubtSlot = doubt.proposedSlotIndex ?: pendingCard.proposedSlotIndex
+        if (doubtSlot == pendingCard.proposedSlotIndex) {
+            return pendingVisual.rect.x + pendingVisual.rect.width / 2f
+        }
         val boundaryIndex = (doubtSlot + if (doubtSlot > pendingCard.proposedSlotIndex) 1 else 0)
             .coerceIn(0, visibleRects.size)
         val edgeOffset = max(18f, pendingVisual.rect.width * 0.16f)
