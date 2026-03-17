@@ -1248,26 +1248,14 @@ class MatchScreen(
             drawTextBlock(
                 text = if (isDoubtToggleActive()) "DOUBTING" else "DOUBT",
                 x = doubtButtonRect.x,
-                y = doubtButtonRect.y + doubtButtonRect.height * 0.14f,
+                y = doubtButtonRect.y + doubtButtonRect.height * 0.10f,
                 width = doubtButtonRect.width,
-                height = doubtButtonRect.height * 0.56f,
+                height = doubtButtonRect.height * 0.8f,
                 scale = 0.92f,
                 color = if (isDoubtToggleActive()) color(0x041C2FFF) else color(0x1A1308FF),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
                 shadowColor = color(0xFFF6E29A2C),
-            )
-            drawTextBlock(
-                text = "COINS ${localPlayer()?.coins ?: 0}",
-                x = doubtButtonRect.x,
-                y = doubtButtonRect.y + doubtButtonRect.height * 0.02f,
-                width = doubtButtonRect.width,
-                height = doubtButtonRect.height * 0.24f,
-                scale = 0.56f,
-                color = if (isDoubtToggleActive()) color(0x03314BFF) else color(0x33200BFF),
-                align = Align.center,
-                verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0xFFF4E3B022),
             )
         }
         if (showCoinsShortcutButton()) {
