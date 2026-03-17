@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.transport.jvm.browser
 
 import kotlinx.serialization.Serializable
 

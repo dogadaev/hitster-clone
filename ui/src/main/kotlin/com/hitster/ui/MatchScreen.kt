@@ -17,9 +17,11 @@ import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
+import com.badlogic.gdx.scenes.scene2d.utils.ScissorStack
 import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.animations.AnimationCatalog
+import com.hitster.core.model.DoubtPhase
 import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.PlayerState
 import com.hitster.core.model.PlaylistEntry
@@ -27,9 +29,11 @@ import com.hitster.core.model.TurnPhase
 import com.hitster.playback.api.PlaybackSessionState
 import java.util.Random
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 class MatchScreen(
     private val presenter: MatchController,
@@ -50,11 +54,18 @@ class MatchScreen(
     private val headerRect = Rectangle()
     private val heroRect = Rectangle()
     private val actionButtonRect = Rectangle()
+    private val doubtButtonRect = Rectangle()
+    private val hostCoinsButtonRect = Rectangle()
     private val deckPanelRect = Rectangle()
     private val deckRect = Rectangle()
     private val timelinePanelRect = Rectangle()
     private val timelineHeaderRect = Rectangle()
     private val timelineTrackRect = Rectangle()
+    private val coinPanelRect = Rectangle()
+    private val coinPanelCloseRect = Rectangle()
+    private val doubtPopupRect = Rectangle()
+    private val doubtPopupHeaderRect = Rectangle()
+    private val doubtPopupTrackRect = Rectangle()
     private val lobbyCardRect = Rectangle()
     private val startButtonRect = Rectangle()
     private val deckFrontCardRect = Rectangle()
@@ -74,17 +85,25 @@ class MatchScreen(
     private var shadowOffset = 1.2f
     private var timelineLayout = TimelineLayoutCalculator(trackX = 0f, trackWidth = 1f)
     private val timelineCardVisuals = mutableListOf<TimelineCardVisual>()
+    private val doubtTimelineCardVisuals = mutableListOf<TimelineCardVisual>()
     private var pendingCardVisual: TimelineCardVisual? = null
+    private var doubtPendingCardVisual: TimelineCardVisual? = null
     private var transientCardVisual: TimelineCardVisual? = null
     private val animatedCardLefts = mutableMapOf<String, Float>()
+    private val animatedDoubtCardLefts = mutableMapOf<String, Float>()
     private var animatedPendingCardLeft: Float? = null
+    private var animatedDoubtPendingCardLeft: Float? = null
     private val confettiParticles = mutableListOf<ConfettiParticle>()
     private var celebratedResolutionCardId: String? = null
     private var inactiveTurnFilterAlpha = 0f
+    private var overlayAnimationSeconds = 0f
+    private var coinPanelOpen = false
 
     private var draggingDeckGhost = false
     private var draggingPendingCard = false
+    private var draggingDoubtCard = false
     private var pendingCardGrabOffsetX = 0f
+    private var doubtPendingCardGrabOffsetX = 0f
     private var pendingCardDragDirectionX = 0f
 
     override fun show() {
@@ -98,6 +117,7 @@ class MatchScreen(
     }
 
     override fun render(delta: Float) {
+        overlayAnimationSeconds += delta
         updateLayout()
         updateTimelineVisuals(delta)
         updateCelebration(delta)
@@ -155,6 +175,38 @@ class MatchScreen(
         if (inactiveTurnFilterAlpha > 0.01f) {
             batch.begin()
             drawInactiveTurnFilter(inactiveTurnFilterAlpha)
+            batch.end()
+        }
+
+        if (presenter.state.status != MatchStatus.LOBBY) {
+            if (showDoubtPlacementPopup() || coinPanelOpen) {
+                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+                drawModalShapes()
+                shapeRenderer.end()
+
+                batch.begin()
+                drawModalTextures()
+                drawModalText()
+                batch.end()
+
+                if (hasOverlayDoubtTimelineVisuals()) {
+                    shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+                    drawDoubtPopupCards(includeOverlay = true)
+                    shapeRenderer.end()
+
+                    batch.begin()
+                    drawDoubtPopupCardText(includeOverlay = true)
+                    batch.end()
+                }
+            }
+
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+            drawFloatingControlsShapes()
+            shapeRenderer.end()
+
+            batch.begin()
+            drawFloatingControlsTextures()
+            drawFloatingControlsText()
             batch.end()
         }
     }
@@ -279,6 +331,61 @@ class MatchScreen(
             actionSize,
             actionSize,
         )
+        val doubtButtonWidth = clamp(deckPanelRect.width * 0.92f, 184f, 236f)
+        val doubtButtonHeight = clamp(deckPanelRect.height * 0.16f, 92f, 118f)
+        doubtButtonRect.set(
+            deckPanelRect.x + (deckPanelRect.width - doubtButtonWidth) / 2f,
+            deckPanelRect.y + (deckPanelRect.height - doubtButtonHeight) / 2f,
+            doubtButtonWidth,
+            doubtButtonHeight,
+        )
+        val coinsButtonWidth = clamp(deckPanelRect.width * 0.82f, 124f, 176f)
+        val coinsButtonHeight = clamp(deckPanelRect.height * 0.09f, 56f, 68f)
+        hostCoinsButtonRect.set(
+            deckPanelRect.x,
+            deckPanelRect.y,
+            coinsButtonWidth,
+            coinsButtonHeight,
+        )
+
+        val coinPanelWidth = clamp(worldWidth * 0.48f, 620f, 860f)
+        val coinPanelHeight = clamp(worldHeight * 0.60f, 420f, 620f)
+        coinPanelRect.set(
+            (worldWidth - coinPanelWidth) / 2f,
+            (worldHeight - coinPanelHeight) / 2f,
+            coinPanelWidth,
+            coinPanelHeight,
+        )
+        coinPanelCloseRect.set(
+            coinPanelRect.x + coinPanelRect.width - 68f,
+            coinPanelRect.y + coinPanelRect.height - 68f,
+            48f,
+            48f,
+        )
+
+        val doubtPopupWidth = clamp(timelinePanelRect.width * 0.97f, 840f, 1320f)
+        val doubtPopupHeight = clamp(timelinePanelRect.height * 0.76f, 400f, 620f)
+        doubtPopupRect.set(
+            timelinePanelRect.x + (timelinePanelRect.width - doubtPopupWidth) / 2f,
+            timelinePanelRect.y + (timelinePanelRect.height - doubtPopupHeight) / 2f,
+            doubtPopupWidth,
+            doubtPopupHeight,
+        )
+        doubtPopupHeaderRect.set(
+            doubtPopupRect.x,
+            doubtPopupRect.y + doubtPopupRect.height - panelHeaderHeight,
+            doubtPopupRect.width,
+            panelHeaderHeight,
+        )
+        val doubtTrackInsetX = panelPadding * 0.30f
+        val doubtTrackInsetBottom = panelPadding * 0.82f
+        val doubtTrackInsetTop = panelPadding * 0.42f
+        doubtPopupTrackRect.set(
+            doubtPopupRect.x + doubtTrackInsetX,
+            doubtPopupRect.y + doubtTrackInsetBottom,
+            doubtPopupRect.width - doubtTrackInsetX * 2f,
+            doubtPopupRect.height - panelHeaderHeight - doubtTrackInsetBottom - doubtTrackInsetTop,
+        )
 
         val lobbyButtonWidth = clamp(worldWidth * 0.23f, 360f, 500f)
         val lobbyButtonHeight = clamp(worldHeight * 0.11f, 94f, 118f)
@@ -319,8 +426,14 @@ class MatchScreen(
 
     private fun updateTimelineVisuals(delta: Float) {
         timelineCardVisuals.clear()
+        doubtTimelineCardVisuals.clear()
         pendingCardVisual = null
+        doubtPendingCardVisual = null
         transientCardVisual = null
+
+        if (showDoubtPlacementPopup()) {
+            coinPanelOpen = false
+        }
 
         if (draggingDeckGhost) {
             val ghostWidth = clamp(timelineTrackRect.width * 0.14f, 128f, 178f)
@@ -342,7 +455,9 @@ class MatchScreen(
         val player = localPlayer()
         if (presenter.state.status == MatchStatus.LOBBY || player == null) {
             animatedCardLefts.clear()
+            animatedDoubtCardLefts.clear()
             animatedPendingCardLeft = null
+            animatedDoubtPendingCardLeft = null
             return
         }
 
@@ -371,6 +486,7 @@ class MatchScreen(
             }
             animatedPendingCardLeft = null
             animatedCardLefts.keys.retainAll(visibleCardIds)
+            updateDoubtTimelineVisuals(delta)
             return
         }
 
@@ -421,6 +537,95 @@ class MatchScreen(
         )
         pendingCardVisual?.let(timelineCardVisuals::add)
         animatedCardLefts.keys.retainAll(visibleCardIds)
+        updateDoubtTimelineVisuals(delta)
+    }
+
+    private fun updateDoubtTimelineVisuals(delta: Float) {
+        if (!showDoubtPlacementPopup()) {
+            animatedDoubtCardLefts.clear()
+            animatedDoubtPendingCardLeft = null
+            doubtTimelineCardVisuals.clear()
+            doubtPendingCardVisual = null
+            return
+        }
+
+        val doubt = presenter.state.doubt ?: return
+        val targetPlayer = presenter.state.requirePlayer(doubt.targetPlayerId) ?: return
+        val pendingCard = targetPlayer.pendingCard ?: return
+        val animationAlpha = clamp(delta * 12f, 0f, 1f)
+        val popupTrackX = doubtPopupTimelineX()
+        val popupTrackWidth = doubtPopupTimelineWidth()
+        val cardWidthPreferred = clamp(doubtPopupTrackRect.width * 0.16f, 134f, 184f)
+        val cardWidthMin = clamp(doubtPopupTrackRect.width * 0.088f, 92f, 118f)
+        val popupLayout = TimelineLayoutCalculator(
+            trackX = popupTrackX,
+            trackWidth = popupTrackWidth,
+            preferredCardWidth = cardWidthPreferred,
+            minCardWidth = cardWidthMin,
+            preferredGap = clamp(doubtPopupTrackRect.width * 0.018f, 14f, 24f),
+            minGap = 10f,
+        )
+        val arrangement = popupLayout.pendingArrangement(
+            existingCardCount = targetPlayer.timeline.cards.size,
+            pendingSlotIndex = doubt.proposedSlotIndex ?: pendingCard.proposedSlotIndex,
+        )
+        val popupCardHeight = clamp(doubtPopupTrackRect.height * 0.76f, 210f, 276f)
+        val popupCardBottom = doubtPopupTrackRect.y + (doubtPopupTrackRect.height - popupCardHeight) / 2f
+        val pendingLeftTarget = if (draggingDoubtCard) {
+            clamp(
+                worldTouch.x - doubtPendingCardGrabOffsetX,
+                popupTrackX,
+                popupTrackX + popupTrackWidth - arrangement.cardWidth,
+            )
+        } else {
+            arrangement.pendingCardLeft
+        }
+        val pendingLeft = if (draggingDoubtCard) {
+            pendingLeftTarget
+        } else {
+            animatedDoubtPendingCardLeft?.let { current ->
+                lerpToward(current, pendingLeftTarget, animationAlpha)
+            } ?: pendingLeftTarget
+        }
+        val visibleCardIds = mutableSetOf<String>()
+
+        targetPlayer.timeline.cards.forEachIndexed { index, card ->
+            val visualLeft = animatedDoubtLeft(card.id, arrangement.committedCardLefts[index], animationAlpha)
+            val palette = DecadeCardPalettes.forYear(card.releaseYear)
+            visibleCardIds += card.id
+            doubtTimelineCardVisuals += TimelineCardVisual(
+                id = card.id,
+                rect = Rectangle(visualLeft, popupCardBottom, arrangement.cardWidth, popupCardHeight),
+                face = CardFace.Revealed,
+                topColor = palette.topColor,
+                bottomColor = palette.bottomColor,
+                edgeColor = palette.edgeColor,
+                primaryText = card.title,
+                secondaryText = card.artist,
+                tertiaryText = card.releaseYear.toString(),
+            )
+        }
+
+        animatedDoubtPendingCardLeft = pendingLeft
+        doubtPendingCardVisual = TimelineCardVisual(
+            id = pendingCard.entry.id,
+            rect = Rectangle(pendingLeft, popupCardBottom, arrangement.cardWidth, popupCardHeight),
+            face = CardFace.Hidden,
+            topColor = 0x7ED9FFFF,
+            bottomColor = 0x2D8FCAFF,
+            edgeColor = 0xDBF5FFFF,
+            primaryText = "?",
+            secondaryText = "DOUBT",
+        )
+        doubtPendingCardVisual?.let(doubtTimelineCardVisuals::add)
+        animatedDoubtCardLefts.keys.retainAll(visibleCardIds)
+    }
+
+    private fun animatedDoubtLeft(cardId: String, target: Float, alpha: Float): Float {
+        val current = animatedDoubtCardLefts[cardId]
+        val next = current?.let { lerpToward(it, target, alpha) } ?: target
+        animatedDoubtCardLefts[cardId] = next
+        return next
     }
 
     private fun timelineCardBottom(height: Float): Float {
@@ -464,17 +669,36 @@ class MatchScreen(
     }
 
     private fun updateInactiveTurnFilter(delta: Float) {
-        val targetAlpha = when {
-            !shouldShowInactiveTurnFilter() -> 0f
-            confettiParticles.isNotEmpty() -> 0f
-            else -> 1f
-        }
-        val fadeRate = if (targetAlpha > inactiveTurnFilterAlpha) 1.85f else 3.4f
+        val targetAlpha = inactiveTurnFilterTargetAlpha()
+        val fadeRate = if (targetAlpha > inactiveTurnFilterAlpha) 1.35f else 2.8f
         inactiveTurnFilterAlpha = when {
             abs(targetAlpha - inactiveTurnFilterAlpha) < 0.02f -> targetAlpha
             targetAlpha > inactiveTurnFilterAlpha -> min(1f, inactiveTurnFilterAlpha + delta * fadeRate)
             else -> max(0f, inactiveTurnFilterAlpha - delta * fadeRate)
         }
+    }
+
+    private fun inactiveTurnFilterTargetAlpha(): Float {
+        if (!shouldShowInactiveTurnFilter()) {
+            return 0f
+        }
+        if (confettiParticles.isEmpty()) {
+            return 1f
+        }
+
+        val blendProgress = confettiWindDownProgress()
+        return clamp(blendProgress * 0.88f, 0f, 1f)
+    }
+
+    private fun confettiWindDownProgress(): Float {
+        if (confettiParticles.isEmpty()) {
+            return 1f
+        }
+        val slowestParticleProgress = confettiParticles.minOf { particle ->
+            particle.ageSeconds / particle.lifeSeconds
+        }
+        return ((slowestParticleProgress - CONFETTI_FILTER_BLEND_START_PROGRESS) /
+            (1f - CONFETTI_FILTER_BLEND_START_PROGRESS)).coerceIn(0f, 1f)
     }
 
     private fun spawnConfetti() {
@@ -604,9 +828,11 @@ class MatchScreen(
     }
 
     private fun drawBackground() {
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x030814FF, 0x071327FF, 0x0C1E39FF, 0x08172FFF)
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight * 0.28f, 0x06101CFF, 0x0A1530FF, 0x00000000, 0x00000000)
-        fillGradientRect(0f, layoutWorldHeight * 0.68f, layoutWorldWidth, layoutWorldHeight * 0.32f, 0x0B1734D8, 0x081628D8, 0x172C56E4, 0x22396CE4)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x04101AFF, 0x071522FF, 0x16355CFF, 0x102948FF)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x02060C78, 0x050A104E, 0x00000000, 0x0F244000)
+        fillGradientRect(0f, layoutWorldHeight * 0.54f, layoutWorldWidth, layoutWorldHeight * 0.46f, 0x00000000, 0x02060A00, 0x3769AC82, 0x284F845E)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight * 0.36f, 0x10182724, 0x0B132014, 0x00000000, 0x00000000)
+        fillGradientRect(0f, layoutWorldHeight * 0.20f, layoutWorldWidth, layoutWorldHeight * 0.24f, 0x14243A08, 0x0F1C2B00, 0x274B7A00, 0x21436F10)
 
         val crownHeight = clamp(layoutWorldHeight * 0.09f, 60f, 76f)
         fillGradientRect(
@@ -629,10 +855,50 @@ class MatchScreen(
     }
 
     private fun drawAtmosphereTextures() {
-        drawGlow(layoutWorldWidth * 0.52f, layoutWorldHeight * 0.50f, 760f, 540f, color(0x356AA136))
-        drawGlow(-180f, -80f, 860f, 860f, color(0xE39B3826))
-        drawRepeatedTexture(grainTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xDCE6FF0D), layoutWorldWidth / 96f, layoutWorldHeight / 96f)
-        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x000000C3))
+        val time = overlayAnimationSeconds
+        val leftBloomX = layoutWorldWidth * 0.04f + sin(time * 0.11f) * 86f
+        val leftBloomY = layoutWorldHeight * 0.35f + cos(time * 0.15f) * 32f
+        val centerBloomX = layoutWorldWidth * 0.34f + cos(time * 0.08f) * 118f
+        val centerBloomY = layoutWorldHeight * 0.58f + sin(time * 0.10f) * 36f
+        val rightBloomX = layoutWorldWidth * 0.64f + sin(time * 0.07f) * 126f
+        val rightBloomY = layoutWorldHeight * 0.54f + cos(time * 0.09f) * 30f
+        val emberX = -layoutWorldWidth * 0.05f + cos(time * 0.06f) * 70f
+        val emberY = -layoutWorldHeight * 0.03f + sin(time * 0.08f) * 40f
+        val sweepX = -layoutWorldWidth * 0.20f + sin(time * 0.05f) * 68f
+        val sweepY = layoutWorldHeight * 0.22f + cos(time * 0.04f) * 24f
+
+        drawGlow(leftBloomX, leftBloomY, layoutWorldWidth * 0.46f, layoutWorldHeight * 0.34f, color(0x2F89D855))
+        drawGlow(centerBloomX, centerBloomY, layoutWorldWidth * 0.66f, layoutWorldHeight * 0.42f, color(0x6B98F34A))
+        drawGlow(rightBloomX, rightBloomY, layoutWorldWidth * 0.52f, layoutWorldHeight * 0.36f, color(0x1E5FA846))
+        drawGlow(emberX, emberY, layoutWorldWidth * 0.46f, layoutWorldWidth * 0.46f, color(0xF2B45728))
+        drawGlow(sweepX, sweepY, layoutWorldWidth * 1.12f, layoutWorldHeight * 0.22f, color(0xCCE3FF18))
+
+        drawRepeatedTexture(
+            grainTexture,
+            0f,
+            0f,
+            layoutWorldWidth,
+            layoutWorldHeight,
+            color(0xEAF2FF14),
+            layoutWorldWidth / 114f,
+            layoutWorldHeight / 114f,
+            time * 0.012f,
+            time * 0.010f,
+        )
+        drawRepeatedTexture(
+            grainTexture,
+            0f,
+            0f,
+            layoutWorldWidth,
+            layoutWorldHeight,
+            color(0x78AED70D),
+            layoutWorldWidth / 76f,
+            layoutWorldHeight / 76f,
+            -time * 0.007f,
+            time * 0.005f,
+        )
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x000000B6))
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x21304B26))
     }
 
     private fun drawLobby() {
@@ -674,7 +940,42 @@ class MatchScreen(
     private fun drawLobbyTextures() {
         if (showLobbyPrimaryButton()) {
             drawPanelTexture(startButtonRect, color(0xFFF5D41E))
+            val time = overlayAnimationSeconds
+            drawGlow(
+                startButtonRect.x - startButtonRect.width * 0.14f + sin(time * 0.20f) * 14f,
+                startButtonRect.y - startButtonRect.height * 0.32f,
+                startButtonRect.width * 1.28f,
+                startButtonRect.height * 1.58f,
+                color(0xF9D06D24),
+            )
         }
+        val time = overlayAnimationSeconds
+        drawGlow(
+            lobbyCardRect.x + lobbyCardRect.width * 0.23f + sin(time * 0.16f) * 22f,
+            lobbyCardRect.y + lobbyCardRect.height * 0.16f + cos(time * 0.14f) * 14f,
+            lobbyCardRect.width * 0.54f,
+            lobbyCardRect.height * 0.56f,
+            color(0xF5C96E1A),
+        )
+        drawGlow(
+            lobbyCardRect.x + lobbyCardRect.width * 0.04f + cos(time * 0.12f) * 18f,
+            lobbyCardRect.y + lobbyCardRect.height * 0.38f + sin(time * 0.10f) * 12f,
+            lobbyCardRect.width * 0.88f,
+            lobbyCardRect.height * 0.44f,
+            color(0x80B8FF14),
+        )
+        drawRepeatedTexture(
+            grainTexture,
+            lobbyCardRect.x,
+            lobbyCardRect.y,
+            lobbyCardRect.width,
+            lobbyCardRect.height,
+            color(0xDCE8FF06),
+            max(1f, lobbyCardRect.width / 138f),
+            max(1f, lobbyCardRect.height / 110f),
+            time * 0.005f,
+            time * 0.004f,
+        )
         lobbyPlayerBadgeRects().forEach { rect ->
             drawPanelTexture(rect, color(0xC7DAFF10))
         }
@@ -788,11 +1089,10 @@ class MatchScreen(
     private fun drawMatch(includeOverlay: Boolean) {
         fillHero(heroRect)
         fillPanel(timelinePanelRect, 0x14264DFF, 0x0D1B37FF, 0x556EABFF, 0x41598FFF, 0xB4C7F144)
-        if (showActionButton()) {
-            val enabled = isActionButtonEnabled()
-            fillCircularActionButton(actionButtonRect, enabled)
-            drawFastForwardGlyph(actionButtonRect, enabled)
-        } else {
+        if (showActionWell()) {
+            fillActionWell()
+        }
+        if (!showActionButton() && !showDoubtToggleButton()) {
             repeat(DECK_STACK_DEPTH) { index ->
                 val offset = centeredDeckStackOffset(index)
                 drawCardSurface(
@@ -808,11 +1108,15 @@ class MatchScreen(
         }
 
         drawTimelineCards(includeOverlay)
+        drawTargetDoubtArrow()
     }
 
     private fun drawMatchTextures() {
         drawPanelTexture(heroRect, color(0xCFE1FF10))
         drawPanelTexture(timelinePanelRect, color(0xC9DBFF12))
+        if (showActionWell()) {
+            drawActionWellTexture()
+        }
         drawRepeatedTexture(
             grainTexture,
             timelinePanelRect.x + 2f,
@@ -822,6 +1126,34 @@ class MatchScreen(
             color(0x7FA9DD0C),
             timelinePanelRect.width / 116f,
             max(1f, (timelinePanelRect.height - panelHeaderHeight) / 116f),
+        )
+    }
+
+    private fun drawActionButtonGlow(rect: Rectangle, enabled: Boolean) {
+        val expansion = if (enabled) 56f else 42f
+        val outerTint = if (enabled) {
+            color(0xF4BA4FFF)
+        } else {
+            color(0xD5B16DCC)
+        }
+        val innerTint = if (enabled) {
+            color(0xFFF2B4FF)
+        } else {
+            color(0xFFF2CFB8)
+        }
+        drawGlow(
+            rect.x - expansion * 0.5f,
+            rect.y - expansion * 0.52f,
+            rect.width + expansion,
+            rect.height + expansion,
+            colorWithAlpha(outerTint.toRgba(), if (enabled) 0.16f else 0.08f),
+        )
+        drawGlow(
+            rect.x + rect.width * 0.04f,
+            rect.y + rect.height * 0.06f,
+            rect.width * 0.92f,
+            rect.height * 0.92f,
+            colorWithAlpha(innerTint.toRgba(), if (enabled) 0.10f else 0.05f),
         )
     }
 
@@ -884,7 +1216,7 @@ class MatchScreen(
             )
         }
 
-        if (!showActionButton()) {
+        if (!showActionButton() && !showDoubtToggleButton()) {
             drawTextBlock(
                 text = presenter.state.deck.size.toString(),
                 x = deckFrontCardRect.x,
@@ -911,12 +1243,12 @@ class MatchScreen(
             verticalAlign = VerticalTextAlign.Center,
         )
         drawTextBlock(
-            text = "Score ${player?.score ?: 0}",
-            x = timelineHeaderRect.x + timelineHeaderRect.width - 220f,
+            text = "Score ${player?.score ?: 0}  Coins ${player?.coins ?: 0}",
+            x = timelineHeaderRect.x + timelineHeaderRect.width - 332f,
             y = timelineHeaderRect.y,
-            width = 184f,
+            width = 296f,
             height = timelineHeaderRect.height,
-            scale = 0.96f,
+            scale = 0.86f,
             color = color(0xF4CF79FF),
             align = Align.right,
             verticalAlign = VerticalTextAlign.Center,
@@ -939,6 +1271,255 @@ class MatchScreen(
         drawTimelineCardText(includeOverlay)
     }
 
+    private fun drawModalShapes() {
+        fillRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x03060CB2)
+        if (showDoubtPlacementPopup()) {
+            drawDoubtPopupShapes()
+        }
+        if (coinPanelOpen) {
+            drawCoinPanelShapes()
+        }
+    }
+
+    private fun drawModalTextures() {
+        if (showDoubtPlacementPopup()) {
+            drawDoubtPopupTextures()
+        }
+        if (coinPanelOpen) {
+            drawCoinPanelTextures()
+        }
+    }
+
+    private fun drawModalText() {
+        if (showDoubtPlacementPopup()) {
+            drawDoubtPopupText()
+        }
+        if (coinPanelOpen) {
+            drawCoinPanelText()
+        }
+    }
+
+    private fun drawFloatingControlsShapes() {
+        if (showCoinsShortcutButton()) {
+            fillButton(hostCoinsButtonRect, 0xF4C55BFF, 0xDA8E2CFF, 0xFFF3C07D)
+        }
+        when {
+            showActionButton() -> {
+                val enabled = isActionButtonEnabled()
+                fillCircularActionButton(actionButtonRect, enabled)
+                drawFastForwardGlyph(actionButtonRect, enabled)
+            }
+
+            showDoubtToggleButton() -> {
+                fillDoubtToggleButton(isDoubtToggleActive())
+            }
+        }
+    }
+
+    private fun drawFloatingControlsTextures() {
+        if (showActionButton()) {
+            drawActionButtonGlow(actionButtonRect, isActionButtonEnabled())
+        }
+        if (showDoubtToggleButton()) {
+            drawDoubtButtonGlow(isDoubtToggleActive())
+            drawPanelTexture(
+                doubtButtonRect,
+                if (isDoubtToggleActive()) color(0xD4F6FF16) else color(0xFFF3D712),
+            )
+        }
+        if (showCoinsShortcutButton()) {
+            drawPanelTexture(hostCoinsButtonRect, color(0xFFE7B313))
+        }
+    }
+
+    private fun drawFloatingControlsText() {
+        if (showDoubtToggleButton()) {
+            val isActive = isDoubtToggleActive()
+            val labelColor = if (isActive) color(0x041C2FFF) else color(0x1A1308FF)
+            val fittedLabel = fitSingleLineText(
+                text = if (isActive) "DOUBTING" else "DOUBT",
+                color = labelColor,
+                maxWidth = doubtButtonRect.width - 28f,
+                preferredScale = 0.92f,
+                minimumScale = 0.70f,
+            )
+            drawTextBlock(
+                text = fittedLabel.text,
+                x = doubtButtonRect.x + 8f,
+                y = doubtButtonRect.y + doubtButtonRect.height * 0.08f,
+                width = doubtButtonRect.width - 16f,
+                height = doubtButtonRect.height * 0.84f,
+                scale = fittedLabel.scale,
+                color = labelColor,
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = if (isActive) color(0xD6F7FF52) else color(0xFFF6E29A2C),
+                enforceMinimumScale = false,
+            )
+        }
+        if (showCoinsShortcutButton()) {
+            drawTextBlock(
+                text = "COINS",
+                x = hostCoinsButtonRect.x,
+                y = hostCoinsButtonRect.y,
+                width = hostCoinsButtonRect.width,
+                height = hostCoinsButtonRect.height,
+                scale = 0.64f,
+                color = color(0x1A1308FF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = color(0xFFF8E29F33),
+            )
+        }
+    }
+
+    private fun drawDoubtPopupShapes() {
+        fillPanel(doubtPopupRect, 0x113255FF, 0x0B2139FF, 0x4AA5D8FF, 0x3687BBFF, 0xC9F5FF48)
+        fillTrack(doubtPopupTrackRect)
+        drawDoubtPopupCards(includeOverlay = false)
+    }
+
+    private fun drawDoubtPopupTextures() {
+        drawPanelTexture(doubtPopupRect, color(0xC9EAFF12))
+        drawRepeatedTexture(
+            grainTexture,
+            doubtPopupTrackRect.x + 2f,
+            doubtPopupTrackRect.y + 2f,
+            doubtPopupTrackRect.width - 4f,
+            doubtPopupTrackRect.height - 4f,
+            color(0x8FE3FF0D),
+            doubtPopupTrackRect.width / 112f,
+            max(1f, doubtPopupTrackRect.height / 112f),
+        )
+    }
+
+    private fun drawDoubtPopupText() {
+        val doubt = presenter.state.doubt ?: return
+        val targetPlayer = presenter.state.requirePlayer(doubt.targetPlayerId) ?: return
+        drawTextBlock(
+            text = "${targetPlayer.displayName.uppercase()} TIMELINE",
+            x = doubtPopupHeaderRect.x,
+            y = doubtPopupHeaderRect.y,
+            width = doubtPopupHeaderRect.width * 0.62f,
+            height = doubtPopupHeaderRect.height,
+            scale = 0.92f,
+            color = color(0xDFF7FFFF),
+            insetX = panelPadding,
+            verticalAlign = VerticalTextAlign.Center,
+        )
+        drawTextBlock(
+            text = "PLACE YOUR DOUBT",
+            x = doubtPopupHeaderRect.x + doubtPopupHeaderRect.width - 300f,
+            y = doubtPopupHeaderRect.y,
+            width = 260f,
+            height = doubtPopupHeaderRect.height,
+            scale = 0.72f,
+            color = color(0x7ED9FFFF),
+            align = Align.right,
+            verticalAlign = VerticalTextAlign.Center,
+        )
+        drawDoubtPopupCardText(includeOverlay = false)
+    }
+
+    private fun drawCoinPanelShapes() {
+        fillPanel(coinPanelRect, 0x132145FF, 0x0C1A33FF, 0xF0BE61FF, 0xD58E2DFF, 0xFFE7B44D)
+        fillButton(coinPanelCloseRect, 0xE38A7AFF, 0xB84A35FF, 0xFFDAB2A5)
+        coinPanelRows().forEach { row ->
+            drawDropShadow(row.rowRect, 10f, 0x01050B38)
+            fillGradientRect(
+                row.rowRect.x,
+                row.rowRect.y,
+                row.rowRect.width,
+                row.rowRect.height,
+                0x13284BFF,
+                0x102241FF,
+                0x203862FF,
+                0x183154FF,
+            )
+            drawFrame(row.rowRect, 0xAFC4F02A, 2f)
+            fillButton(row.minusRect, 0xF0B25CFF, 0xC97C1DFF, 0xFFE6BF82)
+            fillButton(row.plusRect, 0x7CD4E8FF, 0x2E8AB7FF, 0xDDF8FFFF)
+        }
+    }
+
+    private fun drawCoinPanelTextures() {
+        drawPanelTexture(coinPanelRect, color(0xC7DAFF10))
+        coinPanelRows().forEach { row ->
+            drawPanelTexture(row.rowRect, color(0xC7DAFF0C))
+        }
+    }
+
+    private fun drawCoinPanelText() {
+        drawTextBlock(
+            text = "MANAGE COINS",
+            x = coinPanelRect.x,
+            y = coinPanelRect.y + coinPanelRect.height - panelHeaderHeight,
+            width = coinPanelRect.width * 0.72f,
+            height = panelHeaderHeight,
+            scale = 0.98f,
+            color = Color.WHITE,
+            insetX = panelPadding,
+            verticalAlign = VerticalTextAlign.Center,
+        )
+        drawTextBlock(
+            text = "X",
+            x = coinPanelCloseRect.x,
+            y = coinPanelCloseRect.y,
+            width = coinPanelCloseRect.width,
+            height = coinPanelCloseRect.height,
+            scale = 0.88f,
+            color = color(0xFFF9EBE4),
+            align = Align.center,
+            verticalAlign = VerticalTextAlign.Center,
+        )
+        coinPanelRows().forEach { row ->
+            val player = presenter.state.requirePlayer(row.playerId) ?: return@forEach
+            drawTextBlock(
+                text = player.displayName,
+                x = row.rowRect.x + 22f,
+                y = row.rowRect.y,
+                width = row.rowRect.width * 0.42f,
+                height = row.rowRect.height,
+                scale = 0.74f,
+                color = Color.WHITE,
+                verticalAlign = VerticalTextAlign.Center,
+            )
+            drawTextBlock(
+                text = player.coins.toString(),
+                x = row.rowRect.x + row.rowRect.width * 0.48f,
+                y = row.rowRect.y,
+                width = row.rowRect.width * 0.12f,
+                height = row.rowRect.height,
+                scale = 0.86f,
+                color = color(0xF4CF79FF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+            )
+            drawTextBlock(
+                text = "-",
+                x = row.minusRect.x,
+                y = row.minusRect.y,
+                width = row.minusRect.width,
+                height = row.minusRect.height,
+                scale = 0.86f,
+                color = color(0x1A1308FF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+            )
+            drawTextBlock(
+                text = "+",
+                x = row.plusRect.x,
+                y = row.plusRect.y,
+                width = row.plusRect.width,
+                height = row.plusRect.height,
+                scale = 0.86f,
+                color = color(0x031E2FFF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+            )
+        }
+    }
+
     private fun drawConfetti() {
         confettiParticles.forEach { particle ->
             val fade = 1f - particle.ageSeconds / particle.lifeSeconds
@@ -958,19 +1539,63 @@ class MatchScreen(
     }
 
     private fun drawInactiveTurnFilter(alpha: Float) {
-        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0xBDC7D7FF, alpha * 0.21f))
-        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x7D90ACFF, alpha * 0.15f))
+        val time = overlayAnimationSeconds
+        val slowDriftX = sin(time * 0.17f) * 0.12f
+        val slowDriftY = cos(time * 0.13f) * 0.10f
+        val grainDriftX = time * 0.021f
+        val grainDriftY = time * 0.015f
+        val accentGlowWidth = layoutWorldWidth * (0.54f + 0.05f * sin(time * 0.41f))
+        val accentGlowHeight = layoutWorldHeight * (0.62f + 0.04f * cos(time * 0.37f))
+        val accentGlowX = layoutWorldWidth * (0.18f + 0.06f * sin(time * 0.23f))
+        val accentGlowY = layoutWorldHeight * (0.14f + 0.03f * cos(time * 0.19f))
+        val sweepGlowWidth = layoutWorldWidth * 0.46f
+        val sweepGlowHeight = layoutWorldHeight * 0.72f
+        val sweepGlowX = layoutWorldWidth * (0.52f + 0.08f * cos(time * 0.28f))
+        val sweepGlowY = layoutWorldHeight * (0.08f + 0.04f * sin(time * 0.22f))
+
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0xCFD7E2FF, alpha * 0.34f))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x7C8EADFF, alpha * 0.27f))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x2A3344FF, alpha * 0.12f))
+        drawGlow(
+            accentGlowX,
+            accentGlowY,
+            accentGlowWidth,
+            accentGlowHeight,
+            colorWithAlpha(0xDCE8FFF0, alpha * 0.12f),
+        )
+        drawGlow(
+            sweepGlowX,
+            sweepGlowY,
+            sweepGlowWidth,
+            sweepGlowHeight,
+            colorWithAlpha(0x91A9CFFF, alpha * 0.08f),
+        )
         drawRepeatedTexture(
             grainTexture,
             0f,
             0f,
             layoutWorldWidth,
             layoutWorldHeight,
-            colorWithAlpha(0xD6DFEBFF, alpha * 0.07f),
-            layoutWorldWidth / 96f,
-            layoutWorldHeight / 96f,
+            colorWithAlpha(0xDDE6F1FF, alpha * 0.10f),
+            layoutWorldWidth / 88f,
+            layoutWorldHeight / 88f,
+            grainDriftX,
+            grainDriftY,
         )
-        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x000000FF, alpha * 0.16f))
+        drawRepeatedTexture(
+            grainTexture,
+            0f,
+            0f,
+            layoutWorldWidth,
+            layoutWorldHeight,
+            colorWithAlpha(0x94A6BEFF, alpha * 0.06f),
+            layoutWorldWidth / 58f,
+            layoutWorldHeight / 58f,
+            slowDriftX,
+            slowDriftY,
+        )
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x000000FF, alpha * 0.26f))
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x24334DFF, alpha * 0.13f))
     }
 
     private fun fillHero(rect: Rectangle) {
@@ -994,49 +1619,122 @@ class MatchScreen(
         drawFrame(rect, edgeColor, 2f)
     }
 
+    private fun fillDoubtToggleButton(isActive: Boolean) {
+        val shadowColor = if (isActive) 0x319BC8FF else 0xD58A22FF
+        val bottomLeft = if (isActive) 0x287FB8FF else 0xC97717FF
+        val bottomRight = if (isActive) 0x2C8CC3FF else 0xD4831FFF
+        val topRight = if (isActive) 0x78DEFFFF else 0xF7D16FFF
+        val topLeft = if (isActive) 0x6FD2F8FF else 0xF3BF56FF
+        val outerEdge = if (isActive) 0xECFCFFFF else 0xFFF4D0FF
+        val innerEdge = if (isActive) 0xCBF3FFB8 else 0xFFF1BF96
+
+        drawDropShadow(doubtButtonRect, 14f, shadowColor)
+        fillGradientRect(
+            doubtButtonRect.x,
+            doubtButtonRect.y,
+            doubtButtonRect.width,
+            doubtButtonRect.height,
+            bottomLeft,
+            bottomRight,
+            topRight,
+            topLeft,
+        )
+        fillRect(
+            doubtButtonRect.x + 8f,
+            doubtButtonRect.y + doubtButtonRect.height - 11f,
+            doubtButtonRect.width - 16f,
+            3f,
+            if (isActive) 0xEFFFFF2A else 0xFFF7D01F,
+        )
+        drawFrame(doubtButtonRect, outerEdge, 2f)
+        drawFrame(
+            doubtButtonRect.x + 3f,
+            doubtButtonRect.y + 3f,
+            doubtButtonRect.width - 6f,
+            doubtButtonRect.height - 6f,
+            innerEdge,
+            1.5f,
+        )
+    }
+
+    private fun drawDoubtButtonGlow(isActive: Boolean) {
+        val glowTint = if (isActive) 0x8EEDFFFF else 0xFFE89DFF
+        val expansion = if (isActive) 42f else 36f
+        drawGlow(
+            doubtButtonRect.x - expansion * 0.42f,
+            doubtButtonRect.y - expansion * 0.36f,
+            doubtButtonRect.width + expansion * 0.84f,
+            doubtButtonRect.height + expansion * 0.72f,
+            colorWithAlpha(glowTint, if (isActive) 0.16f else 0.12f),
+        )
+    }
+
     private fun fillCircularActionButton(rect: Rectangle, enabled: Boolean) {
         val radius = min(rect.width, rect.height) / 2f
         val centerX = rect.x + rect.width / 2f
         val centerY = rect.y + rect.height / 2f
-        val rimColor = if (enabled) 0xFFF2C56C else 0xF5D9A1FF
-        val lowerColor = if (enabled) 0xD8891EFF else 0xC9984BFF
-        val upperColor = if (enabled) 0xF7BE52FF else 0xE0BF76FF
+        val outerShadow = if (enabled) 0x170801FFL else 0x1C0E03FFL
+        val outerRing = if (enabled) 0x4A2404FFL else 0x573915FFL
+        val rimColor = if (enabled) 0xFFF3C86EFFL else 0xE1C28CFFL
+        val innerRim = if (enabled) 0xFFF9E2A5FFL else 0xF0DDB3FFL
+        val bodyLower = if (enabled) 0xD78418FFL else 0xBA8E43FFL
+        val bodyUpper = if (enabled) 0xF7C759FFL else 0xD8B36AFFL
+        val coreColor = if (enabled) 0xE8A93CFFL else 0xC59A58FFL
+        val highlightColor = if (enabled) 0xFFF5C6FFL else 0xFFF0D0FFL
+        val lowerShade = if (enabled) 0x8F5310FFL else 0x7E6130FFL
 
-        repeat(4) { layer ->
-            val expansion = 6f + layer * 4f
-            val alpha = 0.15f - layer * 0.025f
-            shapeRenderer.color = colorWithAlpha(0x140901FF, alpha)
-            shapeRenderer.circle(centerX, centerY - 8f + layer * 1.2f, radius + expansion, 64)
+        repeat(5) { layer ->
+            val expansion = 5f + layer * 4.6f
+            val alpha = 0.13f - layer * 0.02f
+            shapeRenderer.color = colorWithAlpha(outerShadow, alpha)
+            shapeRenderer.circle(centerX, centerY - radius * 0.16f + layer * 1.4f, radius + expansion, 72)
         }
 
+        shapeRenderer.color = color(outerRing)
+        shapeRenderer.circle(centerX, centerY - radius * 0.02f, radius * 1.05f, 72)
+
         shapeRenderer.color = color(rimColor)
-        shapeRenderer.circle(centerX, centerY, radius, 64)
+        shapeRenderer.circle(centerX, centerY, radius, 72)
 
-        shapeRenderer.color = color(lowerColor)
-        shapeRenderer.circle(centerX, centerY - radius * 0.04f, radius * 0.94f, 64)
+        shapeRenderer.color = color(innerRim)
+        shapeRenderer.circle(centerX, centerY + radius * 0.02f, radius * 0.93f, 72)
 
-        shapeRenderer.color = color(upperColor)
-        shapeRenderer.circle(centerX, centerY + radius * 0.14f, radius * 0.78f, 64)
+        shapeRenderer.color = color(bodyLower)
+        shapeRenderer.circle(centerX, centerY - radius * 0.03f, radius * 0.86f, 72)
 
-        shapeRenderer.color = colorWithAlpha(0xFFF7D68EFF, if (enabled) 0.34f else 0.20f)
-        shapeRenderer.circle(centerX, centerY + radius * 0.34f, radius * 0.36f, 48)
+        shapeRenderer.color = color(bodyUpper)
+        shapeRenderer.circle(centerX, centerY + radius * 0.17f, radius * 0.72f, 72)
 
-        shapeRenderer.color = colorWithAlpha(0x8E5614FF, if (enabled) 0.28f else 0.18f)
-        shapeRenderer.circle(centerX, centerY - radius * 0.28f, radius * 0.60f, 64)
+        shapeRenderer.color = color(coreColor)
+        shapeRenderer.circle(centerX, centerY - radius * 0.11f, radius * 0.56f, 72)
+
+        shapeRenderer.color = colorWithAlpha(highlightColor, if (enabled) 0.52f else 0.28f)
+        shapeRenderer.circle(centerX - radius * 0.08f, centerY + radius * 0.34f, radius * 0.38f, 54)
+
+        shapeRenderer.color = colorWithAlpha(highlightColor, if (enabled) 0.22f else 0.12f)
+        shapeRenderer.circle(centerX + radius * 0.18f, centerY + radius * 0.12f, radius * 0.18f, 42)
+
+        shapeRenderer.color = colorWithAlpha(lowerShade, if (enabled) 0.22f else 0.16f)
+        shapeRenderer.circle(centerX, centerY - radius * 0.30f, radius * 0.52f, 72)
     }
 
     private fun drawFastForwardGlyph(rect: Rectangle, enabled: Boolean) {
-        val shadowColor = if (enabled) color(0x6A34109E) else color(0x5A34107A)
-        val glyphColor = if (enabled) color(0x28170BFF) else color(0x3D2A12E0)
-        val triangleWidth = rect.width * 0.22f
-        val triangleHeight = rect.height * 0.31f
-        val gap = triangleWidth * 0.10f
-        val centerY = rect.y + rect.height * 0.52f
+        val shadowColor = if (enabled) color(0x703406A8) else color(0x5D3E1D82)
+        val baseGlyphColor = if (enabled) color(0x8B4708FF) else color(0x7A5930FF)
+        val glyphColor = if (enabled) color(0xFFF2D0FF) else color(0xF3E2BCFF)
+        val triangleWidth = rect.width * 0.21f
+        val triangleHeight = rect.height * 0.28f
+        val gap = triangleWidth * 0.12f
+        val centerY = rect.y + rect.height * 0.51f
         val startX = rect.x + (rect.width - (triangleWidth * 2f + gap)) / 2f
 
         shapeRenderer.color = shadowColor
         drawRightTriangle(startX + 4f, centerY - triangleHeight / 2f - 5f, triangleWidth, triangleHeight)
         drawRightTriangle(startX + triangleWidth + gap + 4f, centerY - triangleHeight / 2f - 5f, triangleWidth, triangleHeight)
+
+        shapeRenderer.color = baseGlyphColor
+        drawRightTriangle(startX + 1.5f, centerY - triangleHeight / 2f - 1.5f, triangleWidth, triangleHeight)
+        drawRightTriangle(startX + triangleWidth + gap + 1.5f, centerY - triangleHeight / 2f - 1.5f, triangleWidth, triangleHeight)
 
         shapeRenderer.color = glyphColor
         drawRightTriangle(startX, centerY - triangleHeight / 2f, triangleWidth, triangleHeight)
@@ -1060,6 +1758,56 @@ class MatchScreen(
         fillGradientRect(rect.x, rect.y + rect.height - panelHeaderHeight, rect.width, panelHeaderHeight, headerBottom, headerBottom, headerTop, headerTop)
         fillRect(rect.x + 10f, rect.y + rect.height - panelHeaderHeight + 8f, rect.width - 20f, 2f, 0xFFFFFF16)
         drawFrame(rect, edgeColor, 2f)
+    }
+
+    private fun fillActionWell() {
+        val rect = actionWellRect()
+        drawDropShadow(rect, 16f, 0x01050B38)
+        fillGradientRect(
+            rect.x,
+            rect.y,
+            rect.width,
+            rect.height,
+            0x0A1425D8,
+            0x0C1629D8,
+            0x111D34EA,
+            0x13203AEA,
+        )
+        fillRect(rect.x + 10f, rect.y + rect.height - 12f, rect.width - 20f, 2f, 0xFFFFFF12)
+        drawFrame(rect, 0xA1B9E228, 2f)
+    }
+
+    private fun drawActionWellTexture() {
+        val rect = actionWellRect()
+        drawPanelTexture(rect, color(0xB8D3FF0A))
+    }
+
+    private fun showActionWell(): Boolean = showDoubtToggleButton() || showCoinsShortcutButton()
+
+    private fun actionWellRect(): Rectangle {
+        val margin = clamp(deckPanelRect.width * 0.06f, 12f, 18f)
+        return when {
+            showDoubtToggleButton() -> Rectangle(
+                doubtButtonRect.x - margin,
+                doubtButtonRect.y - margin,
+                doubtButtonRect.width + margin * 2f,
+                doubtButtonRect.height + margin * 2f,
+            )
+
+            showCoinsShortcutButton() -> Rectangle(
+                hostCoinsButtonRect.x - margin * 0.5f,
+                hostCoinsButtonRect.y - margin * 0.5f,
+                hostCoinsButtonRect.width + margin,
+                hostCoinsButtonRect.height + margin,
+            )
+
+            else -> Rectangle(
+                deckPanelRect.x + margin,
+                deckPanelRect.y + margin,
+                deckPanelRect.width - margin * 2f,
+                deckPanelRect.height - margin * 2f,
+            )
+        }
     }
 
     private fun drawCardSurface(
@@ -1103,13 +1851,87 @@ class MatchScreen(
     }
 
     private fun drawTimelineCardText(includeOverlay: Boolean) {
-        timelineCardVisuals.forEach { visual ->
-            if (isOverlayVisual(visual) == includeOverlay) {
-                drawCardText(visual)
-            }
+        val layerVisuals = timelineCardVisuals.filter { isOverlayVisual(it) == includeOverlay }
+        layerVisuals.forEachIndexed { index, visual ->
+            drawClippedCardText(visual, layerVisuals, index)
         }
         if (includeOverlay) {
             transientCardVisual?.let(::drawCardText)
+        }
+    }
+
+    private fun drawDoubtPopupCards(includeOverlay: Boolean) {
+        doubtTimelineCardVisuals.forEach { visual ->
+            if (isDoubtOverlayVisual(visual) == includeOverlay) {
+                drawCardVisual(visual)
+            }
+        }
+    }
+
+    private fun drawDoubtPopupCardText(includeOverlay: Boolean) {
+        val layerVisuals = doubtTimelineCardVisuals.filter { isDoubtOverlayVisual(it) == includeOverlay }
+        layerVisuals.forEachIndexed { index, visual ->
+            drawClippedCardText(visual, layerVisuals, index)
+        }
+    }
+
+    private fun drawClippedCardText(
+        visual: TimelineCardVisual,
+        layeredVisuals: List<TimelineCardVisual>,
+        index: Int,
+    ) {
+        val clipBounds = visibleTextClipBounds(visual, layeredVisuals, index)
+        if (clipBounds.width <= 6f || clipBounds.height <= 6f) {
+            return
+        }
+        withBatchClip(clipBounds) {
+            drawCardText(visual)
+        }
+    }
+
+    private fun visibleTextClipBounds(
+        visual: TimelineCardVisual,
+        layeredVisuals: List<TimelineCardVisual>,
+        index: Int,
+    ): Rectangle {
+        var visibleLeft = visual.rect.x
+        var visibleRight = visual.rect.x + visual.rect.width
+        val top = visual.rect.y + visual.rect.height
+        for (laterIndex in index + 1 until layeredVisuals.size) {
+            val laterRect = layeredVisuals[laterIndex].rect
+            val overlapsVertically = laterRect.y < top && laterRect.y + laterRect.height > visual.rect.y
+            if (!overlapsVertically) {
+                continue
+            }
+            if (laterRect.x <= visibleLeft && laterRect.x + laterRect.width > visibleLeft) {
+                visibleLeft = min(visibleRight, laterRect.x + laterRect.width)
+            } else if (laterRect.x in (visibleLeft + 0.5f)..<visibleRight) {
+                visibleRight = laterRect.x
+            }
+        }
+        val insetX = 3f
+        val insetY = 2f
+        return Rectangle(
+            visibleLeft + insetX,
+            visual.rect.y + insetY,
+            max(0f, visibleRight - visibleLeft - insetX * 2f),
+            max(0f, visual.rect.height - insetY * 2f),
+        )
+    }
+
+    private fun withBatchClip(clipBounds: Rectangle, block: () -> Unit) {
+        batch.flush()
+        val scissors = Rectangle()
+        viewport.calculateScissors(batch.transformMatrix, clipBounds, scissors)
+        if (ScissorStack.pushScissors(scissors)) {
+            try {
+                block()
+                batch.flush()
+            } finally {
+                ScissorStack.popScissors()
+            }
+        } else {
+            block()
         }
     }
 
@@ -1117,8 +1939,16 @@ class MatchScreen(
         return draggingPendingCard && pendingCardVisual != null || transientCardVisual != null
     }
 
+    private fun hasOverlayDoubtTimelineVisuals(): Boolean {
+        return draggingDoubtCard && doubtPendingCardVisual != null
+    }
+
     private fun isOverlayVisual(visual: TimelineCardVisual): Boolean {
         return draggingPendingCard && pendingCardVisual?.id == visual.id
+    }
+
+    private fun isDoubtOverlayVisual(visual: TimelineCardVisual): Boolean {
+        return draggingDoubtCard && doubtPendingCardVisual?.id == visual.id
     }
 
     private fun drawCardVisual(visual: TimelineCardVisual) {
@@ -1226,6 +2056,16 @@ class MatchScreen(
             }
             return resolvedTrackLabel(resolution.cardId)
         }
+        presenter.state.doubt?.let { doubt ->
+            val doubterName = presenter.state.requirePlayer(doubt.doubterId)?.displayName?.uppercase() ?: "PLAYER"
+            return when {
+                showDoubtPlacementPopup() -> "PLACE YOUR DOUBT"
+                presenter.localPlayerId == doubt.targetPlayerId && doubt.phase == DoubtPhase.ARMED -> "$doubterName DOUBTS"
+                presenter.localPlayerId == doubt.targetPlayerId -> "$doubterName IS DOUBTING"
+                presenter.localPlayerId != doubt.doubterId && doubt.phase == DoubtPhase.ARMED -> "$doubterName ARMED A DOUBT"
+                else -> null
+            }
+        }
         return null
     }
 
@@ -1253,6 +2093,9 @@ class MatchScreen(
     }
 
     private fun activeTurnToolbarLabel(): String {
+        if (showDoubtPlacementPopup()) {
+            return "YOUR DOUBT"
+        }
         val turnPlayer = presenter.state.turn
             ?.activePlayerId
             ?.let { playerId -> presenter.state.requirePlayer(playerId) }
@@ -1281,13 +2124,50 @@ class MatchScreen(
     }
 
     private fun shouldShowInactiveTurnFilter(): Boolean {
-        return presenter.state.status == MatchStatus.ACTIVE && !isLocalPlayersTurn()
+        return presenter.state.status == MatchStatus.ACTIVE &&
+            !isLocalPlayersTurn() &&
+            !showDoubtPlacementPopup()
     }
 
-    private fun showActionButton(): Boolean = showDeckActionButton()
+    private fun showActionButton(): Boolean = canEndTurn()
 
-    private fun showDeckActionButton(): Boolean {
-        return isLocalPlayersTurn() && presenter.state.turn?.phase != TurnPhase.WAITING_FOR_DRAW
+    private fun showHostCoinsButton(): Boolean = presenter.isLocalHost && presenter.state.status == MatchStatus.ACTIVE
+
+    private fun showCoinsShortcutButton(): Boolean =
+        showHostCoinsButton() &&
+            !coinPanelOpen &&
+            !showDoubtPlacementPopup()
+
+    private fun showDoubtToggleButton(): Boolean {
+        if (presenter.state.status != MatchStatus.ACTIVE || showDoubtPlacementPopup()) {
+            return false
+        }
+        val localPlayer = localPlayer() ?: return false
+        val turn = presenter.state.turn ?: return false
+        val doubt = presenter.state.doubt
+        if (isLocalPlayersTurn()) {
+            return false
+        }
+        if (localPlayer.coins <= 0 && !(doubt?.doubterId == presenter.localPlayerId && doubt.phase == DoubtPhase.ARMED)) {
+            return false
+        }
+        return when {
+            doubt == null -> turn.phase == TurnPhase.AWAITING_PLACEMENT || turn.phase == TurnPhase.CARD_POSITIONED
+            doubt.doubterId == presenter.localPlayerId && doubt.phase == DoubtPhase.ARMED -> true
+            else -> false
+        }
+    }
+
+    private fun isDoubtToggleActive(): Boolean {
+        val doubt = presenter.state.doubt ?: return false
+        return doubt.doubterId == presenter.localPlayerId && doubt.phase == DoubtPhase.ARMED
+    }
+
+    private fun showDoubtPlacementPopup(): Boolean {
+        val doubt = presenter.state.doubt ?: return false
+        val phase = presenter.state.turn?.phase ?: return false
+        return doubt.doubterId == presenter.localPlayerId &&
+            (phase == TurnPhase.AWAITING_DOUBT_PLACEMENT || phase == TurnPhase.DOUBT_POSITIONED)
     }
 
     private fun isActionButtonEnabled(): Boolean = canEndTurn()
@@ -1325,7 +2205,25 @@ class MatchScreen(
 
     private fun canDraw(): Boolean = isLocalPlayersTurn() && presenter.state.turn?.phase == TurnPhase.WAITING_FOR_DRAW
 
-    private fun canEndTurn(): Boolean = isLocalPlayersTurn() && presenter.state.turn?.phase == TurnPhase.CARD_POSITIONED
+    private fun canEndTurn(): Boolean {
+        val phase = presenter.state.turn?.phase ?: return false
+        return when {
+            showDoubtPlacementPopup() -> phase == TurnPhase.AWAITING_DOUBT_PLACEMENT || phase == TurnPhase.DOUBT_POSITIONED
+            isLocalPlayersTurn() -> phase == TurnPhase.CARD_POSITIONED
+            else -> false
+        }
+    }
+
+    private fun canMoveMainPendingCard(): Boolean {
+        val phase = presenter.state.turn?.phase ?: return false
+        return isLocalPlayersTurn() && (phase == TurnPhase.AWAITING_PLACEMENT || phase == TurnPhase.CARD_POSITIONED)
+    }
+
+    private fun canMoveDoubtCard(): Boolean {
+        val phase = presenter.state.turn?.phase ?: return false
+        return showDoubtPlacementPopup() &&
+            (phase == TurnPhase.AWAITING_DOUBT_PLACEMENT || phase == TurnPhase.DOUBT_POSITIONED)
+    }
 
     private fun drawDropSlotIndexFor(x: Float): Int {
         val player = localPlayer() ?: return 0
@@ -1355,6 +2253,166 @@ class MatchScreen(
         }
         val probeX = pendingLeft + arrangement.cardWidth * probeRatio
         return timelineLayout.nearestSlotIndex(player.timeline.cards.size, probeX)
+    }
+
+    private fun requestedDoubtSlotIndexFor(x: Float): Int {
+        val doubt = presenter.state.doubt ?: return 0
+        val targetPlayer = presenter.state.requirePlayer(doubt.targetPlayerId) ?: return 0
+        val pendingCard = targetPlayer.pendingCard ?: return 0
+        val popupTrackX = doubtPopupTimelineX()
+        val popupTrackWidth = doubtPopupTimelineWidth()
+        val popupLayout = TimelineLayoutCalculator(
+            trackX = popupTrackX,
+            trackWidth = popupTrackWidth,
+            preferredCardWidth = clamp(doubtPopupTrackRect.width * 0.16f, 134f, 184f),
+            minCardWidth = clamp(doubtPopupTrackRect.width * 0.088f, 92f, 118f),
+            preferredGap = clamp(doubtPopupTrackRect.width * 0.018f, 14f, 24f),
+            minGap = 10f,
+        )
+        if (!draggingDoubtCard) {
+            return popupLayout.nearestSlotIndex(targetPlayer.timeline.cards.size, x)
+        }
+
+        val arrangement = popupLayout.pendingArrangement(
+            existingCardCount = targetPlayer.timeline.cards.size,
+            pendingSlotIndex = doubt.proposedSlotIndex ?: pendingCard.proposedSlotIndex,
+        )
+        val pendingLeft = clamp(
+            x - doubtPendingCardGrabOffsetX,
+            popupTrackX,
+            popupTrackX + popupTrackWidth - arrangement.cardWidth,
+        )
+        val probeX = pendingLeft + arrangement.cardWidth * 0.5f
+        return popupLayout.nearestSlotIndex(targetPlayer.timeline.cards.size, probeX)
+    }
+
+    private fun doubtPopupTimelineX(): Float = doubtPopupTrackRect.x + panelPadding * 0.03f
+
+    private fun doubtPopupTimelineWidth(): Float = doubtPopupTrackRect.width - panelPadding * 0.06f
+
+    private fun drawTargetDoubtArrow() {
+        val arrowX = doubtArrowXForMainTimeline() ?: return
+        drawDoubtArrow(arrowX, timelineCardBottom(cardHeight) + cardHeight + 2f)
+    }
+
+    private fun doubtArrowXForMainTimeline(): Float? {
+        val doubt = presenter.state.doubt ?: return null
+        val phase = presenter.state.turn?.phase ?: return null
+        if (phase != TurnPhase.AWAITING_DOUBT_PLACEMENT && phase != TurnPhase.DOUBT_POSITIONED) {
+            return null
+        }
+        if (doubt.targetPlayerId != presenter.localPlayerId) {
+            return null
+        }
+        val targetPlayer = localPlayer() ?: return null
+        val pendingCard = targetPlayer.pendingCard ?: return null
+        val pendingVisual = pendingCardVisual ?: return null
+        val committedVisuals = timelineCardVisuals
+            .asSequence()
+            .filter { it.id != pendingCard.entry.id }
+            .sortedBy { it.rect.x }
+            .toList()
+        val visibleRects = buildList {
+            for (index in 0..committedVisuals.size) {
+                if (index == pendingCard.proposedSlotIndex) {
+                    add(pendingVisual.rect)
+                }
+                if (index < committedVisuals.size) {
+                    add(committedVisuals[index].rect)
+                }
+            }
+        }
+        if (visibleRects.isEmpty()) {
+            return null
+        }
+
+        val doubtSlot = doubt.proposedSlotIndex ?: pendingCard.proposedSlotIndex
+        if (doubtSlot == pendingCard.proposedSlotIndex) {
+            return pendingVisual.rect.x + pendingVisual.rect.width / 2f
+        }
+        val boundaryIndex = (doubtSlot + if (doubtSlot > pendingCard.proposedSlotIndex) 1 else 0)
+            .coerceIn(0, visibleRects.size)
+        val edgeOffset = max(18f, pendingVisual.rect.width * 0.16f)
+        return when (boundaryIndex) {
+            0 -> visibleRects.first().x - edgeOffset
+            visibleRects.size -> visibleRects.last().x + visibleRects.last().width + edgeOffset
+            else -> {
+                val leftRect = visibleRects[boundaryIndex - 1]
+                val rightRect = visibleRects[boundaryIndex]
+                (leftRect.x + leftRect.width + rightRect.x) / 2f
+            }
+        }
+    }
+
+    private fun drawDoubtArrow(centerX: Float, tipY: Float) {
+        shapeRenderer.color = colorWithAlpha(0x3A2007FF, 0.24f)
+        shapeRenderer.triangle(
+            centerX,
+            tipY - 3f,
+            centerX - 22f,
+            tipY + 29f,
+            centerX + 22f,
+            tipY + 29f,
+        )
+        shapeRenderer.color = color(0xFFF5CC63FF)
+        shapeRenderer.triangle(
+            centerX,
+            tipY,
+            centerX - 18f,
+            tipY + 24f,
+            centerX + 18f,
+            tipY + 24f,
+        )
+        shapeRenderer.color = colorWithAlpha(0xFFFCE0A8FF, 0.42f)
+        shapeRenderer.triangle(
+            centerX,
+            tipY + 6f,
+            centerX - 10f,
+            tipY + 21f,
+            centerX + 10f,
+            tipY + 21f,
+        )
+    }
+
+    private fun coinPanelRows(): List<CoinPanelRowLayout> {
+        if (!coinPanelOpen) {
+            return emptyList()
+        }
+        val players = presenter.state.players
+        if (players.isEmpty()) {
+            return emptyList()
+        }
+        val rowHeight = clamp((coinPanelRect.height - panelHeaderHeight - 72f) / players.size, 64f, 82f)
+        val rowGap = 14f
+        val startY = coinPanelRect.y + coinPanelRect.height - panelHeaderHeight - rowHeight - 22f
+        return players.mapIndexed { index, player ->
+            val y = startY - index * (rowHeight + rowGap)
+            val rowRect = Rectangle(
+                coinPanelRect.x + panelPadding,
+                y,
+                coinPanelRect.width - panelPadding * 2f,
+                rowHeight,
+            )
+            val buttonSize = rowHeight - 18f
+            val plusRect = Rectangle(
+                rowRect.x + rowRect.width - buttonSize - 16f,
+                rowRect.y + (rowRect.height - buttonSize) / 2f,
+                buttonSize,
+                buttonSize,
+            )
+            val minusRect = Rectangle(
+                plusRect.x - buttonSize - 14f,
+                plusRect.y,
+                buttonSize,
+                buttonSize,
+            )
+            CoinPanelRowLayout(
+                playerId = player.id,
+                rowRect = rowRect,
+                minusRect = minusRect,
+                plusRect = plusRect,
+            )
+        }
     }
 
     private fun fitSingleLineText(
@@ -1439,8 +2497,23 @@ class MatchScreen(
         repeatX: Float,
         repeatY: Float,
     ) {
+        drawRepeatedTexture(texture, x, y, width, height, tint, repeatX, repeatY, 0f, 0f)
+    }
+
+    private fun drawRepeatedTexture(
+        texture: Texture,
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+        tint: Color,
+        repeatX: Float,
+        repeatY: Float,
+        offsetX: Float,
+        offsetY: Float,
+    ) {
         batch.color = tint
-        batch.draw(texture, x, y, width, height, 0f, 0f, repeatX, repeatY)
+        batch.draw(texture, x, y, width, height, offsetX, offsetY, offsetX + repeatX, offsetY + repeatY)
         batch.setColor(Color.WHITE)
     }
 
@@ -1514,6 +2587,14 @@ class MatchScreen(
         return color(rgba).also { it.a *= clamp(alphaMultiplier, 0f, 1f) }
     }
 
+    private fun Color.toRgba(): Long {
+        val red = (r * 255f).roundToInt().coerceIn(0, 255).toLong()
+        val green = (g * 255f).roundToInt().coerceIn(0, 255).toLong()
+        val blue = (b * 255f).roundToInt().coerceIn(0, 255).toLong()
+        val alpha = (a * 255f).roundToInt().coerceIn(0, 255).toLong()
+        return (red shl 24) or (green shl 16) or (blue shl 8) or alpha
+    }
+
     private fun clamp(value: Float, minValue: Float, maxValue: Float): Float {
         return max(minValue, min(value, maxValue))
     }
@@ -1540,6 +2621,27 @@ class MatchScreen(
             updateLayout()
             val world = viewport.unproject(worldTouch.set(screenX.toFloat(), screenY.toFloat()))
 
+            if (coinPanelOpen) {
+                if (coinPanelCloseRect.contains(world.x, world.y)) {
+                    coinPanelOpen = false
+                    return true
+                }
+                coinPanelRows().firstOrNull { row ->
+                    row.minusRect.contains(world.x, world.y) || row.plusRect.contains(world.x, world.y)
+                }?.let { row ->
+                    if (row.minusRect.contains(world.x, world.y)) {
+                        presenter.adjustPlayerCoins(row.playerId, -1)
+                    } else if (row.plusRect.contains(world.x, world.y)) {
+                        presenter.adjustPlayerCoins(row.playerId, 1)
+                    }
+                    return true
+                }
+                if (!coinPanelRect.contains(world.x, world.y)) {
+                    coinPanelOpen = false
+                }
+                return true
+            }
+
             if (presenter.state.status == MatchStatus.LOBBY && showLobbyPrimaryButton() && startButtonRect.contains(world.x, world.y)) {
                 if (showLobbyPairingGate()) {
                     if (presenter.playbackSessionState != PlaybackSessionState.Connecting) {
@@ -1551,12 +2653,37 @@ class MatchScreen(
                 return true
             }
 
+            if (showDoubtPlacementPopup()) {
+                if (canEndTurn() && actionButtonContains(world.x, world.y)) {
+                    presenter.endTurn()
+                    return true
+                }
+                val popupPendingCard = doubtPendingCardVisual
+                if (canMoveDoubtCard() && popupPendingCard?.rect?.contains(world.x, world.y) == true) {
+                    draggingDoubtCard = true
+                    worldTouch.set(world)
+                    doubtPendingCardGrabOffsetX = world.x - popupPendingCard.rect.x
+                    return true
+                }
+                return doubtPopupRect.contains(world.x, world.y)
+            }
+
             if (presenter.state.status != MatchStatus.ACTIVE) {
                 return false
             }
 
+            if (showHostCoinsButton() && hostCoinsButtonRect.contains(world.x, world.y)) {
+                coinPanelOpen = true
+                return true
+            }
+
             if (canEndTurn() && actionButtonContains(world.x, world.y)) {
                 presenter.endTurn()
+                return true
+            }
+
+            if (showDoubtToggleButton() && doubtButtonRect.contains(world.x, world.y)) {
+                presenter.toggleDoubt()
                 return true
             }
 
@@ -1568,7 +2695,7 @@ class MatchScreen(
             }
 
             val currentPendingCard = pendingCardVisual
-            if (currentPendingCard?.rect?.contains(world.x, world.y) == true) {
+            if (canMoveMainPendingCard() && currentPendingCard?.rect?.contains(world.x, world.y) == true) {
                 draggingPendingCard = true
                 worldTouch.set(world)
                 pendingCardGrabOffsetX = world.x - currentPendingCard.rect.x
@@ -1581,13 +2708,15 @@ class MatchScreen(
 
         override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
             updateLayout()
-            if (!draggingDeckGhost && !draggingPendingCard) {
+            if (!draggingDeckGhost && !draggingPendingCard && !draggingDoubtCard) {
                 return false
             }
 
             val previousX = worldTouch.x
             viewport.unproject(worldTouch.set(screenX.toFloat(), screenY.toFloat()))
-            if (draggingPendingCard) {
+            if (draggingDoubtCard) {
+                presenter.moveDoubtCard(requestedDoubtSlotIndexFor(worldTouch.x))
+            } else if (draggingPendingCard) {
                 pendingCardDragDirectionX = worldTouch.x - previousX
                 presenter.movePendingCard(requestedSlotIndexFor(worldTouch.x))
             }
@@ -1596,7 +2725,7 @@ class MatchScreen(
 
         override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             updateLayout()
-            if (!draggingDeckGhost && !draggingPendingCard) {
+            if (!draggingDeckGhost && !draggingPendingCard && !draggingDoubtCard) {
                 return false
             }
 
@@ -1606,13 +2735,17 @@ class MatchScreen(
                 val drawDropSlotIndex = drawDropSlotIndexFor(world.x)
                 presenter.drawCard()
                 presenter.movePendingCard(drawDropSlotIndex)
+            } else if (draggingDoubtCard) {
+                presenter.moveDoubtCard(requestedDoubtSlotIndexFor(world.x))
             } else if (draggingPendingCard) {
                 presenter.movePendingCard(requestedSlotIndexFor(world.x))
             }
 
             draggingDeckGhost = false
             draggingPendingCard = false
+            draggingDoubtCard = false
             pendingCardGrabOffsetX = 0f
+            doubtPendingCardGrabOffsetX = 0f
             pendingCardDragDirectionX = 0f
             return true
         }
@@ -1649,6 +2782,13 @@ class MatchScreen(
         val colorRgba: Long,
     )
 
+    private data class CoinPanelRowLayout(
+        val playerId: com.hitster.core.model.PlayerId,
+        val rowRect: Rectangle,
+        val minusRect: Rectangle,
+        val plusRect: Rectangle,
+    )
+
     private enum class CardFace {
         Revealed,
         Hidden,
@@ -1668,6 +2808,7 @@ class MatchScreen(
         const val DECK_STACK_SPREAD = 14f
         const val CONFETTI_COUNT = 110
         const val CONFETTI_GRAVITY = -520f
+        const val CONFETTI_FILTER_BLEND_START_PROGRESS = 0.72f
         val CONFETTI_COLORS = longArrayOf(
             0xFF7280FF,
             0xFFD86161FF,

@@ -6,6 +6,13 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
+val webProject = project(":platform-web")
+val syncHostedWebAssets = tasks.register<Copy>("syncHostedWebAssets") {
+    dependsOn(":platform-web:buildWebDist")
+    from(webProject.layout.buildDirectory.dir("dist/webapp"))
+    into(layout.buildDirectory.dir("generated/web-assets/webapp"))
+}
+
 val localProperties = Properties().apply {
     val localPropertiesFile = rootProject.file("local.properties")
     if (localPropertiesFile.exists()) {
@@ -64,6 +71,14 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
+    sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/web-assets"))
+}
+
+tasks.configureEach {
+    if (name.startsWith("merge") && name.endsWith("Assets")) {
+        dependsOn(syncHostedWebAssets)
+    }
 }
 
 dependencies {
@@ -85,5 +100,10 @@ dependencies {
     implementation(libs.androidx.browser)
     implementation(libs.androidx.core.ktx)
     implementation(libs.gson)
+    implementation(libs.jmdns)
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.websockets)
     implementation(libs.spotify.auth)
 }

@@ -48,16 +48,36 @@ class AndroidPlatformServices(
                     },
                 )
                 object : HostedSessionTransport {
+                    private val advertisementProvider = {
+                        listOf(
+                            SessionAdvertisementDto(
+                                sessionId = presenter.state.sessionId.value,
+                                hostPlayerId = presenter.state.hostId.value,
+                                hostDisplayName = presenter.state.players.firstOrNull { it.id == presenter.state.hostId }?.displayName ?: "Host",
+                                hostAddress = hostAddress,
+                                serverPort = serverPort,
+                                playerCount = presenter.state.players.size,
+                            ),
+                        )
+                    }
                     private val server = LanSessionServer(
                         port = serverPort,
                         commandListener = presenter::handleRemoteCommand,
                         onClientDisconnected = presenter::handleRemoteDisconnect,
                         discoveryAnnouncer = discoveryAnnouncer,
                     )
+                    private val guestWebServer = AndroidGuestWebServer(
+                        applicationContext = applicationContext,
+                        hostSnapshotProvider = advertisementProvider,
+                    )
 
                     override fun start() {
                         HostingForegroundService.start(applicationContext)
                         server.start()
+                        guestWebServer.start()
+                        guestWebServer.guestEntryUrls().forEach { url ->
+                            println("Hosted guest web entry available at $url")
+                        }
                     }
 
                     override fun broadcast(event: HostEventDto) {
@@ -65,6 +85,7 @@ class AndroidPlatformServices(
                     }
 
                     override fun close() {
+                        guestWebServer.stop()
                         server.stop()
                         HostingForegroundService.stop(applicationContext)
                     }

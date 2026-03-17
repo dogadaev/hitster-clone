@@ -61,11 +61,34 @@ class RemoteGuestMatchController(
         client.sendCommand(ClientCommandDto.DrawCard(actorId = localPlayerId.value))
     }
 
+    override fun toggleDoubt() {
+        client.sendCommand(ClientCommandDto.ToggleDoubt(actorId = localPlayerId.value))
+    }
+
     override fun movePendingCard(requestedSlotIndex: Int) {
         client.sendCommand(
             ClientCommandDto.MovePendingCard(
                 actorId = localPlayerId.value,
                 requestedSlotIndex = requestedSlotIndex,
+            ),
+        )
+    }
+
+    override fun moveDoubtCard(requestedSlotIndex: Int) {
+        client.sendCommand(
+            ClientCommandDto.MoveDoubtCard(
+                actorId = localPlayerId.value,
+                requestedSlotIndex = requestedSlotIndex,
+            ),
+        )
+    }
+
+    override fun adjustPlayerCoins(playerId: PlayerId, delta: Int) {
+        client.sendCommand(
+            ClientCommandDto.AdjustPlayerCoins(
+                actorId = localPlayerId.value,
+                playerId = playerId.value,
+                delta = delta,
             ),
         )
     }

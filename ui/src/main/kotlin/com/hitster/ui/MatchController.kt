@@ -23,7 +23,13 @@ interface MatchController {
 
     fun drawCard()
 
+    fun toggleDoubt()
+
     fun movePendingCard(requestedSlotIndex: Int)
+
+    fun moveDoubtCard(requestedSlotIndex: Int)
+
+    fun adjustPlayerCoins(playerId: PlayerId, delta: Int)
 
     fun endTurn()
 

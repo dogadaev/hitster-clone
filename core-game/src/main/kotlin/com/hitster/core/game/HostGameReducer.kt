@@ -3,6 +3,8 @@ package com.hitster.core.game
 import com.hitster.core.model.GameState
 import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.DeckState
+import com.hitster.core.model.DoubtPhase
+import com.hitster.core.model.DoubtState
 import com.hitster.core.model.PendingCard
 import com.hitster.core.model.PlayerId
 import com.hitster.core.model.PlayerState
@@ -22,7 +24,10 @@ class HostGameReducer(
             is GameCommand.LeaveSession -> leaveSession(state, command.playerId)
             is GameCommand.StartGame -> startGame(state, command.actorId)
             is GameCommand.DrawCard -> drawCard(state, command.actorId)
+            is GameCommand.ToggleDoubt -> toggleDoubt(state, command.actorId)
             is GameCommand.MovePendingCard -> movePendingCard(state, command.actorId, command.requestedSlotIndex)
+            is GameCommand.MoveDoubtCard -> moveDoubtCard(state, command.actorId, command.requestedSlotIndex)
+            is GameCommand.AdjustPlayerCoins -> adjustPlayerCoins(state, command.actorId, command.playerId, command.delta)
             is GameCommand.EndTurn -> endTurn(state, command.actorId)
         }
     }
@@ -149,12 +154,56 @@ class HostGameReducer(
             deck = draw.nextDeck,
             players = state.players.replacePlayer(updatedPlayer),
             turn = turn.copy(phase = TurnPhase.AWAITING_PLACEMENT),
+            doubt = null,
             lastResolution = null,
         )
 
         return accept(
             nextState,
             GameEffect.PlayTrack(draw.card.playbackReference),
+        )
+    }
+
+    private fun toggleDoubt(
+        state: GameState,
+        actorId: PlayerId,
+    ): ReducerResult {
+        val turn = state.turn ?: return reject(state, "Match has not started yet.")
+        if (state.status != MatchStatus.ACTIVE) {
+            return reject(state, "Match is not active.")
+        }
+        if (actorId == turn.activePlayerId) {
+            return reject(state, "The active player cannot doubt their own card.")
+        }
+        if (turn.phase != TurnPhase.AWAITING_PLACEMENT && turn.phase != TurnPhase.CARD_POSITIONED) {
+            return reject(state, "A doubt can only be armed after the active player draws a card.")
+        }
+
+        val doubter = state.requirePlayer(actorId) ?: return reject(state, "Unknown player.")
+        if (doubter.coins <= 0) {
+            return reject(state, "A coin is required to arm a doubt.")
+        }
+
+        val nextDoubt = when (val currentDoubt = state.doubt) {
+            null -> DoubtState(
+                doubterId = actorId,
+                targetPlayerId = turn.activePlayerId,
+                phase = DoubtPhase.ARMED,
+            )
+
+            else -> {
+                if (currentDoubt.doubterId != actorId || currentDoubt.phase != DoubtPhase.ARMED) {
+                    return reject(state, "Another player already armed a doubt.")
+                }
+                null
+            }
+        }
+
+        return accept(
+            state.copy(
+                revision = state.revision + 1,
+                doubt = nextDoubt,
+            ),
         )
     }
 
@@ -187,7 +236,81 @@ class HostGameReducer(
         return accept(nextState)
     }
 
+    private fun moveDoubtCard(
+        state: GameState,
+        actorId: PlayerId,
+        requestedSlotIndex: Int,
+    ): ReducerResult {
+        val turn = state.turn ?: return reject(state, "Match has not started yet.")
+        if (state.status != MatchStatus.ACTIVE) {
+            return reject(state, "Match is not active.")
+        }
+        if (turn.phase != TurnPhase.AWAITING_DOUBT_PLACEMENT && turn.phase != TurnPhase.DOUBT_POSITIONED) {
+            return reject(state, "Doubt placement is not active.")
+        }
+
+        val doubt = state.doubt ?: return reject(state, "There is no active doubt.")
+        if (doubt.doubterId != actorId) {
+            return reject(state, "Only the doubting player can move the doubt card.")
+        }
+
+        val targetPlayer = state.requirePlayer(doubt.targetPlayerId) ?: return reject(state, "Unknown target player.")
+        val pendingCard = targetPlayer.pendingCard ?: return reject(state, "The target player has no card to doubt.")
+        val snappedSlot = placementValidator.snapSlot(targetPlayer.timeline.cards.size, requestedSlotIndex)
+        val nextState = state.copy(
+            revision = state.revision + 1,
+            doubt = doubt.copy(
+                phase = DoubtPhase.POSITIONED,
+                proposedSlotIndex = snappedSlot,
+            ),
+            turn = turn.copy(phase = TurnPhase.DOUBT_POSITIONED),
+            lastResolution = null,
+        )
+
+        return accept(nextState)
+    }
+
+    private fun adjustPlayerCoins(
+        state: GameState,
+        actorId: PlayerId,
+        playerId: PlayerId,
+        delta: Int,
+    ): ReducerResult {
+        if (actorId != state.hostId) {
+            return reject(state, "Only the host can adjust coins.")
+        }
+        if (delta == 0) {
+            return reject(state, "Coin adjustment cannot be zero.")
+        }
+
+        val player = state.requirePlayer(playerId) ?: return reject(state, "Unknown player.")
+        val nextCoins = maxOf(0, player.coins + delta)
+        if (nextCoins == player.coins) {
+            return reject(state, "Coin count is already at zero.")
+        }
+
+        return accept(
+            state.copy(
+                revision = state.revision + 1,
+                players = state.players.replacePlayer(player.copy(coins = nextCoins)),
+            ),
+        )
+    }
+
     private fun endTurn(
+        state: GameState,
+        actorId: PlayerId,
+    ): ReducerResult {
+        return when (state.turn?.phase) {
+            TurnPhase.AWAITING_DOUBT_PLACEMENT,
+            TurnPhase.DOUBT_POSITIONED,
+            -> resolveDoubt(state, actorId)
+
+            else -> resolveTurn(state, actorId)
+        }
+    }
+
+    private fun resolveTurn(
         state: GameState,
         actorId: PlayerId,
     ): ReducerResult {
@@ -201,6 +324,21 @@ class HostGameReducer(
 
         val activePlayer = state.requirePlayer(actorId) ?: return reject(state, "Unknown player.")
         val pendingCard = activePlayer.pendingCard ?: return reject(state, "There is no pending card to resolve.")
+        val armedDoubt = state.doubt
+        if (armedDoubt?.phase == DoubtPhase.ARMED) {
+            val nextState = state.copy(
+                revision = state.revision + 1,
+                turn = turn.copy(phase = TurnPhase.AWAITING_DOUBT_PLACEMENT),
+                doubt = armedDoubt.copy(
+                    targetPlayerId = actorId,
+                    phase = DoubtPhase.POSITIONING,
+                    proposedSlotIndex = pendingCard.proposedSlotIndex,
+                ),
+                lastResolution = null,
+            )
+
+            return accept(nextState)
+        }
         val validation = placementValidator.validate(
             timeline = activePlayer.timeline.cards,
             entry = pendingCard.entry,
@@ -270,6 +408,137 @@ class HostGameReducer(
         )
     }
 
+    private fun resolveDoubt(
+        state: GameState,
+        actorId: PlayerId,
+    ): ReducerResult {
+        val turn = state.turn ?: return reject(state, "Match has not started yet.")
+        if (state.status != MatchStatus.ACTIVE) {
+            return reject(state, "Match is not active.")
+        }
+
+        val doubt = state.doubt ?: return reject(state, "There is no active doubt.")
+        if (doubt.doubterId != actorId) {
+            return reject(state, "Only the doubting player can resolve the doubt.")
+        }
+
+        val targetPlayer = state.requirePlayer(doubt.targetPlayerId) ?: return reject(state, "Unknown target player.")
+        val pendingCard = targetPlayer.pendingCard ?: return reject(state, "The target player has no pending card.")
+        val doubtSlotIndex = doubt.proposedSlotIndex ?: return reject(state, "The doubt card has not been positioned yet.")
+        val doubter = state.requirePlayer(doubt.doubterId) ?: return reject(state, "Unknown doubting player.")
+
+        val targetValidation = placementValidator.validate(
+            timeline = targetPlayer.timeline.cards,
+            entry = pendingCard.entry,
+            requestedSlotIndex = pendingCard.proposedSlotIndex,
+        )
+        val doubtValidation = placementValidator.validate(
+            timeline = targetPlayer.timeline.cards,
+            entry = pendingCard.entry,
+            requestedSlotIndex = doubtSlotIndex,
+        )
+        val doubtSpentPlayer = doubter.copy(coins = maxOf(0, doubter.coins - 1))
+        val stealSucceeded = !targetValidation.isValid && doubtValidation.isValid
+        val doubterInsertionSlot = correctTimelineInsertionSlot(doubtSpentPlayer.timeline.cards, pendingCard.entry)
+
+        val nextPlayers: List<PlayerState>
+        val nextDiscardPile: List<com.hitster.core.model.PlaylistEntry>
+        val resolution: TurnResolution
+        val reachedWinningTimeline: Boolean
+
+        if (stealSucceeded) {
+            val resolvedTarget = targetPlayer.copy(pendingCard = null)
+            val resolvedDoubter = doubtSpentPlayer.copy(
+                score = doubtSpentPlayer.score + 1,
+                timeline = doubtSpentPlayer.timeline.insertAt(doubterInsertionSlot, pendingCard.entry),
+            )
+            nextPlayers = state.players
+                .replacePlayer(resolvedTarget)
+                .replacePlayer(resolvedDoubter)
+            nextDiscardPile = state.discardPile
+            reachedWinningTimeline = resolvedDoubter.timeline.cards.size >= WINNING_TIMELINE_SIZE
+            resolution = TurnResolution(
+                playerId = doubt.doubterId,
+                cardId = pendingCard.entry.id,
+                attemptedSlotIndex = doubterInsertionSlot,
+                correct = true,
+                releaseYear = pendingCard.entry.releaseYear,
+                message = when {
+                    reachedWinningTimeline -> "Doubt successful. Timeline complete."
+                    else -> "Doubt successful. Card stolen."
+                },
+            )
+        } else if (targetValidation.isValid) {
+            val resolvedTarget = targetPlayer.copy(
+                score = targetPlayer.score + 1,
+                timeline = targetPlayer.timeline.insertAt(targetValidation.slotIndex, pendingCard.entry),
+                pendingCard = null,
+            )
+            nextPlayers = state.players
+                .replacePlayer(resolvedTarget)
+                .replacePlayer(doubtSpentPlayer)
+            nextDiscardPile = state.discardPile
+            reachedWinningTimeline = resolvedTarget.timeline.cards.size >= WINNING_TIMELINE_SIZE
+            resolution = TurnResolution(
+                playerId = targetPlayer.id,
+                cardId = pendingCard.entry.id,
+                attemptedSlotIndex = targetValidation.slotIndex,
+                correct = true,
+                releaseYear = pendingCard.entry.releaseYear,
+                message = when {
+                    reachedWinningTimeline -> "Correct placement. Timeline complete."
+                    else -> "Correct placement."
+                },
+            )
+        } else {
+            val resolvedTarget = targetPlayer.copy(pendingCard = null)
+            nextPlayers = state.players
+                .replacePlayer(resolvedTarget)
+                .replacePlayer(doubtSpentPlayer)
+            nextDiscardPile = state.discardPile + pendingCard.entry
+            reachedWinningTimeline = false
+            resolution = TurnResolution(
+                playerId = targetPlayer.id,
+                cardId = pendingCard.entry.id,
+                attemptedSlotIndex = targetValidation.slotIndex,
+                correct = false,
+                releaseYear = pendingCard.entry.releaseYear,
+                message = "Incorrect placement. Card was discarded.",
+            )
+        }
+
+        val deckExhausted = state.deck.size == 0
+        val matchComplete = reachedWinningTimeline || deckExhausted
+        val nextActivePlayerIndex = if (matchComplete) {
+            state.activePlayerIndex
+        } else {
+            (state.activePlayerIndex + 1) % state.players.size
+        }
+        val nextTurn = if (matchComplete) {
+            turn.copy(phase = TurnPhase.COMPLETE)
+        } else {
+            TurnState(
+                number = turn.number + 1,
+                activePlayerId = state.players[nextActivePlayerIndex].id,
+                phase = TurnPhase.WAITING_FOR_DRAW,
+            )
+        }
+
+        return accept(
+            state.copy(
+                revision = state.revision + 1,
+                status = if (matchComplete) MatchStatus.COMPLETE else MatchStatus.ACTIVE,
+                activePlayerIndex = nextActivePlayerIndex,
+                players = nextPlayers,
+                discardPile = nextDiscardPile,
+                turn = nextTurn,
+                doubt = null,
+                lastResolution = resolution,
+            ),
+            GameEffect.PausePlayback,
+        )
+    }
+
     private fun accept(
         state: GameState,
         vararg effects: GameEffect,
@@ -285,6 +554,15 @@ class HostGameReducer(
         reason: String,
     ): ReducerResult = ReducerResult.Rejected(state, reason)
 
+    private fun correctTimelineInsertionSlot(
+        timeline: List<com.hitster.core.model.PlaylistEntry>,
+        entry: com.hitster.core.model.PlaylistEntry,
+    ): Int {
+        return timeline.indexOfFirst { existing -> existing.releaseYear > entry.releaseYear }
+            .takeIf { it >= 0 }
+            ?: timeline.size
+    }
+
     private fun dealOpeningTimelines(
         players: List<PlayerState>,
         deck: DeckState,
@@ -294,7 +572,9 @@ class HostGameReducer(
             val draw = remainingDeck.drawTop() ?: return null
             remainingDeck = draw.nextDeck
             player.copy(
+                score = 1,
                 timeline = player.timeline.insertAt(0, draw.card),
+                coins = 0,
                 pendingCard = null,
             )
         }

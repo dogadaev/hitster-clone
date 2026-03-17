@@ -22,6 +22,16 @@ class ProtocolJsonTest {
     }
 
     @Test
+    fun `encodeClientCommandPayload emits doubt command payloads`() {
+        val payload = encodeClientCommandPayload(
+            ClientCommandDto.ToggleDoubt(actorId = "guest-1"),
+        )
+
+        assertTrue(payload.contains("\"type\":\"toggle_doubt\""))
+        assertTrue(payload.contains("\"actorId\":\"guest-1\""))
+    }
+
+    @Test
     fun `decodeHostEventPayload parses snapshot payloads`() {
         val payload = """
             {
@@ -40,6 +50,7 @@ class ProtocolJsonTest {
                     "displayName": "Host",
                     "connected": true,
                     "score": 0,
+                    "coins": 2,
                     "timeline": [],
                     "pendingCard": null
                   },
@@ -48,11 +59,13 @@ class ProtocolJsonTest {
                     "displayName": "Guest",
                     "connected": true,
                     "score": 0,
+                    "coins": 1,
                     "timeline": [],
                     "pendingCard": null
                   }
                 ],
                 "turn": null,
+                "doubt": null,
                 "lastResolution": null
               }
             }
@@ -63,6 +76,7 @@ class ProtocolJsonTest {
 
         assertEquals("session-1", snapshot.state.sessionId)
         assertEquals("guest-1", snapshot.state.players.last().id)
+        assertEquals(1, snapshot.state.players.last().coins)
     }
 
     @Test

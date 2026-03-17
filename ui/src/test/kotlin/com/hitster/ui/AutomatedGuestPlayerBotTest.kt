@@ -56,7 +56,7 @@ class AutomatedGuestPlayerBotTest {
 
         assertEquals(hostId, presenter.state.turn?.activePlayerId)
         assertEquals(2, guest?.timeline?.cards?.size)
-        assertEquals(1, guest?.score)
+        assertEquals(2, guest?.score)
         assertEquals(hostId, presenter.localPlayerId)
         assertNull(presenter.lastError)
     }

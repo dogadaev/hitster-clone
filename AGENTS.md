@@ -147,6 +147,7 @@ The architecture must allow future support for:
 However, only local-session hosting is required for the first MVP.
 The host flow must run on Android.
 Guests may join either from another Android device or from the guest-only web build.
+The Android host should serve the guest-only web build itself over the local network so guests do not depend on a separate laptop-hosted helper server.
 An Android host must keep its local-session server discoverable and able to accept guest joins while the app is backgrounded, using foreground-safe platform hosting where needed.
 Authoritative host networking and command handling must not depend on the libGDX render loop being actively resumed.
 Guest reconnects must preserve the same player identity so a temporarily disconnected player can safely reattach to an in-progress match instead of being treated as a new player.
@@ -237,6 +238,8 @@ The gameplay loop should mirror the physical game as closely as practical.
 Turn flow:
 - the host-created deck must be shuffled per session before the match starts; do not ship a fixed deterministic draw order outside explicit tests
 - each player begins the match with one random revealed card already placed on their own timeline
+- that seeded opening card counts toward the player's score / progress, so each player starts at 1
+- the host must be able to manually award or remove coins for players, because the song-name / artist-name bonus check is judged socially rather than by the app
 - the active player draws a card from the deck on their own device using drag and drop
 - drawing the card starts playback for the associated track
 - the player must not see song-identifying details such as title, artist, or release year before ending the turn
@@ -251,8 +254,11 @@ Turn flow:
 - after insertion, all cards in the timeline must automatically adjust their positions to make space for the new card
 - the timeline must visually fit up to 10 cards; committed cards may overlap slightly when compressed, but the hidden in-turn card must never overlap adjacent cards
 - after insertion or rearrangement, the full set of cards in the player's timeline must remain visually centered as a group
+- waiting players with at least one coin may arm a single active doubt before reveal; only one doubt may be armed at a time
 - the player confirms the move using an end-turn button
 - ending the turn pauses playback
+- if a doubt is armed, the active player's turn pauses after their placement and the doubting player receives a temporary isolated placement UI for that same hidden card against the target timeline, without mutating the target timeline directly
+- a successful doubt on an otherwise wrong placement spends one coin and steals the card into the doubter's own timeline; in all other doubt outcomes the coin is still spent and the original turn resolves normally
 - the host validates whether the placement is chronologically correct
 - the result is synchronized to all players
 - the match continues with updated shared state
@@ -439,6 +445,7 @@ The MVP is successful when:
 - Spotify pairing is shown only for Android hosts, not for guests
 - available Android hosts are discoverable over the local network through a real networking layer rather than a simulated local flow
 - the guest-only web build can discover and join an Android-hosted local session while rendering the same libGDX gameplay client
+- the Android host can serve that guest-only web build itself over the local network, and that browser entry should join the single hosted session without requiring a separate host-selection tap
 - each player sees only their own normal gameplay UI on their own device
 - each player starts with one revealed random card already on their own timeline
 - the deck is visible and interactive
