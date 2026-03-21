@@ -127,6 +127,7 @@ The first development milestone should focus on Android phones, while keeping th
 The app must use landscape orientation during gameplay.
 
 All core gameplay screens must be designed for landscape.
+On Android, both landscape directions should be supported instead of locking the app to only one horizontal rotation.
 Portrait mode is not required for MVP and should not drive layout decisions.
 
 ## Multiplayer Model
