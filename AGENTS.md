@@ -232,6 +232,7 @@ The parser must:
 - remain independent from the UI layer
 
 Bundled playlist release years should represent the original song release year as closely as practical, not merely the release date of a later Spotify compilation, remaster, or playlist-specific edition. When refreshing bundled playlist data, validate and normalize years against external discography sources where practical instead of trusting the current Spotify item year blindly.
+If a bundled track year cannot be externally validated with enough confidence, or if a proposed normalization would move the year later and needs human review, move that track out of the active `entries` list into a disabled/commented-out section rather than leaving it in the playable bundled deck.
 
 Bundled or developer-facing sample playlists that are intended to exercise playback must use real playable Spotify track URIs.
 Do not leave shipped sample data on placeholder values such as `spotify:track:track-01`.
