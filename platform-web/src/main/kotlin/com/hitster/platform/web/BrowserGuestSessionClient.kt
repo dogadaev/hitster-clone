@@ -22,7 +22,7 @@ import org.teavm.jso.dom.events.EventListener
 private const val initialReconnectDelayMillis = 400
 private const val maximumInitialConnectAttempts = 3
 private const val hostEventTimeoutMillis = 4_000
-private const val guestPollIntervalMillis = 250
+private const val guestPollIntervalMillis = 120
 
 class BrowserGuestSessionClient(
     private val startEndpoint: String,
@@ -32,7 +32,7 @@ class BrowserGuestSessionClient(
     private val onDisconnected: (String) -> Unit,
     private val onStatusChanged: (String) -> Unit,
 ) : GuestSessionClient {
-    private val queuedPayloads = mutableListOf<String>()
+    private val commandBuffer = BrowserGuestCommandBuffer()
     private var disconnected = false
     private var hasReceivedHostEvent = false
     private var connectAttempts = 0
@@ -42,6 +42,7 @@ class BrowserGuestSessionClient(
     private var hostEventTimeoutGeneration = 0
     private var sessionId: String? = null
     private var nextSequence = 0L
+    private var commandRequestInFlight = false
 
     override fun connect() {
         if (sessionId != null || reconnectScheduled) {
@@ -59,28 +60,16 @@ class BrowserGuestSessionClient(
 
     override fun sendCommand(command: ClientCommandDto) {
         val payload = encodeClientCommandPayload(command)
-        val activeSessionId = sessionId
-        if (activeSessionId == null) {
-            queuedPayloads += payload
-            return
-        }
-        postJson(
-            path = "/api/guest-sessions/$activeSessionId/command",
-            body = protocolJson.encodeToString(BrowserGuestSessionCommandRequest(payload)),
-            onSuccess = {
-                onStatusChanged("Guest command forwarded.")
-            },
-            onFailure = {
-                onStatusChanged("Failed to forward guest command.")
-            },
-        )
+        commandBuffer.enqueue(browserGuestCommandKind(command), payload)
+        flushBufferedCommands()
     }
 
     override fun close() {
         closedByClient = true
         reconnectScheduled = false
         pollScheduled = false
-        queuedPayloads.clear()
+        commandRequestInFlight = false
+        commandBuffer.clear()
         hostEventTimeoutGeneration += 1
         clearGuestCloseUrl()
         sessionId?.let { activeSessionId ->
@@ -120,7 +109,8 @@ class BrowserGuestSessionClient(
                 sessionId = response.sessionId
                 registerGuestCloseUrl("/api/guest-sessions/${response.sessionId}/close")
                 onStatusChanged("Guest session created. Waiting for host snapshot...")
-                flushQueuedPayloads()
+                commandRequestInFlight = false
+                flushBufferedCommands()
                 scheduleHostEventTimeout()
                 schedulePoll()
             },
@@ -130,20 +120,30 @@ class BrowserGuestSessionClient(
         )
     }
 
-    private fun flushQueuedPayloads() {
+    private fun flushBufferedCommands() {
         val activeSessionId = sessionId ?: return
-        val payloads = queuedPayloads.toList()
-        queuedPayloads.clear()
-        payloads.forEach { payload ->
-            postJson(
-                path = "/api/guest-sessions/$activeSessionId/command",
-                body = protocolJson.encodeToString(BrowserGuestSessionCommandRequest(payload)),
-                onSuccess = {},
-                onFailure = {
-                    onStatusChanged("Failed to flush guest command.")
-                },
-            )
+        if (closedByClient || commandRequestInFlight) {
+            return
         }
+        val command = commandBuffer.poll() ?: return
+        commandRequestInFlight = true
+        postJson(
+            path = "/api/guest-sessions/$activeSessionId/command",
+            body = protocolJson.encodeToString(BrowserGuestSessionCommandRequest(command.payload)),
+            onSuccess = {
+                commandRequestInFlight = false
+                flushBufferedCommands()
+            },
+            onFailure = {
+                commandRequestInFlight = false
+                if (closedByClient) {
+                    return@postJson
+                }
+                commandBuffer.prepend(command)
+                onStatusChanged("Failed to forward guest command.")
+                scheduleReconnect("Reconnecting to the host...")
+            },
+        )
     }
 
     private fun handleConnectFailure(message: String) {
@@ -169,6 +169,7 @@ class BrowserGuestSessionClient(
         sessionId = null
         nextSequence = 0L
         pollScheduled = false
+        commandRequestInFlight = false
         hostEventTimeoutGeneration += 1
         clearGuestCloseUrl()
         reconnectScheduled = true
@@ -341,7 +342,8 @@ class BrowserGuestSessionClient(
         val activeSessionId = sessionId
         sessionId = null
         clearGuestCloseUrl()
-        queuedPayloads.clear()
+        commandRequestInFlight = false
+        commandBuffer.clear()
         disconnected = true
         onStatusChanged(message)
         if (activeSessionId != null) {

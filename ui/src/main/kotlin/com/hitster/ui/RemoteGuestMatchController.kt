@@ -5,7 +5,9 @@ import com.hitster.core.model.GameState
 import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.PlayerId
 import com.hitster.core.model.PlayerState
+import com.hitster.core.model.DoubtPhase
 import com.hitster.core.model.SessionId
+import com.hitster.core.model.TurnPhase
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.GameStateMapper
 import com.hitster.networking.HostEventDto
@@ -66,6 +68,7 @@ class RemoteGuestMatchController(
     }
 
     override fun movePendingCard(requestedSlotIndex: Int) {
+        applyOptimisticPendingMove(requestedSlotIndex)
         client.sendCommand(
             ClientCommandDto.MovePendingCard(
                 actorId = localPlayerId.value,
@@ -75,6 +78,7 @@ class RemoteGuestMatchController(
     }
 
     override fun moveDoubtCard(requestedSlotIndex: Int) {
+        applyOptimisticDoubtMove(requestedSlotIndex)
         client.sendCommand(
             ClientCommandDto.MoveDoubtCard(
                 actorId = localPlayerId.value,
@@ -139,5 +143,44 @@ class RemoteGuestMatchController(
 
     internal fun updateConnectionStatus(status: String) {
         connectionStatus = status
+    }
+
+    private fun applyOptimisticPendingMove(requestedSlotIndex: Int) {
+        val turn = state.turn ?: return
+        val player = localPlayer ?: return
+        val pendingCard = player.pendingCard ?: return
+        val snappedSlot = requestedSlotIndex.coerceIn(0, player.timeline.cards.size)
+        state = state.copy(
+            players = state.players.map { candidate ->
+                if (candidate.id == localPlayerId) {
+                    candidate.copy(pendingCard = pendingCard.copy(proposedSlotIndex = snappedSlot))
+                } else {
+                    candidate
+                }
+            },
+            turn = if (turn.activePlayerId == localPlayerId) {
+                turn.copy(phase = TurnPhase.CARD_POSITIONED)
+            } else {
+                turn
+            },
+        )
+    }
+
+    private fun applyOptimisticDoubtMove(requestedSlotIndex: Int) {
+        val turn = state.turn ?: return
+        val doubt = state.doubt ?: return
+        if (doubt.doubterId != localPlayerId) {
+            return
+        }
+        val targetPlayer = state.requirePlayer(doubt.targetPlayerId) ?: return
+        val snappedSlot = requestedSlotIndex.coerceIn(0, targetPlayer.timeline.cards.size)
+        state = state.copy(
+            doubt = doubt.copy(
+                phase = DoubtPhase.POSITIONED,
+                proposedSlotIndex = snappedSlot,
+            ),
+            turn = turn.copy(phase = TurnPhase.DOUBT_POSITIONED),
+            lastResolution = null,
+        )
     }
 }
