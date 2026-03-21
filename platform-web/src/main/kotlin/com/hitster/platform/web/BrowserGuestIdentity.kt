@@ -18,6 +18,10 @@ fun resolveBrowserDisplayName(): String {
     return generatedName
 }
 
+fun persistBrowserDisplayName(displayName: String) {
+    Window.current().localStorage?.setItem(guestNameStorageKey, displayName)
+}
+
 fun resolveBrowserGuestPlayerId(sessionId: String): PlayerId {
     val storage = Window.current().localStorage
     val storageKey = "$guestPlayerIdStoragePrefix$sessionId"

@@ -1,7 +1,6 @@
 package com.hitster.ui
 
 import com.badlogic.gdx.Gdx
-import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.ScreenAdapter
 import com.badlogic.gdx.graphics.Color
@@ -19,6 +18,7 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport
 class NameEntryScreen(
     initialName: String = "",
     private val showBackButton: Boolean,
+    private val requestDisplayNameInput: (String, (String?) -> Unit) -> Unit,
     private val onBack: () -> Unit = {},
     private val onConfirmed: (String) -> Unit,
 ) : ScreenAdapter() {
@@ -143,18 +143,13 @@ class NameEntryScreen(
     }
 
     private fun requestNameInput() {
-        Gdx.input.getTextInput(
-            object : Input.TextInputListener {
-                override fun input(text: String?) {
-                    enteredName = UiBootstrapper.sanitizeDisplayName(text.orEmpty())
-                }
-
-                override fun canceled() = Unit
-            },
-            "Your name",
+        requestDisplayNameInput(
             enteredName,
-            "",
-        )
+        ) { text ->
+            if (text != null) {
+                enteredName = UiBootstrapper.sanitizeDisplayName(text)
+            }
+        }
     }
 
     private fun canContinue(): Boolean = enteredName.isNotBlank()

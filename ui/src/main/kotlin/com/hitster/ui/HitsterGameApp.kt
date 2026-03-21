@@ -100,6 +100,7 @@ class HitsterGameApp(
             NameEntryScreen(
                 initialName = enteredDisplayName.orEmpty(),
                 showBackButton = showBackButton,
+                requestDisplayNameInput = platformServices::requestDisplayNameInput,
                 onBack = onBack,
                 onConfirmed = { displayName ->
                     enteredDisplayName = UiBootstrapper.sanitizeDisplayName(displayName)

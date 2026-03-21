@@ -8,7 +8,6 @@ import com.hitster.ui.GuestSessionClient
 import com.hitster.ui.HostDiscoveryService
 import com.hitster.ui.MatchController
 import com.hitster.ui.UiBootstrapper
-import org.teavm.jso.browser.Window
 
 class WebPlatformServices : AppPlatformServices {
     override val supportsHosting: Boolean = false
@@ -48,5 +47,16 @@ class WebPlatformServices : AppPlatformServices {
                 )
             },
         )
+    }
+
+    override fun requestDisplayNameInput(
+        currentName: String,
+        onSubmitted: (String?) -> Unit,
+    ) {
+        val promptResult = showBrowserNamePrompt("Your name", currentName)
+        if (promptResult != null) {
+            persistBrowserDisplayName(UiBootstrapper.sanitizeDisplayName(promptResult))
+        }
+        onSubmitted(promptResult)
     }
 }

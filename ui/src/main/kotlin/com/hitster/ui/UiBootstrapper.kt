@@ -90,7 +90,7 @@ object UiBootstrapper {
 
     internal fun nextShuffleSeed(random: Random = Random.Default): Long = random.nextLong()
 
-    internal fun sanitizeDisplayName(raw: String): String {
+    fun sanitizeDisplayName(raw: String): String {
         return raw
             .trim()
             .split(Regex("\\s+"))
