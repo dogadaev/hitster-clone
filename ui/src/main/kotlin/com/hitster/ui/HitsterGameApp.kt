@@ -13,12 +13,18 @@ class HitsterGameApp(
     private val animationCatalog = AnimationCatalog.default()
     private val playbackController = playbackController
     private var activeMatchController: MatchController? = null
+    private var enteredDisplayName: String? = null
 
     override fun create() {
         if (platformServices.supportsHosting) {
             openRoleSelection()
         } else {
-            openGuestDiscovery(canGoBack = false)
+            openNameEntry(
+                showBackButton = false,
+                onBack = {},
+            ) {
+                openGuestDiscovery(canGoBack = false)
+            }
         }
     }
 
@@ -33,11 +39,26 @@ class HitsterGameApp(
         setScreen(
             RoleSelectionScreen(
                 onHostSelected = {
-                    val controller = platformServices.createHostedMatchController(playbackController, localDisplayName)
-                    activeMatchController = controller
-                    setScreen(MatchScreen(controller, animationCatalog))
+                    openNameEntry(
+                        showBackButton = true,
+                        onBack = ::openRoleSelection,
+                    ) {
+                        val controller = platformServices.createHostedMatchController(
+                            playbackController,
+                            resolvedDisplayName(),
+                        )
+                        activeMatchController = controller
+                        setScreen(MatchScreen(controller, animationCatalog))
+                    }
                 },
-                onGuestSelected = { openGuestDiscovery(canGoBack = true) },
+                onGuestSelected = {
+                    openNameEntry(
+                        showBackButton = true,
+                        onBack = ::openRoleSelection,
+                    ) {
+                        openGuestDiscovery(canGoBack = true)
+                    }
+                },
             ),
         )
     }
@@ -54,7 +75,7 @@ class HitsterGameApp(
                 onHostSelected = { advertisement ->
                     val controller = platformServices.createRemoteGuestController(
                         advertisement = advertisement,
-                        displayName = localDisplayName,
+                        displayName = resolvedDisplayName(),
                     )
                     activeMatchController = controller
                     setScreen(
@@ -68,5 +89,28 @@ class HitsterGameApp(
                 },
             ),
         )
+    }
+
+    private fun openNameEntry(
+        showBackButton: Boolean,
+        onBack: () -> Unit,
+        onConfirmed: () -> Unit,
+    ) {
+        setScreen(
+            NameEntryScreen(
+                initialName = enteredDisplayName.orEmpty(),
+                showBackButton = showBackButton,
+                onBack = onBack,
+                onConfirmed = { displayName ->
+                    enteredDisplayName = UiBootstrapper.sanitizeDisplayName(displayName)
+                    onConfirmed()
+                },
+            ),
+        )
+    }
+
+    private fun resolvedDisplayName(): String {
+        return enteredDisplayName?.takeIf { it.isNotBlank() }
+            ?: UiBootstrapper.sanitizeDisplayName(localDisplayName).ifBlank { "Player" }
     }
 }

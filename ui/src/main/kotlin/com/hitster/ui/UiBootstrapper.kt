@@ -17,6 +17,7 @@ object UiBootstrapper {
     private const val samplePlaylistResourcePath = "sample-playlist.json"
     private val hostId = PlayerId("host")
     private const val idAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+    private const val maxDisplayNameLength = 24
 
     fun createHostedMatchController(
         playbackController: PlaybackController = NoOpPlaybackController(),
@@ -24,11 +25,12 @@ object UiBootstrapper {
         shuffleSeed: Long = nextShuffleSeed(),
         sessionTransportFactory: (MatchPresenter) -> HostedSessionTransport,
     ): HostedMatchController {
+        val resolvedHostName = sanitizeDisplayName(hostDisplayName).ifBlank { "Host Player" }
         val reducer = HostGameReducer()
         val lobby = GameSessionFactory.createLobby(
             sessionId = SessionId("local-session-${randomIdSuffix()}"),
             hostId = hostId,
-            hostName = hostDisplayName,
+            hostName = resolvedHostName,
             deckEntries = loadEntries(),
             shuffleSeed = shuffleSeed,
         )
@@ -59,6 +61,7 @@ object UiBootstrapper {
             onStatusChanged: (String) -> Unit,
         ) -> GuestSessionClient,
     ): RemoteGuestMatchController {
+        val resolvedDisplayName = sanitizeDisplayName(displayName).ifBlank { "Guest Player" }
         val playerId = playerIdFactory()
         val controller = RemoteGuestMatchController(
             advertisement = advertisement,
@@ -68,7 +71,7 @@ object UiBootstrapper {
             clientFactory(
                 advertisement,
                 playerId,
-                displayName,
+                resolvedDisplayName,
                 { event -> runOnGameThread { controller.handleEvent(event) } },
                 { reason -> runOnGameThread { controller.handleDisconnect(reason) } },
                 { status -> runOnGameThread { controller.updateConnectionStatus(status) } },
@@ -86,6 +89,15 @@ object UiBootstrapper {
         }
 
     internal fun nextShuffleSeed(random: Random = Random.Default): Long = random.nextLong()
+
+    internal fun sanitizeDisplayName(raw: String): String {
+        return raw
+            .trim()
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
+            .take(maxDisplayNameLength)
+    }
 
     private fun loadEntries(): List<PlaylistEntry> {
         val sampleJson = UiBootstrapper::class.java.classLoader

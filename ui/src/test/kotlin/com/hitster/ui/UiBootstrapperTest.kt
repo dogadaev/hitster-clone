@@ -18,6 +18,13 @@ import kotlin.test.assertTrue
 
 class UiBootstrapperTest {
     @Test
+    fun `display name sanitization trims collapses whitespace and caps length`() {
+        val sanitized = UiBootstrapper.sanitizeDisplayName("   Иван   Петрович   Сидоров   ОченьДлиннаяФамилия   ")
+
+        assertEquals("Иван Петрович Сидоров Оч", sanitized)
+    }
+
+    @Test
     fun `random id suffix uses fixed width browser safe characters`() {
         val suffix = UiBootstrapper.randomIdSuffix(Random(1234))
 
