@@ -417,7 +417,7 @@ class MatchScreen(
             minGap = 14f,
         )
 
-        cardHeight = clamp(timelineTrackRect.height * 0.80f, 224f, 292f)
+        cardHeight = clamp(timelineTrackRect.height * 0.88f, 244f, 322f)
         fontScaleMultiplier = clamp(worldHeight / 960f, 0.98f, 1.08f)
         minimumTextScale = 0.88f
         shadowOffset = clamp(worldHeight * 0.0011f, 1f, 1.6f)
@@ -568,7 +568,7 @@ class MatchScreen(
             existingCardCount = targetPlayer.timeline.cards.size,
             pendingSlotIndex = doubt.proposedSlotIndex ?: pendingCard.proposedSlotIndex,
         )
-        val popupCardHeight = clamp(doubtPopupTrackRect.height * 0.76f, 210f, 276f)
+        val popupCardHeight = clamp(doubtPopupTrackRect.height * 0.84f, 228f, 304f)
         val popupCardBottom = doubtPopupTrackRect.y + (doubtPopupTrackRect.height - popupCardHeight) / 2f
         val pendingLeftTarget = if (draggingDoubtCard) {
             clamp(
@@ -1941,9 +1941,9 @@ class MatchScreen(
                     drawTextBlock(
                         text = artist,
                         x = visual.rect.x + 14f,
-                        y = visual.rect.y + visual.rect.height * 0.72f,
+                        y = visual.rect.y + visual.rect.height * 0.73f,
                         width = visual.rect.width - 28f,
-                        height = visual.rect.height * 0.11f,
+                        height = visual.rect.height * 0.14f,
                         scale = 0.46f,
                         color = color(0x393024FF),
                         align = Align.center,
@@ -1957,9 +1957,9 @@ class MatchScreen(
                     drawTextBlock(
                         text = year,
                         x = visual.rect.x + 14f,
-                        y = visual.rect.y + visual.rect.height * 0.42f,
+                        y = visual.rect.y + visual.rect.height * 0.43f,
                         width = visual.rect.width - 28f,
-                        height = visual.rect.height * 0.14f,
+                        height = visual.rect.height * 0.16f,
                         scale = 0.76f,
                         color = color(0x17120CFF),
                         align = Align.center,
@@ -1972,9 +1972,9 @@ class MatchScreen(
                 drawTextBlock(
                     text = title,
                     x = visual.rect.x + 14f,
-                    y = visual.rect.y + visual.rect.height * 0.12f,
+                    y = visual.rect.y + visual.rect.height * 0.10f,
                     width = visual.rect.width - 28f,
-                    height = visual.rect.height * 0.20f,
+                    height = visual.rect.height * 0.26f,
                     scale = 0.54f,
                     color = color(0x17120CFF),
                     align = Align.center,
