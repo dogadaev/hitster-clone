@@ -38,79 +38,45 @@ internal class AtmosphericBackdrop {
         }
     }
 
-    fun drawShapes(shapeRenderer: ShapeRenderer, worldWidth: Float, worldHeight: Float, outerMargin: Float) {
-        fillGradientRect(shapeRenderer, 0f, 0f, worldWidth, worldHeight, 0x04101AFF, 0x071522FF, 0x16355CFF, 0x102948FF)
-        fillGradientRect(shapeRenderer, 0f, 0f, worldWidth, worldHeight, 0x02060C78, 0x050A104E, 0x00000000, 0x0F244000)
-        fillGradientRect(
-            shapeRenderer,
-            0f,
-            worldHeight * 0.54f,
-            worldWidth,
-            worldHeight * 0.46f,
-            0x00000000,
-            0x02060A00,
-            0x3769AC82,
-            0x284F845E,
-        )
+    fun drawShapes(shapeRenderer: ShapeRenderer, worldWidth: Float, worldHeight: Float, _outerMargin: Float) {
         fillGradientRect(
             shapeRenderer,
             0f,
             0f,
             worldWidth,
-            worldHeight * 0.36f,
-            0x10182724,
-            0x0B132014,
-            0x00000000,
-            0x00000000,
+            worldHeight,
+            0x040B14FF,
+            0x091521FF,
+            0x214D7CFF,
+            0x13314FFF,
         )
-
-        val crownHeight = clamp(worldHeight * 0.09f, 58f, 76f)
-        fillGradientRect(
-            shapeRenderer,
-            outerMargin,
-            worldHeight - outerMargin - crownHeight,
-            worldWidth - outerMargin * 2f,
-            crownHeight,
-            0x22345FFF,
-            0x1A2B4EFF,
-            0x395790FF,
-            0x2C4475FF,
-        )
-        fillRect(
-            shapeRenderer,
-            outerMargin + 8f,
-            worldHeight - outerMargin - crownHeight + 6f,
-            worldWidth - outerMargin * 2f - 16f,
-            2f,
-            0xFFFFFF18,
-        )
-        fillRect(
-            shapeRenderer,
-            outerMargin + 8f,
-            worldHeight - outerMargin - 10f,
-            worldWidth - outerMargin * 2f - 16f,
-            2f,
-            0x00000038,
-        )
+        fillGradientRect(shapeRenderer, 0f, 0f, worldWidth, worldHeight, 0x060A103F, 0x0A10184F, 0x1F4C7C22, 0x295A902C)
+        fillGradientRect(shapeRenderer, 0f, 0f, worldWidth, worldHeight, 0x020407B8, 0x05091194, 0x00000000, 0x00000000)
+        fillGradientRect(shapeRenderer, 0f, 0f, worldWidth, worldHeight, 0x120E090E, 0x090E1302, 0x14315600, 0x224E821A)
+        fillGradientRect(shapeRenderer, 0f, 0f, worldWidth, worldHeight, 0x00000000, 0x060B120C, 0x1A3A621A, 0x2C6CB022)
+        fillGradientRect(shapeRenderer, 0f, 0f, worldWidth, worldHeight, 0x00000028, 0x00000010, 0x0E203A00, 0x17375E10)
     }
 
     fun drawTextures(batch: SpriteBatch, worldWidth: Float, worldHeight: Float, timeSeconds: Float, intensity: Float = 1f) {
-        val leftBloomX = worldWidth * 0.04f + sin(timeSeconds * 0.11f) * 86f
-        val leftBloomY = worldHeight * 0.35f + cos(timeSeconds * 0.15f) * 32f
-        val centerBloomX = worldWidth * 0.34f + cos(timeSeconds * 0.08f) * 118f
-        val centerBloomY = worldHeight * 0.58f + sin(timeSeconds * 0.10f) * 36f
-        val rightBloomX = worldWidth * 0.64f + sin(timeSeconds * 0.07f) * 126f
-        val rightBloomY = worldHeight * 0.54f + cos(timeSeconds * 0.09f) * 30f
-        val emberX = -worldWidth * 0.05f + cos(timeSeconds * 0.06f) * 70f
-        val emberY = -worldHeight * 0.03f + sin(timeSeconds * 0.08f) * 40f
-        val sweepX = -worldWidth * 0.20f + sin(timeSeconds * 0.05f) * 68f
-        val sweepY = worldHeight * 0.22f + cos(timeSeconds * 0.04f) * 24f
+        val leftBloomX = -worldWidth * 0.16f + sin(timeSeconds * 0.11f) * 120f
+        val leftBloomY = worldHeight * 0.18f + cos(timeSeconds * 0.13f) * 36f
+        val centerBloomX = worldWidth * 0.20f + cos(timeSeconds * 0.08f) * 140f
+        val centerBloomY = worldHeight * 0.44f + sin(timeSeconds * 0.10f) * 44f
+        val rightBloomX = worldWidth * 0.58f + sin(timeSeconds * 0.07f) * 148f
+        val rightBloomY = worldHeight * 0.50f + cos(timeSeconds * 0.09f) * 34f
+        val topBloomX = worldWidth * 0.32f + cos(timeSeconds * 0.05f) * 110f
+        val topBloomY = worldHeight * 0.66f + sin(timeSeconds * 0.06f) * 30f
+        val emberX = worldWidth * 0.72f + cos(timeSeconds * 0.06f) * 82f
+        val emberY = -worldHeight * 0.08f + sin(timeSeconds * 0.08f) * 44f
+        val sweepX = -worldWidth * 0.28f + sin(timeSeconds * 0.05f) * 84f
+        val sweepY = worldHeight * 0.16f + cos(timeSeconds * 0.04f) * 28f
 
-        drawGlow(batch, leftBloomX, leftBloomY, worldWidth * 0.46f, worldHeight * 0.34f, colorWithAlpha(0x2F89D8FF, 0.15f * intensity))
-        drawGlow(batch, centerBloomX, centerBloomY, worldWidth * 0.66f, worldHeight * 0.42f, colorWithAlpha(0x6B98F3FF, 0.14f * intensity))
-        drawGlow(batch, rightBloomX, rightBloomY, worldWidth * 0.52f, worldHeight * 0.36f, colorWithAlpha(0x1E5FA8FF, 0.14f * intensity))
-        drawGlow(batch, emberX, emberY, worldWidth * 0.46f, worldWidth * 0.46f, colorWithAlpha(0xF2B457FF, 0.11f * intensity))
-        drawGlow(batch, sweepX, sweepY, worldWidth * 1.12f, worldHeight * 0.22f, colorWithAlpha(0xCCE3FFFF, 0.08f * intensity))
+        drawGlow(batch, leftBloomX, leftBloomY, worldWidth * 0.62f, worldHeight * 0.54f, colorWithAlpha(0x2B77D6FF, 0.16f * intensity))
+        drawGlow(batch, centerBloomX, centerBloomY, worldWidth * 0.78f, worldHeight * 0.56f, colorWithAlpha(0x72A7FFFF, 0.13f * intensity))
+        drawGlow(batch, rightBloomX, rightBloomY, worldWidth * 0.64f, worldHeight * 0.48f, colorWithAlpha(0x1B5CAFFF, 0.14f * intensity))
+        drawGlow(batch, topBloomX, topBloomY, worldWidth * 0.72f, worldHeight * 0.28f, colorWithAlpha(0xA7CEFFFF, 0.06f * intensity))
+        drawGlow(batch, emberX, emberY, worldWidth * 0.54f, worldWidth * 0.54f, colorWithAlpha(0xF4B864FF, 0.08f * intensity))
+        drawGlow(batch, sweepX, sweepY, worldWidth * 1.34f, worldHeight * 0.26f, colorWithAlpha(0xD8E9FFFF, 0.07f * intensity))
 
         drawRepeatedTexture(
             batch,
@@ -119,11 +85,11 @@ internal class AtmosphericBackdrop {
             0f,
             worldWidth,
             worldHeight,
-            colorWithAlpha(0xEAF2FFFF, 0.08f * intensity),
-            worldWidth / 114f,
-            worldHeight / 114f,
-            timeSeconds * 0.012f,
+            colorWithAlpha(0xEEF5FFFF, 0.08f * intensity),
+            worldWidth / 126f,
+            worldHeight / 126f,
             timeSeconds * 0.010f,
+            timeSeconds * 0.008f,
         )
         drawRepeatedTexture(
             batch,
@@ -132,14 +98,14 @@ internal class AtmosphericBackdrop {
             0f,
             worldWidth,
             worldHeight,
-            colorWithAlpha(0x78AED7FF, 0.05f * intensity),
-            worldWidth / 76f,
-            worldHeight / 76f,
-            -timeSeconds * 0.007f,
-            timeSeconds * 0.005f,
+            colorWithAlpha(0x7FAEDCFF, 0.04f * intensity),
+            worldWidth / 82f,
+            worldHeight / 82f,
+            -timeSeconds * 0.006f,
+            timeSeconds * 0.004f,
         )
-        drawTexture(batch, vignetteTexture, 0f, 0f, worldWidth, worldHeight, color(0x000000B2))
-        drawTexture(batch, vignetteTexture, 0f, 0f, worldWidth, worldHeight, colorWithAlpha(0x21304BFF, 0.15f * intensity))
+        drawTexture(batch, vignetteTexture, 0f, 0f, worldWidth, worldHeight, color(0x000000A2))
+        drawTexture(batch, vignetteTexture, 0f, 0f, worldWidth, worldHeight, colorWithAlpha(0x21304BFF, 0.11f * intensity))
     }
 
     fun drawPanelTexture(batch: SpriteBatch, rect: Rectangle, tint: Color, timeSeconds: Float) {

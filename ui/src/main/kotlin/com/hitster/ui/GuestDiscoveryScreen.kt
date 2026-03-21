@@ -161,11 +161,9 @@ class GuestDiscoveryScreen(
         font.draw(batch, layout, x + (width - layout.width) / 2f, y)
     }
 
-    private fun fillPanel(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
+    private fun fillPanel(rect: Rectangle, topColor: Long, bottomColor: Long, _edgeColor: Long) {
         drawDropShadow(rect, 18f, 0x01050B30)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, bottomColor, bottomColor, topColor, topColor)
-        fillRect(rect.x + 10f, rect.y + rect.height - 12f, rect.width - 20f, 2f, 0xFFFFFF12)
-        drawFrame(rect, edgeColor, 2f)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x0D16288A, 0x0C152689, 0x182B50A8, 0x132347A1)
     }
 
     private fun fillGradientRect(x: Float, y: Float, width: Float, height: Float, bottomLeft: Long, bottomRight: Long, topRight: Long, topLeft: Long) {
