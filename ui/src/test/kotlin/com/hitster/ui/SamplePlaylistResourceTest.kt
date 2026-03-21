@@ -22,7 +22,7 @@ class SamplePlaylistResourceTest {
         assertTrue(parseResult is PlaylistParseResult.Success)
 
         val entries = parseResult.catalog.entries
-        assertEquals(19, entries.size)
+        assertEquals(494, entries.size)
         assertTrue(entries.all { it.playbackReference.spotifyUri.startsWith("spotify:track:") })
         assertFalse(entries.any { it.playbackReference.spotifyUri.contains("spotify:track:track-") })
     }
