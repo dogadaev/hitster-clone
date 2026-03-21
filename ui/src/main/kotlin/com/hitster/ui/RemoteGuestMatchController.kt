@@ -63,6 +63,10 @@ class RemoteGuestMatchController(
         client.sendCommand(ClientCommandDto.DrawCard(actorId = localPlayerId.value))
     }
 
+    override fun redrawCard() {
+        client.sendCommand(ClientCommandDto.RedrawCard(actorId = localPlayerId.value))
+    }
+
     override fun toggleDoubt() {
         client.sendCommand(ClientCommandDto.ToggleDoubt(actorId = localPlayerId.value))
     }

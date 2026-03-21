@@ -33,6 +33,11 @@ fun encodeClientCommandPayload(command: ClientCommandDto): String {
             put("actorId", command.actorId)
         }
 
+        is ClientCommandDto.RedrawCard -> buildJsonObject {
+            put("type", "redraw_card")
+            put("actorId", command.actorId)
+        }
+
         is ClientCommandDto.ToggleDoubt -> buildJsonObject {
             put("type", "toggle_doubt")
             put("actorId", command.actorId)

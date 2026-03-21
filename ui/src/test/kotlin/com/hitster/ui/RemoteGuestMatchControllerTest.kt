@@ -40,6 +40,20 @@ class RemoteGuestMatchControllerTest {
     }
 
     @Test
+    fun `redraw card sends redraw command without mutating optimistic local state`() {
+        val localPlayerId = PlayerId("guest")
+        val client = RecordingGuestSessionClient()
+        val controller = RemoteGuestMatchController(advertisement = advertisement(), localPlayerId = localPlayerId)
+        controller.attachClient(client)
+        controller.handleEvent(HostEventDto.SnapshotPublished(GameStateMapper.toDto(activeGuestState(localPlayerId))))
+
+        controller.redrawCard()
+
+        assertEquals("pending", controller.localPlayer?.pendingCard?.entry?.id)
+        assertIs<ClientCommandDto.RedrawCard>(client.commands.single())
+    }
+
+    @Test
     fun `move doubt card updates local doubt placement immediately`() {
         val localPlayerId = PlayerId("guest")
         val client = RecordingGuestSessionClient()

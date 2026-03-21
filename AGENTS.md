@@ -246,6 +246,7 @@ Turn flow:
 - that seeded opening card counts toward the player's score / progress, so each player starts at 1
 - the host must be able to manually award or remove coins for players, because the song-name / artist-name bonus check is judged socially rather than by the app
 - the active player draws a card from the deck on their own device using drag and drop
+- the active player may optionally redraw while their hidden card is still pending; the discarded hidden card must go to the discard pile and must not be draw-able again later in the session
 - drawing the card starts playback for the associated track
 - the player must not see song-identifying details such as title, artist, or release year before ending the turn
 - once a card is revealed on the timeline, it should show its song title, artist, and release year

@@ -22,6 +22,10 @@ sealed interface GameCommand {
         val actorId: PlayerId,
     ) : GameCommand
 
+    data class RedrawCard(
+        val actorId: PlayerId,
+    ) : GameCommand
+
     data class ToggleDoubt(
         val actorId: PlayerId,
     ) : GameCommand

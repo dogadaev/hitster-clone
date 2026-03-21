@@ -53,6 +53,7 @@ class MatchScreen(
     private val headerRect = Rectangle()
     private val heroRect = Rectangle()
     private val actionButtonRect = Rectangle()
+    private val redrawButtonRect = Rectangle()
     private val doubtButtonRect = Rectangle()
     private val hostCoinsButtonRect = Rectangle()
     private val deckPanelRect = Rectangle()
@@ -357,6 +358,17 @@ class MatchScreen(
             deckPanelRect.y,
             coinsButtonWidth,
             coinsButtonHeight,
+        )
+        val redrawButtonWidth = clamp(deckPanelRect.width * 0.88f, 156f, 206f)
+        val redrawButtonHeight = clamp(deckPanelRect.height * 0.10f, 54f, 68f)
+        redrawButtonRect.set(
+            deckPanelRect.x + (deckPanelRect.width - redrawButtonWidth) / 2f,
+            max(
+                hostCoinsButtonRect.y + hostCoinsButtonRect.height + panelGap * 0.42f,
+                actionButtonRect.y - redrawButtonHeight - panelGap * 0.55f,
+            ),
+            redrawButtonWidth,
+            redrawButtonHeight,
         )
 
         val coinPanelWidth = clamp(worldWidth * 0.48f, 620f, 860f)
@@ -1382,6 +1394,9 @@ class MatchScreen(
         if (showCoinsShortcutButton()) {
             fillButton(hostCoinsButtonRect, 0xF4C55BFF, 0xDA8E2CFF, 0xFFF3C07D)
         }
+        if (showRedrawButton()) {
+            fillButton(redrawButtonRect, 0xF3C764FF, 0xD17E1BFF, 0xFFF3C07D)
+        }
         when {
             showActionButton() -> {
                 val enabled = isActionButtonEnabled()
@@ -1399,6 +1414,9 @@ class MatchScreen(
         if (showActionButton()) {
             drawActionButtonGlow(actionButtonRect, isActionButtonEnabled())
         }
+        if (showRedrawButton()) {
+            drawPanelTexture(redrawButtonRect, color(0xFFF1D316))
+        }
         if (showDoubtToggleButton()) {
             drawDoubtButtonGlow(isDoubtToggleActive())
             drawPanelTexture(
@@ -1412,6 +1430,20 @@ class MatchScreen(
     }
 
     private fun drawFloatingControlsText() {
+        if (showRedrawButton()) {
+            drawTextBlock(
+                text = "REDRAW",
+                x = redrawButtonRect.x,
+                y = redrawButtonRect.y,
+                width = redrawButtonRect.width,
+                height = redrawButtonRect.height,
+                scale = 0.60f,
+                color = color(0x1A1308FF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = color(0xFFF7E2A640),
+            )
+        }
         if (showDoubtToggleButton()) {
             val isActive = isDoubtToggleActive()
             val labelColor = if (isActive) color(0x041C2FFF) else color(0x1A1308FF)
@@ -2219,6 +2251,8 @@ class MatchScreen(
 
     private fun showActionButton(): Boolean = canEndTurn()
 
+    private fun showRedrawButton(): Boolean = canRedraw() && !showDoubtPlacementPopup()
+
     private fun showHostCoinsButton(): Boolean = presenter.isLocalHost && presenter.state.status == MatchStatus.ACTIVE
 
     private fun showCoinsShortcutButton(): Boolean =
@@ -2302,6 +2336,15 @@ class MatchScreen(
     private fun isLocalPlayersTurn(): Boolean = presenter.state.turn?.activePlayerId == presenter.localPlayerId
 
     private fun canDraw(): Boolean = isLocalPlayersTurn() && presenter.state.turn?.phase == TurnPhase.WAITING_FOR_DRAW
+
+    private fun canRedraw(): Boolean {
+        val phase = presenter.state.turn?.phase ?: return false
+        val player = localPlayer() ?: return false
+        if (!isLocalPlayersTurn() || player.pendingCard == null) {
+            return false
+        }
+        return phase == TurnPhase.AWAITING_PLACEMENT || phase == TurnPhase.CARD_POSITIONED
+    }
 
     private fun canEndTurn(): Boolean {
         val phase = presenter.state.turn?.phase ?: return false
@@ -2774,6 +2817,11 @@ class MatchScreen(
 
             if (showHostCoinsButton() && hostCoinsButtonRect.contains(world.x, world.y)) {
                 coinPanelOpen = true
+                return true
+            }
+
+            if (showRedrawButton() && redrawButtonRect.contains(world.x, world.y)) {
+                presenter.redrawCard()
                 return true
             }
 

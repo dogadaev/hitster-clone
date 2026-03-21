@@ -32,6 +32,16 @@ class ProtocolJsonTest {
     }
 
     @Test
+    fun `encodeClientCommandPayload emits redraw command payloads`() {
+        val payload = encodeClientCommandPayload(
+            ClientCommandDto.RedrawCard(actorId = "guest-1"),
+        )
+
+        assertTrue(payload.contains("\"type\":\"redraw_card\""))
+        assertTrue(payload.contains("\"actorId\":\"guest-1\""))
+    }
+
+    @Test
     fun `decodeHostEventPayload parses snapshot payloads`() {
         val payload = """
             {

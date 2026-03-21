@@ -24,6 +24,7 @@ class HostGameReducer(
             is GameCommand.LeaveSession -> leaveSession(state, command.playerId)
             is GameCommand.StartGame -> startGame(state, command.actorId)
             is GameCommand.DrawCard -> drawCard(state, command.actorId)
+            is GameCommand.RedrawCard -> redrawCard(state, command.actorId)
             is GameCommand.ToggleDoubt -> toggleDoubt(state, command.actorId)
             is GameCommand.MovePendingCard -> movePendingCard(state, command.actorId, command.requestedSlotIndex)
             is GameCommand.MoveDoubtCard -> moveDoubtCard(state, command.actorId, command.requestedSlotIndex)
@@ -160,6 +161,53 @@ class HostGameReducer(
 
         return accept(
             nextState,
+            GameEffect.PlayTrack(draw.card.playbackReference),
+        )
+    }
+
+    private fun redrawCard(
+        state: GameState,
+        actorId: PlayerId,
+    ): ReducerResult {
+        val turn = state.turn ?: return reject(state, "Match has not started yet.")
+        if (state.status != MatchStatus.ACTIVE) {
+            return reject(state, "Match is not active.")
+        }
+        if (turn.activePlayerId != actorId) {
+            return reject(state, "Only the active player can redraw a card.")
+        }
+        if (turn.phase != TurnPhase.AWAITING_PLACEMENT && turn.phase != TurnPhase.CARD_POSITIONED) {
+            return reject(state, "A redraw is only allowed while placing the current card.")
+        }
+
+        val activePlayer = state.requirePlayer(actorId) ?: return reject(state, "Unknown player.")
+        val pendingCard = activePlayer.pendingCard ?: return reject(state, "There is no pending card to redraw.")
+        val draw = state.deck.drawTop() ?: return reject(state, "The deck is empty.")
+        val replacementSlot = pendingCard.proposedSlotIndex.coerceIn(activePlayer.timeline.validSlotRange())
+        val replacementCard = PendingCard(
+            entry = draw.card,
+            proposedSlotIndex = replacementSlot,
+        )
+        val updatedPlayer = activePlayer.copy(pendingCard = replacementCard)
+        val nextDiscardPile = state.discardPile + pendingCard.entry
+        val nextPhase = if (turn.phase == TurnPhase.CARD_POSITIONED) {
+            TurnPhase.CARD_POSITIONED
+        } else {
+            TurnPhase.AWAITING_PLACEMENT
+        }
+        val nextState = state.copy(
+            revision = state.revision + 1,
+            deck = draw.nextDeck,
+            discardPile = nextDiscardPile,
+            players = state.players.replacePlayer(updatedPlayer),
+            turn = turn.copy(phase = nextPhase),
+            doubt = null,
+            lastResolution = null,
+        )
+
+        return accept(
+            nextState,
+            GameEffect.PausePlayback,
             GameEffect.PlayTrack(draw.card.playbackReference),
         )
     }

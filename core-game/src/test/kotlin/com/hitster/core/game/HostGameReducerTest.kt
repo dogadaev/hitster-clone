@@ -163,6 +163,61 @@ class HostGameReducerTest {
     }
 
     @Test
+    fun `redraw discards the current pending card and replaces it with the next deck card`() {
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("first-draw", 1990),
+                entry("replacement", 1995),
+                entry("reserve", 2010),
+            ),
+        )
+
+        state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.MovePendingCard(hostId, 0)))
+
+        val accepted = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.RedrawCard(hostId)))
+
+        assertEquals("replacement", accepted.state.requirePlayer(hostId)?.pendingCard?.entry?.id)
+        assertEquals(0, accepted.state.requirePlayer(hostId)?.pendingCard?.proposedSlotIndex)
+        assertEquals(listOf("first-draw"), accepted.state.discardPile.map { it.id })
+        assertEquals(1, accepted.state.deck.size)
+        assertEquals(TurnPhase.CARD_POSITIONED, accepted.state.turn?.phase)
+        assertTrue(accepted.effects.any { it is GameEffect.PausePlayback })
+        assertTrue(
+            accepted.effects.any {
+                it is GameEffect.PlayTrack && it.reference.spotifyUri == "spotify:track:replacement"
+            },
+        )
+    }
+
+    @Test
+    fun `redraw clears an armed doubt for the discarded card`() {
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("first-draw", 1990),
+                entry("replacement", 1995),
+                entry("reserve", 2010),
+            ),
+        )
+
+        state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.AdjustPlayerCoins(hostId, guestId, 1)))
+        state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.MovePendingCard(hostId, 1)))
+        state = acceptedState(reducer.reduce(state, GameCommand.ToggleDoubt(guestId)))
+
+        val accepted = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.RedrawCard(hostId)))
+
+        assertEquals(null, accepted.state.doubt)
+        assertEquals("replacement", accepted.state.requirePlayer(hostId)?.pendingCard?.entry?.id)
+    }
+
+    @Test
     fun `successful doubt steals the card and spends the coin`() {
         var state = lobbyWithGuest(
             listOf(

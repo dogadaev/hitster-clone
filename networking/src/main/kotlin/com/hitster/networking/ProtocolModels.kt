@@ -63,6 +63,12 @@ sealed class ClientCommandDto {
     ) : ClientCommandDto()
 
     @Serializable
+    @SerialName("redraw_card")
+    data class RedrawCard(
+        override val actorId: String,
+    ) : ClientCommandDto()
+
+    @Serializable
     @SerialName("toggle_doubt")
     data class ToggleDoubt(
         override val actorId: String,

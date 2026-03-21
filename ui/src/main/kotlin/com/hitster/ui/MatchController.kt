@@ -28,6 +28,8 @@ interface MatchController {
 
     fun drawCard()
 
+    fun redrawCard()
+
     fun toggleDoubt()
 
     fun movePendingCard(requestedSlotIndex: Int)

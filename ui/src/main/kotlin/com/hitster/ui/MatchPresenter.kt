@@ -96,6 +96,10 @@ class MatchPresenter(
         drawCardAs(localPlayerId)
     }
 
+    override fun redrawCard() {
+        redrawCardAs(localPlayerId)
+    }
+
     override fun toggleDoubt() {
         toggleDoubtAs(localPlayerId)
     }
@@ -118,6 +122,10 @@ class MatchPresenter(
 
     internal fun drawCardAs(actorId: PlayerId) {
         dispatch(GameCommand.DrawCard(actorId = actorId))
+    }
+
+    internal fun redrawCardAs(actorId: PlayerId) {
+        dispatch(GameCommand.RedrawCard(actorId = actorId))
     }
 
     internal fun movePendingCardAs(
@@ -197,6 +205,10 @@ class MatchPresenter(
 
             is ClientCommandDto.DrawCard -> {
                 dispatch(GameCommand.DrawCard(actorId = PlayerId(command.actorId)))
+            }
+
+            is ClientCommandDto.RedrawCard -> {
+                dispatch(GameCommand.RedrawCard(actorId = PlayerId(command.actorId)))
             }
 
             is ClientCommandDto.ToggleDoubt -> {
@@ -299,6 +311,7 @@ private fun GameCommand.actorId(): PlayerId {
         is GameCommand.LeaveSession -> playerId
         is GameCommand.StartGame -> actorId
         is GameCommand.DrawCard -> actorId
+        is GameCommand.RedrawCard -> actorId
         is GameCommand.ToggleDoubt -> actorId
         is GameCommand.MovePendingCard -> actorId
         is GameCommand.MoveDoubtCard -> actorId
