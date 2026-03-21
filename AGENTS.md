@@ -149,6 +149,7 @@ However, only local-session hosting is required for the first MVP.
 The host flow must run on Android.
 Guests may join either from another Android device or from the guest-only web build.
 The Android host should serve the guest-only web build itself over the local network so guests do not depend on a separate laptop-hosted helper server.
+The Android host lobby should expose a scannable raw-IP browser join path, such as a QR code and visible IP URL, rather than relying only on mDNS aliases.
 An Android host must keep its local-session server discoverable and able to accept guest joins while the app is backgrounded, using foreground-safe platform hosting where needed.
 Authoritative host networking and command handling must not depend on the libGDX render loop being actively resumed.
 Guest reconnects must preserve the same player identity so a temporarily disconnected player can safely reattach to an in-progress match instead of being treated as a new player.

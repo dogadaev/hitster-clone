@@ -66,12 +66,17 @@ class MatchScreen(
     private val doubtPopupHeaderRect = Rectangle()
     private val doubtPopupTrackRect = Rectangle()
     private val lobbyCardRect = Rectangle()
+    private val lobbyMainRect = Rectangle()
+    private val lobbyJoinPanelRect = Rectangle()
+    private val lobbyQrRect = Rectangle()
+    private val lobbyJoinUrlRect = Rectangle()
     private val startButtonRect = Rectangle()
     private val deckFrontCardRect = Rectangle()
 
     private var layoutWorldWidth = 0f
     private var layoutWorldHeight = 0f
     private var layoutStatus: MatchStatus? = null
+    private var layoutGuestJoinUrl: String? = null
     private var outerMargin = 28f
     private var panelGap = 22f
     private var panelPadding = 28f
@@ -239,13 +244,20 @@ class MatchScreen(
         val worldWidth = viewport.worldWidth
         val worldHeight = viewport.worldHeight
         val status = presenter.state.status
-        if (worldWidth == layoutWorldWidth && worldHeight == layoutWorldHeight && status == layoutStatus) {
+        val guestJoinUrl = presenter.guestJoinUrl
+        if (
+            worldWidth == layoutWorldWidth &&
+            worldHeight == layoutWorldHeight &&
+            status == layoutStatus &&
+            guestJoinUrl == layoutGuestJoinUrl
+        ) {
             return
         }
 
         layoutWorldWidth = worldWidth
         layoutWorldHeight = worldHeight
         layoutStatus = status
+        layoutGuestJoinUrl = guestJoinUrl
 
         outerMargin = clamp(min(worldWidth, worldHeight) * 0.03f, 24f, 36f)
         panelGap = outerMargin * 0.76f
@@ -403,6 +415,45 @@ class MatchScreen(
             worldWidth - outerMargin * 2f,
             max(1f, lobbyStageTop - lobbyStageBottom),
         )
+        if (showLobbyJoinPanel()) {
+            val joinPanelWidth = clamp(lobbyCardRect.width * 0.235f, 256f, 330f)
+            val joinPanelHeight = clamp(lobbyCardRect.height * 0.80f, 332f, 432f)
+            lobbyJoinPanelRect.set(
+                lobbyCardRect.x + lobbyCardRect.width - joinPanelWidth,
+                lobbyCardRect.y + (lobbyCardRect.height - joinPanelHeight) / 2f,
+                joinPanelWidth,
+                joinPanelHeight,
+            )
+            lobbyMainRect.set(
+                lobbyCardRect.x,
+                lobbyCardRect.y,
+                max(1f, lobbyJoinPanelRect.x - lobbyCardRect.x - panelGap),
+                lobbyCardRect.height,
+            )
+
+            val qrInset = clamp(panelPadding * 0.80f, 18f, 28f)
+            val qrSize = min(
+                lobbyJoinPanelRect.width - qrInset * 2f,
+                lobbyJoinPanelRect.height - panelHeaderHeight - qrInset * 2f - 64f,
+            )
+            lobbyQrRect.set(
+                lobbyJoinPanelRect.x + (lobbyJoinPanelRect.width - qrSize) / 2f,
+                lobbyJoinPanelRect.y + panelPadding + 48f,
+                qrSize,
+                qrSize,
+            )
+            lobbyJoinUrlRect.set(
+                lobbyJoinPanelRect.x + qrInset,
+                lobbyJoinPanelRect.y + qrInset,
+                lobbyJoinPanelRect.width - qrInset * 2f,
+                max(1f, lobbyQrRect.y - lobbyJoinPanelRect.y - qrInset - 12f),
+            )
+        } else {
+            lobbyMainRect.set(lobbyCardRect)
+            lobbyJoinPanelRect.set(0f, 0f, 0f, 0f)
+            lobbyQrRect.set(0f, 0f, 0f, 0f)
+            lobbyJoinUrlRect.set(0f, 0f, 0f, 0f)
+        }
 
         val preferredCardWidth = clamp(timelineTrackRect.width * 0.18f, 156f, 220f)
         val minCardWidth = clamp(timelineTrackRect.width * 0.114f, 112f, 140f)
@@ -882,10 +933,10 @@ class MatchScreen(
             }
         }
 
-        val cardWidth = clamp(lobbyCardRect.width * 0.11f, 142f, 176f)
-        val cardHeight = clamp(lobbyCardRect.height * 0.42f, 194f, 238f)
-        val cardCenterX = lobbyCardRect.x + lobbyCardRect.width / 2f
-        val cardBottom = lobbyCardRect.y + lobbyCardRect.height * 0.42f
+        val cardWidth = clamp(lobbyMainRect.width * 0.12f, 142f, 176f)
+        val cardHeight = clamp(lobbyMainRect.height * 0.42f, 194f, 238f)
+        val cardCenterX = lobbyMainRect.x + lobbyMainRect.width / 2f
+        val cardBottom = lobbyMainRect.y + lobbyMainRect.height * 0.42f
 
         repeat(3) { index ->
             val depth = abs(index - 1)
@@ -898,6 +949,29 @@ class MatchScreen(
                 topColor = if (index == 1) 0xF2D081FF else 0xDFB768FF,
                 bottomColor = if (index == 1) 0xD8A34BFF else 0xC18B43FF,
                 edgeColor = 0xFFF5D4AA,
+            )
+        }
+
+        if (showLobbyJoinPanel()) {
+            fillPanel(lobbyJoinPanelRect, 0x132850FF, 0x0C1D38FF, 0x2C4788FF, 0x20396DFF, 0xBCD0F04C)
+            drawDropShadow(lobbyQrRect, 12f, 0x01050B38)
+            fillGradientRect(
+                lobbyQrRect.x - 10f,
+                lobbyQrRect.y - 10f,
+                lobbyQrRect.width + 20f,
+                lobbyQrRect.height + 20f,
+                0xE9EEF7FF,
+                0xF1F5FCFF,
+                0xFFFFFFFF,
+                0xF6FAFFFF,
+            )
+            drawFrame(
+                lobbyQrRect.x - 10f,
+                lobbyQrRect.y - 10f,
+                lobbyQrRect.width + 20f,
+                lobbyQrRect.height + 20f,
+                0xFFF2C85A,
+                2f,
             )
         }
 
@@ -922,31 +996,56 @@ class MatchScreen(
         }
         val time = overlayAnimationSeconds
         drawGlow(
-            lobbyCardRect.x + lobbyCardRect.width * 0.23f + sin(time * 0.16f) * 22f,
-            lobbyCardRect.y + lobbyCardRect.height * 0.16f + cos(time * 0.14f) * 14f,
-            lobbyCardRect.width * 0.54f,
-            lobbyCardRect.height * 0.56f,
+            lobbyMainRect.x + lobbyMainRect.width * 0.18f + sin(time * 0.16f) * 22f,
+            lobbyMainRect.y + lobbyMainRect.height * 0.16f + cos(time * 0.14f) * 14f,
+            lobbyMainRect.width * 0.62f,
+            lobbyMainRect.height * 0.56f,
             color(0xF5C96E1A),
         )
         drawGlow(
-            lobbyCardRect.x + lobbyCardRect.width * 0.04f + cos(time * 0.12f) * 18f,
-            lobbyCardRect.y + lobbyCardRect.height * 0.38f + sin(time * 0.10f) * 12f,
-            lobbyCardRect.width * 0.88f,
-            lobbyCardRect.height * 0.44f,
+            lobbyMainRect.x + lobbyMainRect.width * 0.02f + cos(time * 0.12f) * 18f,
+            lobbyMainRect.y + lobbyMainRect.height * 0.38f + sin(time * 0.10f) * 12f,
+            lobbyMainRect.width * 0.96f,
+            lobbyMainRect.height * 0.44f,
             color(0x80B8FF14),
         )
         drawRepeatedTexture(
             grainTexture,
-            lobbyCardRect.x,
-            lobbyCardRect.y,
-            lobbyCardRect.width,
-            lobbyCardRect.height,
+            lobbyMainRect.x,
+            lobbyMainRect.y,
+            lobbyMainRect.width,
+            lobbyMainRect.height,
             color(0xDCE8FF06),
-            max(1f, lobbyCardRect.width / 138f),
-            max(1f, lobbyCardRect.height / 110f),
+            max(1f, lobbyMainRect.width / 138f),
+            max(1f, lobbyMainRect.height / 110f),
             time * 0.005f,
             time * 0.004f,
         )
+        if (showLobbyJoinPanel()) {
+            drawPanelTexture(lobbyJoinPanelRect, color(0xCBDEFF12))
+            drawGlow(
+                lobbyJoinPanelRect.x - lobbyJoinPanelRect.width * 0.14f + cos(time * 0.13f) * 10f,
+                lobbyJoinPanelRect.y + lobbyJoinPanelRect.height * 0.18f + sin(time * 0.11f) * 10f,
+                lobbyJoinPanelRect.width * 1.18f,
+                lobbyJoinPanelRect.height * 0.58f,
+                color(0x7EB6FF16),
+            )
+            drawRepeatedTexture(
+                grainTexture,
+                lobbyJoinPanelRect.x + 2f,
+                lobbyJoinPanelRect.y + 2f,
+                lobbyJoinPanelRect.width - 4f,
+                lobbyJoinPanelRect.height - 4f,
+                color(0xE3EDFF0B),
+                max(1f, lobbyJoinPanelRect.width / 100f),
+                max(1f, lobbyJoinPanelRect.height / 100f),
+                time * 0.004f,
+                time * 0.003f,
+            )
+            presenter.guestJoinQrTexture?.let { qrTexture ->
+                drawTexture(qrTexture, lobbyQrRect.x, lobbyQrRect.y, lobbyQrRect.width, lobbyQrRect.height, Color.WHITE)
+            }
+        }
         lobbyPlayerBadgeRects().forEach { rect ->
             drawPanelTexture(rect, color(0xC7DAFF10))
         }
@@ -980,15 +1079,41 @@ class MatchScreen(
         }
         drawTextBlock(
             text = "${presenter.state.players.size} PLAYERS",
-            x = lobbyCardRect.x,
-            y = lobbyCardRect.y + lobbyCardRect.height * 0.18f,
-            width = lobbyCardRect.width,
+            x = lobbyMainRect.x,
+            y = lobbyMainRect.y + lobbyMainRect.height * 0.18f,
+            width = lobbyMainRect.width,
             height = 42f,
             scale = 0.74f,
             color = color(0xF3CF7BFF),
             align = Align.center,
             verticalAlign = VerticalTextAlign.Center,
         )
+        if (showLobbyJoinPanel()) {
+            drawTextBlock(
+                text = "SCAN TO JOIN",
+                x = lobbyJoinPanelRect.x,
+                y = lobbyJoinPanelRect.y + lobbyJoinPanelRect.height - panelHeaderHeight,
+                width = lobbyJoinPanelRect.width,
+                height = panelHeaderHeight,
+                scale = 0.72f,
+                color = color(0xF4CF79FF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+            )
+            drawTextBlock(
+                text = displayLobbyJoinUrl(),
+                x = lobbyJoinUrlRect.x,
+                y = lobbyJoinUrlRect.y,
+                width = lobbyJoinUrlRect.width,
+                height = lobbyJoinUrlRect.height,
+                scale = 0.52f,
+                color = color(0xE3ECFFFF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                wrap = true,
+                enforceMinimumScale = false,
+            )
+        }
 
         if (showLobbyPrimaryButton()) {
             drawTextBlock(
@@ -1029,20 +1154,20 @@ class MatchScreen(
             return emptyList()
         }
 
-        val badgeWidth = clamp(lobbyCardRect.width * 0.16f, 220f, 310f)
-        val badgeHeight = clamp(lobbyCardRect.height * 0.12f, 56f, 70f)
+        val badgeWidth = clamp(lobbyMainRect.width * 0.18f, 220f, 310f)
+        val badgeHeight = clamp(lobbyMainRect.height * 0.12f, 56f, 70f)
         val columnGap = clamp(panelGap * 1.05f, 18f, 30f)
         val rowGap = clamp(panelGap * 0.76f, 16f, 22f)
         val columns = max(1, min(3, playerCount))
         val rows = (playerCount + columns - 1) / columns
-        val baseY = lobbyCardRect.y + clamp(lobbyCardRect.height * 0.08f, 18f, 30f)
+        val baseY = lobbyMainRect.y + clamp(lobbyMainRect.height * 0.08f, 18f, 30f)
         val rects = ArrayList<Rectangle>(playerCount)
 
         repeat(rows) { row ->
             val firstIndex = row * columns
             val rowSize = min(columns, playerCount - firstIndex)
             val rowWidth = rowSize * badgeWidth + (rowSize - 1) * columnGap
-            val startX = lobbyCardRect.x + (lobbyCardRect.width - rowWidth) / 2f
+            val startX = lobbyMainRect.x + (lobbyMainRect.width - rowWidth) / 2f
             val y = baseY + (rows - 1 - row) * (badgeHeight + rowGap)
             repeat(rowSize) { column ->
                 rects += Rectangle(
@@ -2148,6 +2273,11 @@ class MatchScreen(
     private fun showLobbyPrimaryButton(): Boolean = presenter.isLocalHost &&
         (showLobbyPairingGate() || presenter.canStartLobbyMatch())
 
+    private fun showLobbyJoinPanel(): Boolean =
+        presenter.isLocalHost &&
+            presenter.state.status == MatchStatus.LOBBY &&
+            !presenter.guestJoinUrl.isNullOrBlank()
+
     private fun lobbyPrimaryActionText(): String {
         return if (showLobbyPairingGate()) {
             if (presenter.playbackSessionState == PlaybackSessionState.Connecting) {
@@ -2166,6 +2296,11 @@ class MatchScreen(
         } else {
             "WAITING FOR HOST"
         }
+    }
+
+    private fun displayLobbyJoinUrl(): String {
+        val joinUrl = presenter.guestJoinUrl ?: return ""
+        return joinUrl.removePrefix("http://").removePrefix("https://")
     }
 
     private fun localPlayer(): PlayerState? = presenter.localPlayer

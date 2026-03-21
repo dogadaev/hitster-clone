@@ -106,4 +106,5 @@ dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.websockets)
     implementation(libs.spotify.auth)
+    implementation(libs.zxing.core)
 }

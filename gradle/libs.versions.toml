@@ -13,6 +13,7 @@ gson = "2.11.0"
 androidx-browser = "1.8.0"
 spotify-auth = "2.1.1"
 jmdns = "3.6.3"
+zxing = "3.5.3"
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -44,3 +45,4 @@ androidx-browser = { module = "androidx.browser:browser", version.ref = "android
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 spotify-auth = { module = "com.spotify.android:auth", version.ref = "spotify-auth" }
 jmdns = { module = "org.jmdns:jmdns", version.ref = "jmdns" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }

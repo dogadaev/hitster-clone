@@ -48,6 +48,9 @@ class AndroidPlatformServices(
                     },
                 )
                 object : HostedSessionTransport {
+                    override val guestJoinUrl: String = "http://$hostAddress:${AndroidGuestWebServer.port}"
+                    override val guestJoinQrTexture = AndroidLobbyQrCodeFactory.createTexture(guestJoinUrl)
+
                     private val advertisementProvider = {
                         listOf(
                             SessionAdvertisementDto(
@@ -87,6 +90,7 @@ class AndroidPlatformServices(
                     override fun close() {
                         guestWebServer.stop()
                         server.stop()
+                        guestJoinQrTexture.dispose()
                         HostingForegroundService.stop(applicationContext)
                     }
                 }

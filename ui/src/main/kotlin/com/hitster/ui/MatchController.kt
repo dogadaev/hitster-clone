@@ -1,5 +1,6 @@
 package com.hitster.ui
 
+import com.badlogic.gdx.graphics.Texture
 import com.hitster.core.model.GameState
 import com.hitster.core.model.PlayerId
 import com.hitster.core.model.PlayerState
@@ -15,6 +16,10 @@ interface MatchController {
     val lastPlaybackIssue: PlaybackIssue?
     val playbackSessionState: PlaybackSessionState
     val connectionStatus: String?
+        get() = null
+    val guestJoinUrl: String?
+        get() = null
+    val guestJoinQrTexture: Texture?
         get() = null
 
     fun startMatch()

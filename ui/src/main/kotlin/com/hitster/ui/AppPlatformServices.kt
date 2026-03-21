@@ -2,6 +2,7 @@ package com.hitster.ui
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
+import com.badlogic.gdx.graphics.Texture
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.HostEventDto
 import com.hitster.networking.SessionAdvertisementDto
@@ -58,6 +59,11 @@ interface GuestSessionClient {
 }
 
 interface HostedSessionTransport {
+    val guestJoinUrl: String?
+        get() = null
+    val guestJoinQrTexture: Texture?
+        get() = null
+
     fun start()
 
     fun broadcast(event: HostEventDto)

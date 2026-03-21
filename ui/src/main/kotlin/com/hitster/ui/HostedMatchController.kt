@@ -6,6 +6,11 @@ class HostedMatchController(
     private val presenter: MatchPresenter,
     private val sessionTransport: HostedSessionTransport,
 ) : MatchController by presenter {
+    override val guestJoinUrl: String?
+        get() = sessionTransport.guestJoinUrl
+    override val guestJoinQrTexture
+        get() = sessionTransport.guestJoinQrTexture
+
     init {
         presenter.snapshotListener = { snapshot ->
             sessionTransport.broadcast(HostEventDto.SnapshotPublished(snapshot))
