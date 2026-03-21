@@ -361,12 +361,11 @@ class MatchScreen(
         )
         val redrawButtonWidth = clamp(deckPanelRect.width * 0.88f, 156f, 206f)
         val redrawButtonHeight = clamp(deckPanelRect.height * 0.10f, 54f, 68f)
+        val redrawZoneTop = deckPanelRect.y + deckPanelRect.height
+        val redrawZoneBottom = actionButtonRect.y + actionButtonRect.height
         redrawButtonRect.set(
             deckPanelRect.x + (deckPanelRect.width - redrawButtonWidth) / 2f,
-            max(
-                hostCoinsButtonRect.y + hostCoinsButtonRect.height + panelGap * 0.42f,
-                actionButtonRect.y - redrawButtonHeight - panelGap * 0.55f,
-            ),
+            redrawZoneBottom + (redrawZoneTop - redrawZoneBottom - redrawButtonHeight) / 2f,
             redrawButtonWidth,
             redrawButtonHeight,
         )
