@@ -16,6 +16,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.request.path
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.head
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
@@ -47,8 +48,20 @@ class AndroidGuestWebServer(
                     browserGuestSessions = guestSessions,
                     hostSnapshotProvider = hostSnapshotProvider,
                 )
+                head("/") {
+                    call.respondNoStoreEmpty(contentTypeFor("$hostedWebRootAssetPath/index.html"))
+                }
                 get("/") {
                     call.respondNoStoreAsset("$hostedWebRootAssetPath/index.html")
+                }
+                head("{...}") {
+                    val relativePath = call.request.path().removePrefix("/").trim()
+                    val assetPath = resolveStaticAssetPath(relativePath)
+                    if (assetPath == null) {
+                        call.respondText("Not Found", status = HttpStatusCode.NotFound)
+                        return@head
+                    }
+                    call.respondNoStoreEmpty(contentTypeFor(assetPath))
                 }
                 get("{...}") {
                     val relativePath = call.request.path().removePrefix("/").trim()
@@ -116,6 +129,13 @@ class AndroidGuestWebServer(
             contentType = contentTypeFor(assetPath),
             status = HttpStatusCode.OK,
         )
+    }
+
+    private suspend fun ApplicationCall.respondNoStoreEmpty(contentType: ContentType) {
+        response.headers.append(HttpHeaders.CacheControl, "no-store, no-cache, must-revalidate, max-age=0")
+        response.headers.append(HttpHeaders.Pragma, "no-cache")
+        response.headers.append(HttpHeaders.Expires, "0")
+        respondText(text = "", contentType = contentType, status = HttpStatusCode.OK)
     }
 
     private fun contentTypeFor(assetPath: String): ContentType {

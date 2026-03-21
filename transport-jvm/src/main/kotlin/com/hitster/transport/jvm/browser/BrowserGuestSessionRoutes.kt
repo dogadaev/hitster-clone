@@ -11,6 +11,7 @@ import io.ktor.server.request.receiveText
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import io.ktor.server.routing.head
 import io.ktor.server.routing.post
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -19,6 +20,12 @@ fun Route.installBrowserGuestSessionApi(
     browserGuestSessions: BrowserGuestSessionRegistry,
     hostSnapshotProvider: () -> List<SessionAdvertisementDto>,
 ) {
+    head("/api/hosts") {
+        call.respondNoStoreEmpty(
+            contentType = ContentType.Application.Json,
+            status = HttpStatusCode.OK,
+        )
+    }
     get("/api/hosts") {
         call.respondNoStoreText(
             text = protocolJson.encodeToString(hostSnapshotProvider()),
@@ -40,6 +47,17 @@ fun Route.installBrowserGuestSessionApi(
         )
         call.respondNoStoreText(
             text = protocolJson.encodeToString(response),
+            contentType = ContentType.Application.Json,
+            status = HttpStatusCode.OK,
+        )
+    }
+    head("/api/guest-sessions/{sessionId}/poll") {
+        val sessionId = call.parameters["sessionId"]
+        if (sessionId.isNullOrBlank()) {
+            call.respondText("Not Found", status = HttpStatusCode.NotFound)
+            return@head
+        }
+        call.respondNoStoreEmpty(
             contentType = ContentType.Application.Json,
             status = HttpStatusCode.OK,
         )
@@ -98,4 +116,14 @@ private suspend fun ApplicationCall.respondNoStoreText(
     response.headers.append(HttpHeaders.Pragma, "no-cache")
     response.headers.append(HttpHeaders.Expires, "0")
     respondText(text = text, contentType = contentType, status = status)
+}
+
+private suspend fun ApplicationCall.respondNoStoreEmpty(
+    contentType: ContentType,
+    status: HttpStatusCode,
+) {
+    response.headers.append(HttpHeaders.CacheControl, "no-store, no-cache, must-revalidate, max-age=0")
+    response.headers.append(HttpHeaders.Pragma, "no-cache")
+    response.headers.append(HttpHeaders.Expires, "0")
+    respondText(text = "", contentType = contentType, status = status)
 }
