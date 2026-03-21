@@ -13,7 +13,6 @@ import com.badlogic.gdx.graphics.Texture.TextureWrap
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.GlyphLayout
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
@@ -722,35 +721,7 @@ class MatchScreen(
 
     // Generate a larger atlas so text stays sharp on high-density phones.
     private fun createFont(): BitmapFont {
-        val fontFile = Gdx.files.internal(FONT_ASSET_PATH)
-        if (!fontFile.exists()) {
-            return BitmapFont().apply {
-                setUseIntegerPositions(true)
-                regions.forEach { region ->
-                    region.texture.setFilter(TextureFilter.Linear, TextureFilter.Linear)
-                }
-            }
-        }
-
-        val generator = FreeTypeFontGenerator(fontFile)
-        return try {
-            generator.generateFont(
-                FreeTypeFontGenerator.FreeTypeFontParameter().apply {
-                    size = 56
-                    minFilter = TextureFilter.Linear
-                    magFilter = TextureFilter.Linear
-                    kerning = true
-                    hinting = FreeTypeFontGenerator.Hinting.Full
-                },
-            ).apply {
-                setUseIntegerPositions(true)
-                regions.forEach { region ->
-                    region.texture.setFilter(TextureFilter.Linear, TextureFilter.Linear)
-                }
-            }
-        } finally {
-            generator.dispose()
-        }
+        return createUiFont(size = 56)
     }
 
     private fun createGrainTexture(): Texture {
@@ -2803,7 +2774,6 @@ class MatchScreen(
     private companion object {
         const val BASE_WORLD_WIDTH = 1600f
         const val BASE_WORLD_HEIGHT = 900f
-        const val FONT_ASSET_PATH = "fonts/droid-sans-bold.ttf"
         const val DECK_STACK_DEPTH = 3
         const val DECK_STACK_SPREAD = 14f
         const val CONFETTI_COUNT = 110
