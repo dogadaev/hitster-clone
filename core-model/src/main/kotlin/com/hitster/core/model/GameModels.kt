@@ -33,8 +33,10 @@ data class PendingCard(
 data class PlayerTimeline(
     val cards: List<PlaylistEntry> = emptyList(),
 ) {
+    /** Returns the inclusive range of insertion indices currently legal for this timeline. */
     fun validSlotRange(): IntRange = 0..cards.size
 
+    /** Inserts one revealed card at the nearest legal slot and returns the updated immutable timeline. */
     fun insertAt(slotIndex: Int, entry: PlaylistEntry): PlayerTimeline {
         val normalizedIndex = slotIndex.coerceIn(validSlotRange())
         val before = cards.take(normalizedIndex)
@@ -91,5 +93,6 @@ data class GameState(
     val activePlayer: PlayerState?
         get() = players.getOrNull(activePlayerIndex)
 
+    /** Looks up a player in the current authoritative roster, or returns `null` if that actor is absent. */
     fun requirePlayer(playerId: PlayerId): PlayerState? = players.firstOrNull { it.id == playerId }
 }

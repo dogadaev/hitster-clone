@@ -199,32 +199,40 @@ data class TurnResolutionDto(
 )
 
 interface SessionTransport {
+    /** Starts the authoritative host transport and binds it to the supplied session advertisement and command sink. */
     fun startHosting(
         advertisement: SessionAdvertisementDto,
         hostListener: HostCommandListener,
     )
 
+    /** Connects a client listener to an existing advertised session. */
     fun joinSession(
         sessionId: String,
         clientListener: ClientEventListener,
     )
 
+    /** Sends one client-originated command across the active transport. */
     fun sendCommand(command: ClientCommandDto)
 
+    /** Broadcasts one host event to every connected guest. */
     fun broadcast(event: HostEventDto)
 
+    /** Stops any active host or guest transport resources. */
     fun stop()
 }
 
 fun interface HostCommandListener {
+    /** Delivers a guest command to the authoritative host logic. */
     fun onCommand(command: ClientCommandDto)
 }
 
 fun interface ClientEventListener {
+    /** Delivers a host-originated event to one guest client. */
     fun onEvent(event: HostEventDto)
 }
 
 object GameStateMapper {
+    /** Converts the full authoritative shared state into a transport-safe DTO graph. */
     fun toDto(state: GameState): GameStateDto {
         return GameStateDto(
             sessionId = state.sessionId.value,
@@ -290,6 +298,11 @@ object GameStateMapper {
         }
     }
 
+    /**
+     * Rebuilds a client-side view of the authoritative state from transport DTOs.
+     *
+     * Deck contents are reconstructed as placeholders because guests only need the remaining count, not hidden card identities.
+     */
     fun fromDto(state: GameStateDto): GameState {
         val players = state.players.map(::toPlayerState)
         val discardPile = state.discardPile.map(::toPlaylistEntry)

@@ -38,6 +38,12 @@ class PlaylistParser {
         ignoreUnknownKeys = true
     }
 
+    /**
+     * Parses a bundled or imported playlist payload into a validated strongly typed catalog.
+     *
+     * The parser accepts either a raw array of entries or an object containing top-level catalog metadata plus an `entries` array.
+     * Invalid rows are accumulated into a user-facing failure result instead of failing fast on the first issue.
+     */
     fun parseCatalog(
         payload: String,
         fallbackCatalogId: String = "default-playlist",

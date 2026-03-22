@@ -19,6 +19,11 @@ import com.hitster.core.model.TurnState
 class HostGameReducer(
     private val placementValidator: TimelinePlacementValidator = TimelinePlacementValidator(),
 ) {
+    /**
+     * Applies one player or host command to the authoritative match state.
+     *
+     * Every accepted transition returns a new immutable state plus the side effects that the platform boundary must execute.
+     */
     fun reduce(
         state: GameState,
         command: GameCommand,

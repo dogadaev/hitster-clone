@@ -33,6 +33,7 @@ class TimelineLayoutCalculator(
     private val preferredGap: Float = 28f,
     private val minGap: Float = 12f,
 ) {
+    /** Computes the centered layout for a fully revealed timeline with no active hidden card. */
     fun arrangement(cardCount: Int): TimelineArrangement {
         if (cardCount <= 0) {
             return TimelineArrangement(
@@ -50,6 +51,7 @@ class TimelineLayoutCalculator(
         return TimelineArrangement(lefts, metrics.cardWidth, metrics.step - metrics.cardWidth, startX, metrics.totalWidth)
     }
 
+    /** Returns the horizontal centers of every legal insertion slot for the current timeline size. */
     fun insertionSlotCenters(existingCardCount: Int): List<Float> {
         return List(existingCardCount + 1) { slotIndex ->
             val arrangement = pendingArrangement(existingCardCount, slotIndex)
@@ -57,6 +59,11 @@ class TimelineLayoutCalculator(
         }
     }
 
+    /**
+     * Computes layout while a hidden card is active.
+     *
+     * Committed cards may compress slightly, but the pending card always keeps full clearance from its neighbors.
+     */
     fun pendingArrangement(existingCardCount: Int, pendingSlotIndex: Int): PendingTimelineArrangement {
         val totalCount = existingCardCount + 1
         val metrics = metricsFor(totalCount)
@@ -105,6 +112,7 @@ class TimelineLayoutCalculator(
         )
     }
 
+    /** Finds the insertion slot whose visual center is nearest to the supplied drag position. */
     fun nearestSlotIndex(existingCardCount: Int, x: Float): Int {
         val centers = insertionSlotCenters(existingCardCount)
         if (centers.isEmpty()) {

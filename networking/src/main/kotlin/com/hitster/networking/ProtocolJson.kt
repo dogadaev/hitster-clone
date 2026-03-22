@@ -19,6 +19,7 @@ val protocolJson: Json = Json {
     encodeDefaults = true
 }
 
+/** Encodes client commands into a stable browser-safe JSON payload without relying on polymorphic runtime serializers. */
 fun encodeClientCommandPayload(command: ClientCommandDto): String {
     return when (command) {
         is ClientCommandDto.JoinSession -> buildJsonObject {
@@ -73,6 +74,7 @@ fun encodeClientCommandPayload(command: ClientCommandDto): String {
     }.toString()
 }
 
+/** Decodes the small subset of host events the browser guest transport handles through manual JSON parsing. */
 fun decodeHostEventPayload(payload: String): HostEventDto? {
     val parsed = runCatching {
         protocolJson.parseToJsonElement(payload).jsonObject

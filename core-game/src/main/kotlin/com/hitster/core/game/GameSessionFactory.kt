@@ -12,6 +12,11 @@ import com.hitster.core.model.PlaylistEntry
 import com.hitster.core.model.SessionId
 
 object GameSessionFactory {
+    /**
+     * Creates the initial authoritative lobby state with a host player and a session-shuffled deck.
+     *
+     * Tests may pass an explicit [shuffleSeed] to get deterministic draw order, while real sessions normally use a fresh seed.
+     */
     fun createLobby(
         sessionId: SessionId,
         hostId: PlayerId,

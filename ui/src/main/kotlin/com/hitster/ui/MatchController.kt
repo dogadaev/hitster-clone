@@ -26,27 +26,39 @@ interface MatchController {
     val guestJoinQrTexture: Texture?
         get() = null
 
+    /** Starts the match from the lobby when the current device is allowed to do so. */
     fun startMatch()
 
+    /** Triggers the host-only playback pairing/preparation flow from the lobby. */
     fun prepareHostPlayback()
 
+    /** Draws the next hidden card for the local player. */
     fun drawCard()
 
+    /** Discards the current hidden card and replaces it with a new draw for the same turn. */
     fun redrawCard()
 
+    /** Arms or clears the local player's doubt request when they are eligible to challenge the turn. */
     fun toggleDoubt()
 
+    /** Updates the local player's intended insertion slot for their active hidden card. */
     fun movePendingCard(requestedSlotIndex: Int)
 
+    /** Updates the doubter's temporary insertion slot inside the isolated doubt placement flow. */
     fun moveDoubtCard(requestedSlotIndex: Int)
 
+    /** Applies a manual host-side coin adjustment for a specific player. */
     fun adjustPlayerCoins(playerId: PlayerId, delta: Int)
 
+    /** Commits the currently valid placement step for either the active turn or the doubt flow. */
     fun endTurn()
 
+    /** Indicates whether the lobby must block start until host playback is prepared. */
     fun requiresHostPlaybackPairing(): Boolean
 
+    /** Indicates whether the lobby currently satisfies the start conditions. */
     fun canStartLobbyMatch(): Boolean
 
+    /** Releases controller-owned resources such as sockets, textures, and background jobs. */
     fun dispose() = Unit
 }

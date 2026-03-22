@@ -49,11 +49,13 @@ class RemoteGuestMatchController(
     override val localPlayer: PlayerState?
         get() = state.requirePlayer(localPlayerId)
 
+    /** Attaches the concrete transport client before the guest join flow begins. */
     fun attachClient(client: GuestSessionClient) {
         this.client = client
         connectionStatus = "Guest client attached."
     }
 
+    /** Starts the guest join flow against the discovered host advertisement. */
     fun connect() {
         connectionStatus = "Opening guest connection..."
         client.connect()
@@ -113,12 +115,14 @@ class RemoteGuestMatchController(
 
     override fun canStartLobbyMatch(): Boolean = false
 
+    /** Closes the guest transport when the shared app disposes the controller. */
     override fun dispose() {
         if (this::client.isInitialized) {
             client.close()
         }
     }
 
+    /** Applies authoritative host events and clears optimistic state when real snapshots arrive. */
     internal fun handleEvent(event: HostEventDto) {
         when (event) {
             is HostEventDto.CommandRejected -> {
@@ -144,15 +148,18 @@ class RemoteGuestMatchController(
         }
     }
 
+    /** Surfaces guest disconnect reasons to the waiting or reconnecting UI. */
     internal fun handleDisconnect(reason: String) {
         lastError = reason
         connectionStatus = reason
     }
 
+    /** Updates transient connection text shown while the guest transport is connecting or polling. */
     internal fun updateConnectionStatus(status: String) {
         connectionStatus = status
     }
 
+    /** Mirrors the latest pending-card drag locally until the next authoritative snapshot arrives. */
     private fun applyOptimisticPendingMove(requestedSlotIndex: Int) {
         val turn = state.turn ?: return
         val player = localPlayer ?: return
@@ -174,6 +181,7 @@ class RemoteGuestMatchController(
         )
     }
 
+    /** Mirrors the latest doubt-placement drag locally until the next authoritative snapshot arrives. */
     private fun applyOptimisticDoubtMove(requestedSlotIndex: Int) {
         val turn = state.turn ?: return
         val doubt = state.doubt ?: return

@@ -14,6 +14,11 @@ data class PlacementValidation(
 )
 
 class TimelinePlacementValidator {
+    /**
+     * Validates a requested insertion slot against the neighboring revealed years around that slot.
+     *
+     * The returned slot is always normalized into the valid insertion range, even when the request was out of bounds.
+     */
     fun validate(
         timeline: List<PlaylistEntry>,
         entry: PlaylistEntry,
@@ -33,6 +38,7 @@ class TimelinePlacementValidator {
         )
     }
 
+    /** Clamps an arbitrary UI-requested slot into the legal insertion range for the current timeline size. */
     fun snapSlot(slotCount: Int, requestedSlotIndex: Int): Int {
         return requestedSlotIndex.coerceIn(0, slotCount)
     }

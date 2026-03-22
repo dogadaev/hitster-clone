@@ -23,6 +23,11 @@ object UiBootstrapper {
     private const val idAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
     private const val maxDisplayNameLength = 24
 
+    /**
+     * Creates the host-side controller with a fresh shuffled playlist and the local host identity already attached.
+     *
+     * Supplying an explicit [shuffleSeed] keeps tests deterministic without affecting real sessions.
+     */
     fun createHostedMatchController(
         playbackController: PlaybackController = NoOpPlaybackController(),
         hostDisplayName: String = "Host Player",
@@ -52,6 +57,11 @@ object UiBootstrapper {
         )
     }
 
+    /**
+     * Creates a guest controller bound to one discovered advertisement and immediately starts its join flow.
+     *
+     * The guest identity is intentionally injected so Android and web can preserve stable reconnect identities.
+     */
     fun createRemoteGuestController(
         advertisement: SessionAdvertisementDto,
         displayName: String = "Guest Player",
@@ -85,6 +95,7 @@ object UiBootstrapper {
         return controller
     }
 
+    /** Generates a compact id suffix for sessions and guest identities. */
     internal fun randomIdSuffix(random: Random = Random.Default): String =
         buildString(8) {
             repeat(8) {
@@ -92,8 +103,10 @@ object UiBootstrapper {
             }
         }
 
+    /** Produces a fresh per-session shuffle seed for real host lobbies. */
     internal fun nextShuffleSeed(random: Random = Random.Default): Long = random.nextLong()
 
+    /** Normalizes user-entered display names into a short single-line value suitable for transport and UI. */
     fun sanitizeDisplayName(raw: String): String {
         return raw
             .trim()
@@ -103,6 +116,7 @@ object UiBootstrapper {
             .take(maxDisplayNameLength)
     }
 
+    /** Loads the bundled playlist, falling back to a tiny curated deck if the resource is unavailable or malformed. */
     private fun loadEntries(): List<PlaylistEntry> {
         val sampleJson = UiBootstrapper::class.java.classLoader
             ?.getResourceAsStream(samplePlaylistResourcePath)
@@ -116,6 +130,7 @@ object UiBootstrapper {
         }
     }
 
+    /** Provides a minimal real-Spotify fallback deck so local development stays playable without the bundled resource. */
     private fun fallbackEntries(): List<PlaylistEntry> {
         return listOf(
             fallbackEntry("fallback-1", "Take On Me", "a-ha", 1985, "spotify:track:2WfaOiMkCvy7F5fcp2zZ8L"),
@@ -134,6 +149,7 @@ object UiBootstrapper {
         )
     }
 
+    /** Builds one fallback entry with a real Spotify URI so playback flows still exercise the platform bridge. */
     private fun fallbackEntry(
         id: String,
         title: String,

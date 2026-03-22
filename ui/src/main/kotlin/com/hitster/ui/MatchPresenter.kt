@@ -71,6 +71,7 @@ class MatchPresenter(
         )
     }
 
+    /** Starts the authoritative match once the lobby has enough players and host playback is ready. */
     override fun startMatch() {
         if (!canStartLobbyMatch()) {
             lastError = "At least one guest must join before starting."
@@ -83,6 +84,7 @@ class MatchPresenter(
         dispatch(GameCommand.StartGame(actorId = hostId))
     }
 
+    /** Attempts to prepare host playback from the lobby and surfaces any platform issue to the UI. */
     override fun prepareHostPlayback() {
         when (val playbackResult = playbackController.prepareSession()) {
             is PlaybackCommandResult.Success -> {
@@ -96,42 +98,52 @@ class MatchPresenter(
         }
     }
 
+    /** Draws a card as the local actor. */
     override fun drawCard() {
         drawCardAs(localPlayerId)
     }
 
+    /** Requests a redraw as the local actor. */
     override fun redrawCard() {
         redrawCardAs(localPlayerId)
     }
 
+    /** Toggles the local actor's doubt state. */
     override fun toggleDoubt() {
         toggleDoubtAs(localPlayerId)
     }
 
+    /** Moves the local actor's pending card to a requested slot. */
     override fun movePendingCard(requestedSlotIndex: Int) {
         movePendingCardAs(localPlayerId, requestedSlotIndex)
     }
 
+    /** Moves the local actor's doubt placement card to a requested slot. */
     override fun moveDoubtCard(requestedSlotIndex: Int) {
         moveDoubtCardAs(localPlayerId, requestedSlotIndex)
     }
 
+    /** Applies a host coin adjustment on behalf of the local actor. */
     override fun adjustPlayerCoins(playerId: PlayerId, delta: Int) {
         adjustPlayerCoinsAs(localPlayerId, playerId, delta)
     }
 
+    /** Completes the current local actor step, which may be a normal turn or a doubt placement. */
     override fun endTurn() {
         endTurnAs(localPlayerId)
     }
 
+    /** Host-side helper used by automation and tests to draw for an arbitrary actor. */
     internal fun drawCardAs(actorId: PlayerId) {
         dispatch(GameCommand.DrawCard(actorId = actorId))
     }
 
+    /** Host-side helper used by automation and tests to redraw for an arbitrary actor. */
     internal fun redrawCardAs(actorId: PlayerId) {
         dispatch(GameCommand.RedrawCard(actorId = actorId))
     }
 
+    /** Host-side helper used by automation and tests to move an arbitrary actor's pending card. */
     internal fun movePendingCardAs(
         actorId: PlayerId,
         requestedSlotIndex: Int,
@@ -144,10 +156,12 @@ class MatchPresenter(
         )
     }
 
+    /** Host-side helper used by automation and tests to arm or clear doubt for an arbitrary actor. */
     internal fun toggleDoubtAs(actorId: PlayerId) {
         dispatch(GameCommand.ToggleDoubt(actorId = actorId))
     }
 
+    /** Host-side helper used by automation and tests to move an arbitrary actor's doubt card. */
     internal fun moveDoubtCardAs(
         actorId: PlayerId,
         requestedSlotIndex: Int,
@@ -160,6 +174,7 @@ class MatchPresenter(
         )
     }
 
+    /** Host-side helper used by automation and tests to modify any player's coin count. */
     internal fun adjustPlayerCoinsAs(
         actorId: PlayerId,
         playerId: PlayerId,
@@ -174,10 +189,12 @@ class MatchPresenter(
         )
     }
 
+    /** Host-side helper used by automation and tests to end a step for an arbitrary actor. */
     internal fun endTurnAs(actorId: PlayerId) {
         dispatch(GameCommand.EndTurn(actorId = actorId))
     }
 
+    /** Returns `true` only when the host lobby must still block match start on playback readiness. */
     override fun requiresHostPlaybackPairing(): Boolean {
         if (!isLocalHost || state.status != MatchStatus.LOBBY) {
             return false
@@ -186,12 +203,14 @@ class MatchPresenter(
             playbackSessionState !is PlaybackSessionState.Playing
     }
 
+    /** Returns `true` when the local host is in the lobby and at least one guest has joined. */
     override fun canStartLobbyMatch(): Boolean {
         return isLocalHost &&
             state.status == MatchStatus.LOBBY &&
             state.players.size > 1
     }
 
+    /** Converts transport DTO commands back into reducer commands on the authoritative host. */
     fun handleRemoteCommand(command: ClientCommandDto) {
         when (command) {
             is ClientCommandDto.JoinSession -> {
@@ -253,6 +272,7 @@ class MatchPresenter(
         }
     }
 
+    /** Removes a lobby guest when their transport disconnects before the match has started. */
     fun handleRemoteDisconnect(actorId: String) {
         val playerId = PlayerId(actorId)
         val shouldRemove = synchronized(stateLock) {
@@ -266,6 +286,7 @@ class MatchPresenter(
         dispatch(GameCommand.LeaveSession(playerId))
     }
 
+    /** Runs one authoritative reducer step and applies any resulting playback or snapshot side effects. */
     private fun dispatch(command: GameCommand) {
         synchronized(stateLock) {
             when (val result = reducer.reduce(state, command)) {
@@ -283,6 +304,7 @@ class MatchPresenter(
         }
     }
 
+    /** Executes reducer-emitted side effects after the new state has already been committed. */
     private fun applyEffects(effects: List<GameEffect>) {
         effects.forEach { effect ->
             when (effect) {
@@ -309,6 +331,7 @@ class MatchPresenter(
     }
 }
 
+/** Resolves the actor id carried by any reducer command so rejection callbacks can target the right client. */
 private fun GameCommand.actorId(): PlayerId {
     return when (this) {
         is GameCommand.JoinSession -> playerId
