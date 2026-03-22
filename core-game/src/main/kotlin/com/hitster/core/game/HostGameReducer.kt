@@ -1,5 +1,9 @@
 package com.hitster.core.game
 
+/**
+ * Applies the full host-authoritative match rule set, including turn flow, doubts, redraws, scoring, and snapshot publication.
+ */
+
 import com.hitster.core.model.GameState
 import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.DeckState

@@ -1,5 +1,9 @@
 package com.hitster.networking
 
+/**
+ * Explicit JSON encoding and decoding helpers for browser-safe transport payloads.
+ */
+
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.buildJsonObject

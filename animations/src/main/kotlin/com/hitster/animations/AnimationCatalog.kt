@@ -1,5 +1,9 @@
 package com.hitster.animations
 
+/**
+ * Animation timing and easing presets shared across the UI so motion stays consistent between screens and feedback states.
+ */
+
 data class AnimationSpec(
     val durationMillis: Long,
     val easing: String,

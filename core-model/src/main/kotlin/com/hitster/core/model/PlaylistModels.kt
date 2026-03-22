@@ -1,5 +1,9 @@
 package com.hitster.core.model
 
+/**
+ * Domain models for playable music catalog entries and their playback references.
+ */
+
 data class PlaybackReference(
     val spotifyUri: String,
     val previewUrl: String? = null,
@@ -20,4 +24,3 @@ data class PlaylistCatalog(
     val name: String,
     val entries: List<PlaylistEntry>,
 )
-

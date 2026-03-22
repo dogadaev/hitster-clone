@@ -1,5 +1,9 @@
 package com.hitster.platform.android
 
+/**
+ * Publishes the Android host over mDNS so guests can discover the phone-hosted web join endpoint on the LAN.
+ */
+
 import javax.jmdns.JmDNS
 import javax.jmdns.ServiceInfo
 import java.net.InetAddress

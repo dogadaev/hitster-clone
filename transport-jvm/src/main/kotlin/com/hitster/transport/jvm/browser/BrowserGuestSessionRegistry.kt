@@ -1,5 +1,9 @@
 package com.hitster.transport.jvm.browser
 
+/**
+ * Stateful registry that tracks browser guest proxy sessions and relays them to the authoritative host connection.
+ */
+
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.encodeClientCommandPayload
 import io.ktor.client.HttpClient

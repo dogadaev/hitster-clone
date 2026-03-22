@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * Suppresses brief discovery flicker so transient LAN hiccups do not clear the visible host list immediately.
+ */
+
 import com.hitster.networking.SessionAdvertisementDto
 
 internal class HostDiscoverySnapshotSmoother(

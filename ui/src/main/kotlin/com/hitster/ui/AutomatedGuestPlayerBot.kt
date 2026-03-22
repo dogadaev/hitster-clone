@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Temporary isolated guest bot used for local testing when a second real player is not connected.
+ */
+
 import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.PlayerId
 import com.hitster.core.model.PlayerState

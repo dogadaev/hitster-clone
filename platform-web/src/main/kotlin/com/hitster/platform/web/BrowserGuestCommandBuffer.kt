@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * Coalesces browser guest commands so drag traffic stays ordered and lightweight over the HTTP proxy transport.
+ */
+
 import com.hitster.networking.ClientCommandDto
 
 internal enum class BrowserGuestCommandKind {

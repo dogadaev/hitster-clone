@@ -1,5 +1,9 @@
 package com.hitster.core.model
 
+/**
+ * Regression coverage for DeckState, keeping the documented behavior of this module stable as gameplay and transport code evolve.
+ */
+
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -39,4 +43,3 @@ class DeckStateTest {
         )
     }
 }
-

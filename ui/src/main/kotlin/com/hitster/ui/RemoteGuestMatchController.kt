@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Guest-side controller that applies authoritative snapshots from the host while providing optimistic local drag feedback.
+ */
+
 import com.hitster.core.model.DeckState
 import com.hitster.core.model.GameState
 import com.hitster.core.model.MatchStatus

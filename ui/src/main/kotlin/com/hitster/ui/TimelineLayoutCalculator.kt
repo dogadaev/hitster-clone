@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Shared timeline spacing and compression math used by the main timeline and the doubt popup timeline.
+ */
+
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min

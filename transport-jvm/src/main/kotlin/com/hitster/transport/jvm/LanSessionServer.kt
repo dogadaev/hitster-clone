@@ -1,5 +1,9 @@
 package com.hitster.transport.jvm
 
+/**
+ * Authoritative LAN websocket server that accepts guest commands and broadcasts snapshots from the Android host.
+ */
+
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.HostCommandListener
 import com.hitster.networking.HostEventDto

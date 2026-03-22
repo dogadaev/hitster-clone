@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Regression coverage for RemoteGuestMatchController, keeping the documented behavior of this module stable as gameplay and transport code evolve.
+ */
+
 import com.hitster.core.model.DeckState
 import com.hitster.core.model.DoubtPhase
 import com.hitster.core.model.DoubtState

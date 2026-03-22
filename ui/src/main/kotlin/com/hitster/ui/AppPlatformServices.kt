@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Platform abstraction layer that the shared libGDX application uses to create host or guest controllers and platform helpers.
+ */
+
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.graphics.Texture

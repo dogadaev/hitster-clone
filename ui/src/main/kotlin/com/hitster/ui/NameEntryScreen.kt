@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Pre-lobby screen that captures a player name before they host or join a session.
+ */
+
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.ScreenAdapter

@@ -1,5 +1,9 @@
 package com.hitster.platform.android
 
+/**
+ * Android entry activity that boots the libGDX app, immersive presentation, and Spotify authorization handoff.
+ */
+
 import android.content.Intent
 import android.os.Bundle
 import android.os.Build

@@ -1,5 +1,9 @@
 package com.hitster.transport.jvm.browser
 
+/**
+ * HTTP API DTOs for browser guest session startup, polling, command forwarding, and closure.
+ */
+
 import kotlinx.serialization.Serializable
 
 @Serializable

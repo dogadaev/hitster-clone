@@ -1,5 +1,9 @@
 package com.hitster.core.game
 
+/**
+ * Authoritative commands accepted by the host reducer and the side effects emitted when those commands change match state.
+ */
+
 import com.hitster.core.model.GameState
 import com.hitster.core.model.PlaybackReference
 import com.hitster.core.model.PlayerId

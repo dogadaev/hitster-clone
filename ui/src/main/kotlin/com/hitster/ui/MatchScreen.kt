@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Main libGDX renderer and input handler for the landscape gameplay, lobby, doubt popup, and animated match presentation.
+ */
+
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.ScreenAdapter

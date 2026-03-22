@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * Polls the local helper API for advertised Android hosts and exposes a smoothed list to the guest discovery screen.
+ */
+
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.networking.protocolJson
 import com.hitster.ui.HostDiscoveryService

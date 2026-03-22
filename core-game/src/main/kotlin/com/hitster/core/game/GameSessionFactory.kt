@@ -1,5 +1,9 @@
 package com.hitster.core.game
 
+/**
+ * Creates the initial host-owned game session with shuffled deck state and the minimal player roster required by the reducer.
+ */
+
 import com.hitster.core.model.DeckState
 import com.hitster.core.model.GameState
 import com.hitster.core.model.PlayerId
@@ -32,4 +36,3 @@ object GameSessionFactory {
         )
     }
 }
-

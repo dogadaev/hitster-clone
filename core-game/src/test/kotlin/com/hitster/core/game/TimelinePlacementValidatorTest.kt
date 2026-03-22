@@ -1,5 +1,9 @@
 package com.hitster.core.game
 
+/**
+ * Regression coverage for TimelinePlacementValidator, keeping the documented behavior of this module stable as gameplay and transport code evolve.
+ */
+
 import com.hitster.core.model.PlaybackReference
 import com.hitster.core.model.PlaylistEntry
 import kotlin.test.Test
@@ -51,4 +55,3 @@ class TimelinePlacementValidatorTest {
         )
     }
 }
-

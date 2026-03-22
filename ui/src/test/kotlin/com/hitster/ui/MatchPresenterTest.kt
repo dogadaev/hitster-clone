@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Regression coverage for MatchPresenter, keeping the documented behavior of this module stable as gameplay and transport code evolve.
+ */
+
 import com.hitster.core.game.GameCommand
 import com.hitster.core.game.GameSessionFactory
 import com.hitster.core.game.HostGameReducer

@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Thin host-side controller wrapper that exposes the authoritative presenter through the shared match controller API.
+ */
+
 import com.hitster.networking.HostEventDto
 
 class HostedMatchController(

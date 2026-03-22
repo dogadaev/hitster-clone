@@ -1,5 +1,9 @@
 package com.hitster.networking
 
+/**
+ * Regression coverage for ProtocolJson, keeping the documented behavior of this module stable as gameplay and transport code evolve.
+ */
+
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs

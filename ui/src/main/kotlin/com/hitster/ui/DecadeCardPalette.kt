@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Maps release decades to card color treatments so revealed cards visually resemble the tabletop game.
+ */
+
 internal data class DecadeCardPalette(
     val topColor: Long,
     val bottomColor: Long,

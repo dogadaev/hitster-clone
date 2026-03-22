@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * TeaVM bridge for the browser-native name prompt used before a guest joins the lobby.
+ */
+
 import org.teavm.jso.JSBody
 
 @JSBody(

@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * Patches the generated TeaVM shell so mobile browsers get the viewport, touch, wake, and safe-area behavior the game expects.
+ */
+
 internal object WebIndexHtmlPatcher {
     private const val viewportMeta = """<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">"""
 

@@ -417,6 +417,7 @@ Prefer code that is:
 - easy to test
 - easy to extend
 - easy to refactor
+- documented with concise KDoc or comments on public surfaces and non-obvious orchestration paths, focusing on intent and invariants rather than restating obvious syntax
 
 ## Testing Expectations
 At minimum, add tests for:

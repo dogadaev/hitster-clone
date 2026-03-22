@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * Stores stable browser guest identity data so reconnects reuse the same player and display name.
+ */
+
 import com.hitster.core.model.PlayerId
 import org.teavm.jso.browser.Window
 

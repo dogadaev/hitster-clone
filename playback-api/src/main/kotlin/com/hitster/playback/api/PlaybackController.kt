@@ -1,5 +1,9 @@
 package com.hitster.playback.api
 
+/**
+ * Shared playback boundary that keeps the core match flow independent from Spotify SDK classes and platform lifecycles.
+ */
+
 import com.hitster.core.model.PlaybackReference
 
 interface PlaybackController {

@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Top-level libGDX application coordinator that switches between entry screens and active match screens.
+ */
+
 import com.badlogic.gdx.Game
 import com.hitster.animations.AnimationCatalog
 import com.hitster.playback.api.NoOpPlaybackController

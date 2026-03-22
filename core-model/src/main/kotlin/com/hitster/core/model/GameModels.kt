@@ -1,5 +1,9 @@
 package com.hitster.core.model
 
+/**
+ * Shared immutable match-state models that are synchronized between the authoritative host and every client view.
+ */
+
 enum class MatchStatus {
     LOBBY,
     ACTIVE,

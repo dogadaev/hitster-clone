@@ -1,5 +1,9 @@
 package com.hitster.platform.android
 
+/**
+ * Embeds the guest web build into the Android host so browsers on the LAN can join without a separate helper machine.
+ */
+
 import android.content.Context
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.transport.jvm.browser.BrowserGuestSessionRegistry

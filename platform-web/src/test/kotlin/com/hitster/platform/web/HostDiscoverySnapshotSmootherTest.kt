@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * Regression coverage for HostDiscoverySnapshotSmoother, keeping the documented behavior of this module stable as gameplay and transport code evolve.
+ */
+
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.networking.TransportModeDto
 import kotlin.test.Test

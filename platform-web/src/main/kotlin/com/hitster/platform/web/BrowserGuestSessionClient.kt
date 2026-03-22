@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * Browser-side guest transport that talks to the local HTTP proxy, handles reconnects, and streams host snapshots into the shared UI.
+ */
+
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.HostEventDto
 import com.hitster.networking.SessionAdvertisementDto

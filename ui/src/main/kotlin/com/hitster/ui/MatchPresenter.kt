@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Orchestrates reducer state, playback side effects, snapshot publication, and host-side command handling for a local player.
+ */
+
 import com.hitster.core.game.GameCommand
 import com.hitster.core.game.GameEffect
 import com.hitster.core.game.HostGameReducer

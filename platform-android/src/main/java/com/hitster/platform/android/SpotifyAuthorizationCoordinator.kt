@@ -1,5 +1,9 @@
 package com.hitster.platform.android
 
+/**
+ * Runs the explicit Android Spotify authorization flow before the app connects the App Remote session.
+ */
+
 import android.app.Activity
 import android.content.Intent
 import com.hitster.playback.api.PlaybackIssue

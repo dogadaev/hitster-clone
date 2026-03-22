@@ -1,5 +1,9 @@
 package com.hitster.networking
 
+/**
+ * Transport DTOs and mapping helpers shared by Android hosts, Android guests, and browser guests.
+ */
+
 import com.hitster.core.model.GameState
 import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.DeckState

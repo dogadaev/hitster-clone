@@ -1,5 +1,9 @@
 package com.hitster.transport.jvm
 
+/**
+ * JVM guest websocket client used by Android guests and internal browser proxies to talk to the host session.
+ */
+
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.ClientEventListener
 import com.hitster.networking.HostEventDto

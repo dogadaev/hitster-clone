@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * Regression coverage for WebIndexHtmlPatcher, keeping the documented behavior of this module stable as gameplay and transport code evolve.
+ */
+
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals

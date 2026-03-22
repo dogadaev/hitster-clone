@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Entry screen that lets the user choose whether this device will host or join as a guest.
+ */
+
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.ScreenAdapter

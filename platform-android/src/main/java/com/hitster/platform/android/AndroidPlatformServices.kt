@@ -1,5 +1,9 @@
 package com.hitster.platform.android
 
+/**
+ * Android composition root that wires libGDX UI flows to LAN hosting, playback, QR generation, and local web serving.
+ */
+
 import android.content.Context
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.HostEventDto

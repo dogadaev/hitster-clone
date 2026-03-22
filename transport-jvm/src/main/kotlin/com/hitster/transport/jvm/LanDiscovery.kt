@@ -1,5 +1,9 @@
 package com.hitster.transport.jvm
 
+/**
+ * LAN discovery announcer and browser used by Android hosts and guests to find local sessions.
+ */
+
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.networking.protocolJson
 import kotlinx.coroutines.CoroutineScope

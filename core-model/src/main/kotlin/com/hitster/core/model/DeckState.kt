@@ -1,5 +1,9 @@
 package com.hitster.core.model
 
+/**
+ * Immutable deck operations used by the host to draw, shuffle, and track the remaining playlist entries.
+ */
+
 import kotlin.random.Random
 
 data class DeckState(
@@ -28,4 +32,3 @@ data class DeckDraw(
     val card: PlaylistEntry,
     val nextDeck: DeckState,
 )
-

@@ -1,5 +1,9 @@
 package com.hitster.core.game
 
+/**
+ * Pure timeline placement calculations used to snap hidden cards to valid slots and validate chronological guesses.
+ */
+
 import com.hitster.core.model.PlaylistEntry
 
 data class PlacementValidation(
@@ -33,4 +37,3 @@ class TimelinePlacementValidator {
         return requestedSlotIndex.coerceIn(0, slotCount)
     }
 }
-

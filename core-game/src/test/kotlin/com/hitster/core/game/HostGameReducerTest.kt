@@ -1,5 +1,9 @@
 package com.hitster.core.game
 
+/**
+ * Regression coverage for HostGameReducer, keeping the documented behavior of this module stable as gameplay and transport code evolve.
+ */
+
 import com.hitster.core.model.GameState
 import com.hitster.core.model.DoubtPhase
 import com.hitster.core.model.MatchStatus

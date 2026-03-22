@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Builds hosted and guest controllers from platform services, bundled playlist data, and stable player identity inputs.
+ */
+
 import com.hitster.core.game.GameSessionFactory
 import com.hitster.core.game.HostGameReducer
 import com.hitster.core.model.PlaybackReference

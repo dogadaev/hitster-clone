@@ -1,5 +1,9 @@
 package com.hitster.platform.android
 
+/**
+ * Playback API adapter that forwards shared playback requests into the Android Spotify integration.
+ */
+
 import android.content.Intent
 import com.hitster.core.model.PlaybackReference
 import com.hitster.playback.api.PlaybackCommandResult

@@ -1,5 +1,9 @@
 package com.hitster.transport.jvm.browser
 
+/**
+ * Ktor route installation for the browser guest session API exposed by desktop and Android-hosted web servers.
+ */
+
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.networking.protocolJson
 import io.ktor.http.ContentType

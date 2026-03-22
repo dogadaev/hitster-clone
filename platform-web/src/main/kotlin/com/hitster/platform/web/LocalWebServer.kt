@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * Development helper server that serves the browser guest build, host discovery API, and proxy routes from the desktop environment.
+ */
+
 import com.hitster.networking.protocolJson
 import com.hitster.transport.jvm.LanHostDiscoveryListener
 import com.hitster.transport.jvm.browser.BrowserGuestSessionRegistry

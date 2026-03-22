@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Transient screen shown while a guest waits for the authoritative host snapshot that confirms the join.
+ */
+
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.ScreenAdapter

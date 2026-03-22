@@ -1,5 +1,9 @@
 package com.hitster.playlist.data
 
+/**
+ * Validates playlist JSON and turns it into strongly typed catalog entries with user-facing validation errors.
+ */
+
 import com.hitster.core.model.PlaybackReference
 import com.hitster.core.model.PlaylistCatalog
 import com.hitster.core.model.PlaylistEntry

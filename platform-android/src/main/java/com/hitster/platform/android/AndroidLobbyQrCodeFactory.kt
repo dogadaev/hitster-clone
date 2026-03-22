@@ -1,5 +1,9 @@
 package com.hitster.platform.android
 
+/**
+ * Builds the host-lobby QR texture that points guests at the phone-hosted raw-IP join URL.
+ */
+
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.Texture.TextureFilter

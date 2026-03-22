@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Creates the shared high-resolution UI font used across gameplay and entry screens.
+ */
+
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.BitmapFont

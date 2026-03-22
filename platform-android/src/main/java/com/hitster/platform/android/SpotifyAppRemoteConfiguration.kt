@@ -1,5 +1,9 @@
 package com.hitster.platform.android
 
+/**
+ * Loads and validates local Spotify configuration values needed by the Android pairing flow.
+ */
+
 data class SpotifyAppRemoteConfiguration(
     val clientId: String,
     val redirectUri: String,

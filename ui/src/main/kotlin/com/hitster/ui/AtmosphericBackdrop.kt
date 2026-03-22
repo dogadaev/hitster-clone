@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Reusable animated background renderer that gives every screen a single coherent moving atmosphere instead of patched panels.
+ */
+
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Pixmap

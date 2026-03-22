@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * Proxy that bridges browser guest requests to the authoritative host transport without exposing the browser directly to the host websocket.
+ */
+
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession

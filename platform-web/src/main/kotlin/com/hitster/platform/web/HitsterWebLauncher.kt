@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * TeaVM launcher that boots the shared libGDX app into the browser with the current viewport sizing rules.
+ */
+
 import com.github.xpenatan.gdx.backends.teavm.TeaApplication
 import com.github.xpenatan.gdx.backends.teavm.TeaApplicationConfiguration
 import com.github.xpenatan.gdx.backends.teavm.TeaAssetPreloadListener

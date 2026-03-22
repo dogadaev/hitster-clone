@@ -1,5 +1,9 @@
 package com.hitster.platform.web
 
+/**
+ * Web-specific platform services used by the shared libGDX guest flow.
+ */
+
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.playback.api.PlaybackController

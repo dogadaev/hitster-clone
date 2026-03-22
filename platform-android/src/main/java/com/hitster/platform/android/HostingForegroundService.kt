@@ -1,5 +1,9 @@
 package com.hitster.platform.android
 
+/**
+ * Foreground service that keeps the Android host session and guest web server alive while the app is backgrounded.
+ */
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager

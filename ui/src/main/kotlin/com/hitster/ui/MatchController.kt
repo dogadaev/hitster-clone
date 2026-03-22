@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * UI-facing contract for match actions, shared state access, and platform-specific lobby details.
+ */
+
 import com.badlogic.gdx.graphics.Texture
 import com.hitster.core.model.GameState
 import com.hitster.core.model.PlayerId

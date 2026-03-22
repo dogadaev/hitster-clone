@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Shared font constants and post-processing helpers, including the glyph ranges required by the bundled playlists.
+ */
+
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator

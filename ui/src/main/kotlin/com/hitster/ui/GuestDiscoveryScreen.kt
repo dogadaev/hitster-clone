@@ -1,5 +1,9 @@
 package com.hitster.ui
 
+/**
+ * Browser and Android guest discovery UI for finding an Android host on the local network.
+ */
+
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.InputAdapter
 import com.badlogic.gdx.ScreenAdapter
