@@ -368,9 +368,10 @@ Organize the project into clear modules or packages such as:
 - ui
 - animations
 - platform-android
-- platform-ios
+- platform-web
 
 Keep rendering concerns separate from domain logic.
+Within broad modules such as `ui`, `platform-android`, and `platform-web`, prefer responsibility-based subfolders such as `screen`, `controller`, `theme`, `playback`, `host`, or `server` instead of letting those modules become flat file dumps.
 
 ## Code Style
 Code must be clean, readable, and consistent.
