@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.theme
 
 /**
  * Creates the shared high-resolution UI font used across gameplay and entry screens.

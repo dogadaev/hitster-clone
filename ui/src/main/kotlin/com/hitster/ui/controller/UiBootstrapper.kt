@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.controller
 
 /**
  * Builds hosted and guest controllers from platform services, bundled playlist data, and stable player identity inputs.
@@ -15,6 +15,7 @@ import com.hitster.playback.api.NoOpPlaybackController
 import com.hitster.playback.api.PlaybackController
 import com.hitster.playlist.data.PlaylistParseResult
 import com.hitster.playlist.data.PlaylistParser
+import com.hitster.ui.threading.runOnGameThread
 import kotlin.random.Random
 
 object UiBootstrapper {

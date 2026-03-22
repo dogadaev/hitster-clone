@@ -1,4 +1,4 @@
-package com.hitster.platform.android
+package com.hitster.platform.android.host
 
 /**
  * Foreground service that keeps the Android host session and guest web server alive while the app is backgrounded.
@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.hitster.platform.android.R
 
 class HostingForegroundService : Service() {
     private var wifiLock: WifiManager.WifiLock? = null

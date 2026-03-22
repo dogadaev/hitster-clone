@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.resource
 
 /**
  * Regression coverage for SamplePlaylistResource, keeping the documented behavior of this module stable as gameplay and transport code evolve.
@@ -6,6 +6,7 @@ package com.hitster.ui
 
 import com.hitster.playlist.data.PlaylistParseResult
 import com.hitster.playlist.data.PlaylistParser
+import com.hitster.ui.controller.UiBootstrapper
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

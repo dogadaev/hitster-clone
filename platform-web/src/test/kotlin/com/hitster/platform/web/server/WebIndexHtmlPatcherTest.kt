@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.server
 
 /**
  * Regression coverage for WebIndexHtmlPatcher, keeping the documented behavior of this module stable as gameplay and transport code evolve.

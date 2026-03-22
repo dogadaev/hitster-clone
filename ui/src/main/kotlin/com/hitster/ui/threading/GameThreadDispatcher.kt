@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.threading
 
 /**
  * Utility for marshaling platform and transport callbacks onto the libGDX render thread.

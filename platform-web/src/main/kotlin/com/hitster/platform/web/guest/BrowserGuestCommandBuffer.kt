@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.guest
 
 /**
  * Coalesces browser guest commands so drag traffic stays ordered and lightweight over the HTTP proxy transport.

@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.screen
 
 /**
  * Entry screen that lets the user choose whether this device will host or join as a guest.
@@ -17,6 +17,8 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.viewport.ExtendViewport
+import com.hitster.ui.render.AtmosphericBackdrop
+import com.hitster.ui.theme.createUiFont
 
 class RoleSelectionScreen(
     private val onHostSelected: () -> Unit,

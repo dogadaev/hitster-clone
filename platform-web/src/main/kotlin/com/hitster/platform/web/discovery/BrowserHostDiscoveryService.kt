@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.discovery
 
 /**
  * Polls the local helper API for advertised Android hosts and exposes a smoothed list to the guest discovery screen.
@@ -6,7 +6,7 @@ package com.hitster.platform.web
 
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.networking.protocolJson
-import com.hitster.ui.HostDiscoveryService
+import com.hitster.ui.controller.HostDiscoveryService
 import kotlinx.serialization.decodeFromString
 import org.teavm.jso.ajax.XMLHttpRequest
 import org.teavm.jso.browser.TimerHandler

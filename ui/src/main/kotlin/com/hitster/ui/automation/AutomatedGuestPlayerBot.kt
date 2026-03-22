@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.automation
 
 /**
  * Temporary isolated guest bot used for local testing when a second real player is not connected.
@@ -8,6 +8,7 @@ import com.hitster.core.model.MatchStatus
 import com.hitster.core.model.PlayerId
 import com.hitster.core.model.PlayerState
 import com.hitster.core.model.TurnPhase
+import com.hitster.ui.controller.MatchPresenter
 
 class AutomatedGuestPlayerBot(
     private val presenter: MatchPresenter,

@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.theme
 
 /**
  * Shared font constants and post-processing helpers, including the glyph ranges required by the bundled playlists.

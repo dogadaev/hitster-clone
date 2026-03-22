@@ -1,4 +1,4 @@
-package com.hitster.platform.android
+package com.hitster.platform.android.host
 
 /**
  * Embeds the guest web build into the Android host so browsers on the LAN can join without a separate helper machine.

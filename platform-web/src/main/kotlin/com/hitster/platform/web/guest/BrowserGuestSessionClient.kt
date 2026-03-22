@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.guest
 
 /**
  * Browser-side guest transport that talks to the local HTTP proxy, handles reconnects, and streams host snapshots into the shared UI.
@@ -14,7 +14,10 @@ import com.hitster.transport.jvm.browser.BrowserGuestSessionCommandRequest
 import com.hitster.transport.jvm.browser.BrowserGuestSessionPollResponse
 import com.hitster.transport.jvm.browser.BrowserGuestSessionStartRequest
 import com.hitster.transport.jvm.browser.BrowserGuestSessionStartResponse
-import com.hitster.ui.GuestSessionClient
+import com.hitster.platform.web.browser.clearGuestCloseUrl
+import com.hitster.platform.web.browser.ensureGuestCloseHookInstalled
+import com.hitster.platform.web.browser.registerGuestCloseUrl
+import com.hitster.ui.controller.GuestSessionClient
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import org.teavm.jso.ajax.XMLHttpRequest

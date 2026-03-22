@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.controller
 
 /**
  * Platform abstraction layer that the shared libGDX application uses to create host or guest controllers and platform helpers.

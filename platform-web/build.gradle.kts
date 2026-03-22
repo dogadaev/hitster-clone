@@ -9,7 +9,7 @@ kotlin {
 }
 
 application {
-    mainClass.set("com.hitster.platform.web.LocalWebServerKt")
+    mainClass.set("com.hitster.platform.web.server.LocalWebServerKt")
 }
 
 val gdxWebCompatVersion = "1.13.5"
@@ -38,7 +38,7 @@ val buildWebDist = tasks.register<JavaExec>("buildWebDist") {
     dependsOn("classes")
     group = "web"
     description = "Build the libGDX TeaVM web guest client."
-    mainClass.set("com.hitster.platform.web.BuildHitsterWeb")
+    mainClass.set("com.hitster.platform.web.tooling.BuildHitsterWeb")
     classpath = sourceSets["main"].runtimeClasspath
 }
 

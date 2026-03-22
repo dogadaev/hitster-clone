@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.integration
 
 /**
  * Web-specific platform services used by the shared libGDX guest flow.
@@ -7,11 +7,16 @@ package com.hitster.platform.web
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.playback.api.PlaybackController
-import com.hitster.ui.AppPlatformServices
-import com.hitster.ui.GuestSessionClient
-import com.hitster.ui.HostDiscoveryService
-import com.hitster.ui.MatchController
-import com.hitster.ui.UiBootstrapper
+import com.hitster.platform.web.browser.persistBrowserDisplayName
+import com.hitster.platform.web.browser.resolveBrowserGuestPlayerId
+import com.hitster.platform.web.browser.showBrowserNamePrompt
+import com.hitster.platform.web.discovery.BrowserHostDiscoveryService
+import com.hitster.platform.web.guest.BrowserGuestSessionClient
+import com.hitster.ui.controller.AppPlatformServices
+import com.hitster.ui.controller.GuestSessionClient
+import com.hitster.ui.controller.HostDiscoveryService
+import com.hitster.ui.controller.MatchController
+import com.hitster.ui.controller.UiBootstrapper
 
 class WebPlatformServices : AppPlatformServices {
     override val supportsHosting: Boolean = false

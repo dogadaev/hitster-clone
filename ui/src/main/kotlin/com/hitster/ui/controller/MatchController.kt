@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.controller
 
 /**
  * UI-facing contract for match actions, shared state access, and platform-specific lobby details.

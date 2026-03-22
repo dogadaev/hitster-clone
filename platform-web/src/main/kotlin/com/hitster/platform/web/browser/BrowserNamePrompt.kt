@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.browser
 
 /**
  * TeaVM bridge for the browser-native name prompt used before a guest joins the lobby.

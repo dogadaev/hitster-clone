@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.discovery
 
 /**
  * Regression coverage for HostDiscoverySnapshotSmoother, keeping the documented behavior of this module stable as gameplay and transport code evolve.

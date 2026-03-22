@@ -1,4 +1,4 @@
-package com.hitster.platform.android
+package com.hitster.platform.android.playback
 
 /**
  * Playback API adapter that forwards shared playback requests into the Android Spotify integration.

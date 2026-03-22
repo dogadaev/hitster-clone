@@ -1,4 +1,4 @@
-package com.hitster.platform.android
+package com.hitster.platform.android.host
 
 /**
  * Publishes the Android host over mDNS so guests can discover the phone-hosted web join endpoint on the LAN.

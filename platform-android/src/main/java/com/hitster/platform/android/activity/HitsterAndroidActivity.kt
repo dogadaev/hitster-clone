@@ -1,4 +1,4 @@
-package com.hitster.platform.android
+package com.hitster.platform.android.activity
 
 /**
  * Android entry activity that boots the libGDX app, immersive presentation, and Spotify authorization handoff.
@@ -14,7 +14,14 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.badlogic.gdx.backends.android.AndroidApplication
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration
-import com.hitster.ui.HitsterGameApp
+import com.hitster.platform.android.playback.AndroidPlaybackController
+import com.hitster.platform.android.playback.AndroidSpotifyBridge
+import com.hitster.platform.android.playback.SpotifyAppRemoteBridge
+import com.hitster.platform.android.playback.SpotifyAppRemoteConfigurationLoader
+import com.hitster.platform.android.playback.StubAndroidSpotifyBridge
+import com.hitster.platform.android.services.AndroidPlatformServices
+import com.hitster.platform.android.system.AndroidKeepScreenAwakeController
+import com.hitster.ui.app.HitsterGameApp
 
 class HitsterAndroidActivity : AndroidApplication() {
     private val tag = "HitsterSpotify"

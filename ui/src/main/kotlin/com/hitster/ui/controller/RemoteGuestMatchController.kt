@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.controller
 
 /**
  * Guest-side controller that applies authoritative snapshots from the host while providing optimistic local drag feedback.

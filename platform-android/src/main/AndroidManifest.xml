@@ -14,7 +14,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.HitsterClone">
         <activity
-            android:name=".HitsterAndroidActivity"
+            android:name=".activity.HitsterAndroidActivity"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize"
             android:exported="true"
             android:launchMode="singleTask"
@@ -36,7 +36,7 @@
             </intent-filter>
         </activity>
         <service
-            android:name=".HostingForegroundService"
+            android:name=".host.HostingForegroundService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
     </application>

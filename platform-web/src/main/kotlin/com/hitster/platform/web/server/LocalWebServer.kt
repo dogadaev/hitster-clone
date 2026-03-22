@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.server
 
 /**
  * Development helper server that serves the browser guest build, host discovery API, and proxy routes from the desktop environment.

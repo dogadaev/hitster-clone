@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.screen
 
 /**
  * Browser and Android guest discovery UI for finding an Android host on the local network.
@@ -18,6 +18,9 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.networking.SessionAdvertisementDto
+import com.hitster.ui.controller.HostDiscoveryService
+import com.hitster.ui.render.AtmosphericBackdrop
+import com.hitster.ui.theme.createUiFont
 
 class GuestDiscoveryScreen(
     private val discoveryService: HostDiscoveryService,

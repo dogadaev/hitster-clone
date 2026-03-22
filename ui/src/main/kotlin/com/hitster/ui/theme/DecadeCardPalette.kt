@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.theme
 
 /**
  * Maps release decades to card color treatments so revealed cards visually resemble the tabletop game.

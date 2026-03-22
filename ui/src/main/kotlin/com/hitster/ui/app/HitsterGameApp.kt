@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.app
 
 /**
  * Top-level libGDX application coordinator that switches between entry screens and active match screens.
@@ -8,6 +8,14 @@ import com.badlogic.gdx.Game
 import com.hitster.animations.AnimationCatalog
 import com.hitster.playback.api.NoOpPlaybackController
 import com.hitster.playback.api.PlaybackController
+import com.hitster.ui.controller.AppPlatformServices
+import com.hitster.ui.controller.MatchController
+import com.hitster.ui.controller.UiBootstrapper
+import com.hitster.ui.screen.GuestConnectingScreen
+import com.hitster.ui.screen.GuestDiscoveryScreen
+import com.hitster.ui.screen.MatchScreen
+import com.hitster.ui.screen.NameEntryScreen
+import com.hitster.ui.screen.RoleSelectionScreen
 
 class HitsterGameApp(
     playbackController: PlaybackController = NoOpPlaybackController(),

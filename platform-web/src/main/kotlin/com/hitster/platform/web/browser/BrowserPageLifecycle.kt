@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.browser
 
 /**
  * TeaVM bridges for page-lifecycle hooks so the browser can close guest sessions when the tab disappears.

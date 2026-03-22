@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.controller
 
 /**
  * Orchestrates reducer state, playback side effects, snapshot publication, and host-side command handling for a local player.

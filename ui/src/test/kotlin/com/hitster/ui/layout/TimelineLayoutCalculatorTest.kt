@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.layout
 
 /**
  * Regression coverage for TimelineLayoutCalculator, keeping the documented behavior of this module stable as gameplay and transport code evolve.

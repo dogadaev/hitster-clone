@@ -1,4 +1,6 @@
-package com.hitster.platform.android
+package com.hitster.platform.android.playback
+
+import com.hitster.platform.android.BuildConfig
 
 /**
  * Loads and validates local Spotify configuration values needed by the Android pairing flow.

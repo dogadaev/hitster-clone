@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.server
 
 /**
  * Patches the generated TeaVM shell so mobile browsers get the viewport, touch, wake, and safe-area behavior the game expects.

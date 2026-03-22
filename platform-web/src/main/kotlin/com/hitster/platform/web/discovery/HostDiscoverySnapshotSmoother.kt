@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.discovery
 
 /**
  * Suppresses brief discovery flicker so transient LAN hiccups do not clear the visible host list immediately.

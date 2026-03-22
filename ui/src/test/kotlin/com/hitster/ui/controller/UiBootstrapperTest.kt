@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.controller
 
 /**
  * Regression coverage for UiBootstrapper, keeping the documented behavior of this module stable as gameplay and transport code evolve.

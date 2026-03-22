@@ -1,4 +1,6 @@
-package com.hitster.ui
+package com.hitster.ui.automation
+
+import com.hitster.ui.controller.MatchPresenter
 
 /**
  * Regression coverage for AutomatedGuestPlayerBot, keeping the documented behavior of this module stable as gameplay and transport code evolve.

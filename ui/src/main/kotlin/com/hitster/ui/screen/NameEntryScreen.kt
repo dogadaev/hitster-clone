@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.screen
 
 /**
  * Pre-lobby screen that captures a player name before they host or join a session.
@@ -18,6 +18,9 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.Align
 import com.badlogic.gdx.utils.viewport.ExtendViewport
+import com.hitster.ui.controller.UiBootstrapper
+import com.hitster.ui.render.AtmosphericBackdrop
+import com.hitster.ui.theme.createUiFont
 
 class NameEntryScreen(
     initialName: String = "",

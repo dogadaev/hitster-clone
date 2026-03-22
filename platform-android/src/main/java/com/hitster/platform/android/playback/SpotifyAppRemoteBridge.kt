@@ -1,4 +1,4 @@
-package com.hitster.platform.android
+package com.hitster.platform.android.playback
 
 /**
  * Handles Spotify App Remote connection, playback control, and lifecycle-safe error reporting for the Android host.

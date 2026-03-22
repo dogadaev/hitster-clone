@@ -1,4 +1,4 @@
-package com.hitster.platform.android
+package com.hitster.platform.android.ui
 
 /**
  * Builds the host-lobby QR texture that points guests at the phone-hosted raw-IP join URL.

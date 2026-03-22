@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.tooling
 
 /**
  * Build-time entry point that compiles the shared libGDX guest client into a distributable TeaVM web bundle.
@@ -8,6 +8,8 @@ import com.github.xpenatan.gdx.backends.teavm.config.AssetFileHandle
 import com.github.xpenatan.gdx.backends.teavm.config.TeaBuildConfiguration
 import com.github.xpenatan.gdx.backends.teavm.config.TeaBuilder
 import com.github.xpenatan.gdx.backends.teavm.config.TeaTargetType
+import com.hitster.platform.web.launcher.HitsterWebLauncher
+import com.hitster.platform.web.server.WebIndexHtmlPatcher
 import org.teavm.tooling.TeaVMTool
 import org.teavm.vm.TeaVMOptimizationLevel
 import java.io.File

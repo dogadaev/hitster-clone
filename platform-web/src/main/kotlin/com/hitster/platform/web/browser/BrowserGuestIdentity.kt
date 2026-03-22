@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.browser
 
 /**
  * Stores stable browser guest identity data so reconnects reuse the same player and display name.

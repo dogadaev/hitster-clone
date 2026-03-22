@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.controller
 
 /**
  * Thin host-side controller wrapper that exposes the authoritative presenter through the shared match controller API.

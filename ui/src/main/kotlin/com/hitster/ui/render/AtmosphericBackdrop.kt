@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.render
 
 /**
  * Reusable animated background renderer that gives every screen a single coherent moving atmosphere instead of patched panels.

@@ -1,4 +1,4 @@
-package com.hitster.platform.android
+package com.hitster.platform.android.services
 
 /**
  * Android composition root that wires libGDX UI flows to LAN hosting, playback, QR generation, and local web serving.
@@ -10,18 +10,21 @@ import com.hitster.networking.HostEventDto
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.core.model.PlayerId
 import com.hitster.playback.api.PlaybackController
+import com.hitster.platform.android.host.AndroidGuestWebServer
+import com.hitster.platform.android.host.HostingForegroundService
+import com.hitster.platform.android.ui.AndroidLobbyQrCodeFactory
 import com.hitster.transport.jvm.DEFAULT_SESSION_SERVER_PORT
 import com.hitster.transport.jvm.LanHostDiscoveryAnnouncer
 import com.hitster.transport.jvm.LanHostDiscoveryListener
 import com.hitster.transport.jvm.LanSessionClient
 import com.hitster.transport.jvm.LanSessionServer
 import com.hitster.transport.jvm.resolveSiteLocalIpv4Address
-import com.hitster.ui.AppPlatformServices
-import com.hitster.ui.GuestSessionClient
-import com.hitster.ui.HostDiscoveryService
-import com.hitster.ui.HostedSessionTransport
-import com.hitster.ui.MatchController
-import com.hitster.ui.UiBootstrapper
+import com.hitster.ui.controller.AppPlatformServices
+import com.hitster.ui.controller.GuestSessionClient
+import com.hitster.ui.controller.HostDiscoveryService
+import com.hitster.ui.controller.HostedSessionTransport
+import com.hitster.ui.controller.MatchController
+import com.hitster.ui.controller.UiBootstrapper
 import java.util.UUID
 
 class AndroidPlatformServices(

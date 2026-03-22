@@ -1,4 +1,4 @@
-package com.hitster.platform.android
+package com.hitster.platform.android.system
 
 /**
  * Android-specific wake-lock bridge used to keep the host screen awake during active play.

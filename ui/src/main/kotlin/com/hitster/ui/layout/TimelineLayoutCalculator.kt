@@ -1,4 +1,4 @@
-package com.hitster.ui
+package com.hitster.ui.layout
 
 /**
  * Shared timeline spacing and compression math used by the main timeline and the doubt popup timeline.

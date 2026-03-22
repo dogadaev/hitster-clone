@@ -1,4 +1,4 @@
-package com.hitster.platform.web
+package com.hitster.platform.web.server
 
 /**
  * Proxy that bridges browser guest requests to the authoritative host transport without exposing the browser directly to the host websocket.
