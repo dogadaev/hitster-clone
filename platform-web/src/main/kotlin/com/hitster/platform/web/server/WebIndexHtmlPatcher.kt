@@ -342,6 +342,14 @@ internal object WebIndexHtmlPatcher {
                   wakeFallbackVideo.id = "hitster-wake-video";
                   wakeFallbackVideo.setAttribute("title", "No Sleep");
                   wakeFallbackVideo.setAttribute("playsinline", "");
+                  wakeFallbackVideo.setAttribute("webkit-playsinline", "");
+                  wakeFallbackVideo.setAttribute("preload", "auto");
+                  wakeFallbackVideo.setAttribute("muted", "");
+                  wakeFallbackVideo.defaultMuted = true;
+                  wakeFallbackVideo.muted = true;
+                  wakeFallbackVideo.volume = 0;
+                  wakeFallbackVideo.disableRemotePlayback = true;
+                  wakeFallbackVideo.setAttribute("disableremoteplayback", "");
                   appendWakeSource(wakeFallbackVideo, "webm", "${wakeLockFallbackWebmDataUri}");
                   appendWakeSource(wakeFallbackVideo, "mp4", "${wakeLockFallbackMp4DataUri}");
                   function updateMediaDetail(type) {
@@ -381,11 +389,13 @@ internal object WebIndexHtmlPatcher {
                       updateMediaDetail("timeupdate");
                     });
                   });
-                  ["play", "playing", "pause", "waiting", "stalled", "suspend", "abort", "ended", "canplay", "canplaythrough", "loadeddata"].forEach(function(type) {
-                    wakeFallbackVideo.addEventListener(type, function() {
-                      updateMediaDetail(type);
+                  if (wakeDebugEnabled) {
+                    ["play", "playing", "pause", "waiting", "stalled", "suspend", "abort", "ended", "canplay", "canplaythrough", "loadeddata"].forEach(function(type) {
+                      wakeFallbackVideo.addEventListener(type, function() {
+                        updateMediaDetail(type);
+                      });
                     });
-                  });
+                  }
                   wakeFallbackVideo.addEventListener("error", function() {
                     wakeState.media = "error";
                     var mediaError = wakeFallbackVideo.error;
