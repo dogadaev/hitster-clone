@@ -207,6 +207,7 @@ internal object WebIndexHtmlPatcher {
                 mode: "idle",
                 enabled: false,
                 attempts: 0,
+                media: "none",
                 lastError: "none",
                 lastGesture: "never",
                 lastEnable: "never",
@@ -251,6 +252,7 @@ internal object WebIndexHtmlPatcher {
                   "visible " + (!document.hidden ? "yes" : "no") + " secure " + (window.isSecureContext ? "yes" : "no"),
                   "native " + (supportsNativeWakeLockApi() ? "yes" : "no") + " fullscreen " + (isFullscreenActive() ? "yes" : "no"),
                   "standalone " + (isStandaloneMode() ? "yes" : "no"),
+                  "media " + wakeState.media,
                   "gesture " + wakeState.lastGesture,
                   "enable " + wakeState.lastEnable,
                   "release " + wakeState.lastRelease,
@@ -520,12 +522,26 @@ internal object WebIndexHtmlPatcher {
                   wakeFallbackVideo.setAttribute("playsinline", "");
                   wakeFallbackVideo.setAttribute("webkit-playsinline", "");
                   wakeFallbackVideo.setAttribute("muted", "");
+                  wakeFallbackVideo.setAttribute("autoplay", "");
+                  wakeFallbackVideo.setAttribute("loop", "");
+                  wakeFallbackVideo.setAttribute("aria-hidden", "true");
                   wakeFallbackVideo.setAttribute("disableRemotePlayback", "");
                   wakeFallbackVideo.setAttribute("x-webkit-airplay", "deny");
                   wakeFallbackVideo.preload = "auto";
                   wakeFallbackVideo.defaultMuted = true;
                   wakeFallbackVideo.muted = true;
+                  wakeFallbackVideo.autoplay = true;
+                  wakeFallbackVideo.loop = true;
+                  wakeFallbackVideo.volume = 0;
                   wakeFallbackVideo.playsInline = true;
+                  wakeFallbackVideo.style.position = "fixed";
+                  wakeFallbackVideo.style.width = "1px";
+                  wakeFallbackVideo.style.height = "1px";
+                  wakeFallbackVideo.style.left = "-10px";
+                  wakeFallbackVideo.style.bottom = "-10px";
+                  wakeFallbackVideo.style.opacity = "0.001";
+                  wakeFallbackVideo.style.pointerEvents = "none";
+                  wakeFallbackVideo.style.zIndex = "-1";
                   if (typeof wakeFallbackVideo.disableRemotePlayback !== "undefined") {
                     wakeFallbackVideo.disableRemotePlayback = true;
                   }
@@ -547,6 +563,23 @@ internal object WebIndexHtmlPatcher {
                       }
                     });
                   });
+                  ["playing", "pause", "waiting", "stalled", "suspend", "abort", "ended"].forEach(function(type) {
+                    wakeFallbackVideo.addEventListener(type, function() {
+                      wakeState.media = type;
+                      updateWakeDebug();
+                    });
+                  });
+                  wakeFallbackVideo.addEventListener("error", function() {
+                    wakeState.media = "error";
+                    var mediaError = wakeFallbackVideo.error;
+                    if (mediaError && mediaError.code) {
+                      wakeState.lastError = "MediaError code " + mediaError.code;
+                    }
+                    updateWakeDebug();
+                  });
+                  if (!wakeFallbackVideo.parentNode && document.body) {
+                    document.body.appendChild(wakeFallbackVideo);
+                  }
                   wakeFallbackVideo.load();
                   return wakeFallbackVideo;
                 }
@@ -608,6 +641,8 @@ internal object WebIndexHtmlPatcher {
                       return Promise.resolve();
                     }
                     wakeState.mode = "video-fallback";
+                    wakeState.media = "starting";
+                    updateWakeDebug();
                     var wakeVideo = ensureWakeFallbackVideo();
                     var playPromise = wakeVideo.play();
                     return Promise.resolve(playPromise).then(function(result) {
@@ -829,7 +864,7 @@ internal object WebIndexHtmlPatcher {
                 }
               }, { passive: true });
               window.setInterval(function() {
-                if (shouldKeepScreenAwake && wakeActivationReceived && !document.hidden && !wakeController.isEnabled()) {
+                if (shouldKeepScreenAwake && wakeActivationReceived && !document.hidden && !wakeController.isEnabled() && wakeState.mode !== "video-fallback") {
                   requestWakeLock();
                 }
               }, 15000);
