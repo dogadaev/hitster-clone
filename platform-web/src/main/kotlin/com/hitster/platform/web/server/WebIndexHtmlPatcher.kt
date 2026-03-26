@@ -12,8 +12,7 @@ internal object WebIndexHtmlPatcher {
         <meta name="apple-mobile-web-app-title" content="Hitster Clone">
         <meta name="mobile-web-app-capable" content="yes">
     """
-    private val wakeLockFallbackMp4DataUri = loadResourceText("wake-lock-fallback-video-uri.txt")
-    private val wakeLockFallbackWebmDataUri = loadResourceText("wake-lock-fallback-video-webm-uri.txt")
+    private val noSleepLibrarySource = loadResourceText("nosleep.min.js")
 
     private val mobileShellStyle = """
         <style id="hitster-mobile-shell">
@@ -319,226 +318,55 @@ internal object WebIndexHtmlPatcher {
                 }, 0);
               }
 
-                function appendWakeSource(videoElement, type, uri) {
-                  var source = document.createElement("source");
-                  source.src = uri;
-                  source.type = "video/" + type;
-                  source.dataset.hitsterSourceType = type;
-                  videoElement.appendChild(source);
-                }
-
                 function createWakeController() {
-                  var wakeLockSentinel = null;
-                  var wakeFallbackVideo = null;
-                  var wakeFallbackTimer = 0;
-                  var enabled = false;
+                  var noSleep = typeof NoSleep === "function" ? new NoSleep() : null;
                   var pendingPromise = null;
-
-                function ensureWakeFallbackVideo() {
-                  if (wakeFallbackVideo) {
-                    return wakeFallbackVideo;
-                  }
-                  wakeFallbackVideo = document.createElement("video");
-                  wakeFallbackVideo.id = "hitster-wake-video";
-                  wakeFallbackVideo.setAttribute("title", "No Sleep");
-                  wakeFallbackVideo.setAttribute("playsinline", "");
-                  wakeFallbackVideo.setAttribute("webkit-playsinline", "");
-                  appendWakeSource(wakeFallbackVideo, "webm", "${wakeLockFallbackWebmDataUri}");
-                  appendWakeSource(wakeFallbackVideo, "mp4", "${wakeLockFallbackMp4DataUri}");
-                  function currentWakeSourceType() {
-                    var currentSource = wakeFallbackVideo.currentSrc || "";
-                    if (currentSource.indexOf("video/webm") !== -1) {
-                      return "webm";
-                    }
-                    if (currentSource.indexOf("video/mp4") !== -1 || currentSource.indexOf("ftyp") !== -1) {
-                      return "mp4";
-                    }
-                    return "unknown";
-                  }
-                  function updateMediaDetail(type) {
-                    wakeState.media = type;
-                    if (!wakeDebugEnabled) {
-                      return;
-                    }
-                    var sourceType = currentWakeSourceType();
-                    wakeState.mediaDetail = [
-                      "src=" + sourceType,
-                      "ready=" + wakeFallbackVideo.readyState,
-                      "net=" + wakeFallbackVideo.networkState,
-                      "time=" + wakeFallbackVideo.currentTime.toFixed(2)
-                    ].join(" ");
-                    updateWakeDebug();
-                  }
-                  wakeFallbackVideo.addEventListener("loadedmetadata", function() {
-                    updateMediaDetail("loadedmetadata");
-                    if (wakeFallbackVideo.duration <= 1) {
-                      wakeFallbackVideo.setAttribute("loop", "");
-                      return;
-                    }
-                    if (wakeFallbackVideo.dataset.hitsterLoopHack === "true") {
-                      return;
-                    }
-                    wakeFallbackVideo.dataset.hitsterLoopHack = "true";
-                    wakeFallbackVideo.addEventListener("timeupdate", function() {
-                      if (wakeFallbackVideo.currentTime > 0.5) {
-                        wakeFallbackVideo.currentTime = Math.random();
-                      }
-                      updateMediaDetail("timeupdate");
-                    });
-                  });
-                  if (wakeDebugEnabled) {
-                    ["play", "playing", "pause", "waiting", "stalled", "suspend", "abort", "ended", "canplay", "canplaythrough", "loadeddata"].forEach(function(type) {
-                      wakeFallbackVideo.addEventListener(type, function() {
-                        updateMediaDetail(type);
-                      });
-                    });
-                  }
-                  wakeFallbackVideo.addEventListener("error", function() {
-                    wakeState.media = "error";
-                    var mediaError = wakeFallbackVideo.error;
-                    if (mediaError && mediaError.code) {
-                      wakeState.lastError = "MediaError code " + mediaError.code;
-                    }
-                    if (!wakeDebugEnabled) {
-                      return;
-                    }
-                    wakeState.mediaDetail = [
-                      "src=" + (wakeFallbackVideo.currentSrc || "unknown"),
-                      "ready=" + wakeFallbackVideo.readyState,
-                      "net=" + wakeFallbackVideo.networkState
-                    ].join(" ");
-                    updateWakeDebug();
-                  });
-                  return wakeFallbackVideo;
-                }
 
                 return {
                   isEnabled: function() {
-                    return enabled;
+                    return !!(noSleep && noSleep.isEnabled);
                   },
                   enable: function() {
-                    if (enabled) {
+                    if (!noSleep) {
+                      wakeState.lastError = "NoSleep unavailable";
+                      updateWakeDebug();
+                      return Promise.reject(new Error("NoSleep unavailable"));
+                    }
+                    if (noSleep.isEnabled) {
                       return Promise.resolve();
                     }
                     if (pendingPromise) {
                       return pendingPromise;
                     }
                     wakeState.attempts += 1;
-                    if (supportsNativeWakeLockApi()) {
-                      wakeState.mode = "native";
-                      wakeState.pending = true;
-                      updateWakeDebug();
-                      pendingPromise = navigator.wakeLock.request("screen").then(function(lock) {
-                        wakeLockSentinel = lock;
-                        enabled = true;
-                        pendingPromise = null;
-                        wakeState.pending = false;
-                        wakeState.enabled = true;
-                        wakeState.lastEnable = wakeNowLabel();
-                        wakeState.lastError = "none";
-                        updateWakeDebug();
-                        wakeLockSentinel.addEventListener("release", function() {
-                          wakeLockSentinel = null;
-                          enabled = false;
-                          wakeState.enabled = false;
-                          wakeState.lastRelease = wakeNowLabel();
-                          updateWakeDebug();
-                          if (shouldKeepScreenAwake && !document.hidden) {
-                            wakeController.enable().catch(function() {});
-                          }
-                        });
-                      }).catch(function(error) {
-                        enabled = false;
-                        pendingPromise = null;
-                        wakeState.pending = false;
-                        wakeState.enabled = false;
-                        wakeState.lastError = formatWakeError(error);
-                        updateWakeDebug();
-                        throw error;
-                      });
-                      return pendingPromise;
-                    }
-                    if (isLegacyIosBrowser()) {
-                      wakeState.mode = "legacy-ios-timer";
-                      if (wakeFallbackTimer !== 0) {
-                        enabled = true;
-                        wakeState.enabled = true;
-                        wakeState.lastEnable = wakeNowLabel();
-                        wakeState.lastError = "none";
-                        updateWakeDebug();
-                        return Promise.resolve();
-                      }
-                      wakeFallbackTimer = window.setInterval(function() {
-                        if (!document.hidden) {
-                          window.location.href = window.location.href.split("#")[0];
-                          window.setTimeout(window.stop, 0);
-                        }
-                      }, 15000);
-                      enabled = true;
-                      wakeState.enabled = true;
-                      wakeState.lastEnable = wakeNowLabel();
-                      wakeState.lastError = "none";
-                      updateWakeDebug();
-                      return Promise.resolve();
-                    }
-                    wakeState.mode = "video-fallback";
-                    wakeState.media = "starting";
-                    wakeState.mediaDetail = "src=unknown ready=0 net=0 time=0.00";
+                    wakeState.mode = supportsNativeWakeLockApi() ? "native" : (isLegacyIosBrowser() ? "legacy-ios-timer" : "video-fallback");
+                    wakeState.media = wakeState.mode === "video-fallback" ? "managed-by-nosleep" : "none";
+                    wakeState.mediaDetail = wakeState.mode === "video-fallback" ? "upstream NoSleep.js" : "none";
                     wakeState.pending = true;
                     updateWakeDebug();
-                    var wakeVideo = ensureWakeFallbackVideo();
-                    pendingPromise = Promise.resolve(wakeVideo.play()).then(function(result) {
-                        enabled = true;
+                    pendingPromise = Promise.resolve(noSleep.enable()).then(function(result) {
                         pendingPromise = null;
                         wakeState.pending = false;
-                        wakeState.enabled = true;
+                        wakeState.enabled = !!noSleep.isEnabled;
                         wakeState.lastEnable = wakeNowLabel();
                         wakeState.lastError = "none";
-                        if (wakeDebugEnabled) {
-                          wakeState.mediaDetail = [
-                            "src=" + (wakeVideo.currentSrc || "unknown"),
-                            "ready=" + wakeVideo.readyState,
-                            "net=" + wakeVideo.networkState,
-                            "time=" + wakeVideo.currentTime.toFixed(2)
-                          ].join(" ");
-                        }
                         updateWakeDebug();
                         return result;
                     }).catch(function(error) {
-                        enabled = false;
                         pendingPromise = null;
                         wakeState.pending = false;
                         wakeState.enabled = false;
                         wakeState.lastError = formatWakeError(error);
-                        if (wakeDebugEnabled) {
-                          wakeState.mediaDetail = [
-                            "src=" + (wakeVideo.currentSrc || "unknown"),
-                            "ready=" + wakeVideo.readyState,
-                            "net=" + wakeVideo.networkState,
-                            "time=" + wakeVideo.currentTime.toFixed(2)
-                          ].join(" ");
-                        }
                         updateWakeDebug();
                         throw error;
                     });
                     return pendingPromise;
                   },
                   disable: function() {
-                    if (supportsNativeWakeLockApi()) {
-                      if (wakeLockSentinel) {
-                          wakeLockSentinel.release().catch(function() {});
-                      }
-                      wakeLockSentinel = null;
-                    } else if (isLegacyIosBrowser()) {
-                      if (wakeFallbackTimer !== 0) {
-                        window.clearInterval(wakeFallbackTimer);
-                        wakeFallbackTimer = 0;
-                      }
-                    } else if (wakeFallbackVideo) {
-                      wakeFallbackVideo.pause();
+                    if (noSleep && noSleep.isEnabled) {
+                      noSleep.disable();
                     }
                     pendingPromise = null;
-                    enabled = false;
                     wakeState.pending = false;
                     wakeState.enabled = false;
                     wakeState.lastRelease = wakeNowLabel();
@@ -602,7 +430,6 @@ internal object WebIndexHtmlPatcher {
                     return;
                   }
                   fallbackTouchId = touch.identifier;
-                  activateWakeFromGesture();
                   handleInteractiveFocus();
                   dispatchSyntheticMouse("mousedown", touch);
                   event.preventDefault();
@@ -690,6 +517,12 @@ internal object WebIndexHtmlPatcher {
         </script>
     """.trimIndent()
 
+    private val noSleepLibraryScript = """
+        <script id="hitster-nosleep-lib">
+        $noSleepLibrarySource
+        </script>
+    """.trimIndent()
+
     fun patch(html: String, cacheBustToken: String? = null): String {
         var patched = html
         cacheBustToken?.let { token ->
@@ -705,6 +538,9 @@ internal object WebIndexHtmlPatcher {
         }
         if (!patched.contains("""<style id="hitster-mobile-shell">""")) {
             patched = patched.replace("</head>", "$mobileShellStyle\n</head>")
+        }
+        if (!patched.contains("""<script id="hitster-nosleep-lib">""")) {
+            patched = patched.replace("</body>", "$noSleepLibraryScript\n</body>")
         }
         if (!patched.contains("""<script id="hitster-mobile-runtime">""")) {
             patched = patched.replace("</body>", "$mobileRuntimeScript\n</body>")
