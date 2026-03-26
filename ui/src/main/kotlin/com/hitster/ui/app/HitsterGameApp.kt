@@ -24,6 +24,7 @@ class HitsterGameApp(
 ) : Game() {
     private val animationCatalog = AnimationCatalog.default()
     private val playbackController = playbackController
+    private val suggestedDisplayName = UiBootstrapper.randomFunnyDisplayName()
     private var activeMatchController: MatchController? = null
     private var enteredDisplayName: String? = null
 
@@ -110,7 +111,7 @@ class HitsterGameApp(
     ) {
         setScreen(
             NameEntryScreen(
-                initialName = enteredDisplayName.orEmpty(),
+                initialName = enteredDisplayName ?: suggestedDisplayName,
                 showBackButton = showBackButton,
                 requestDisplayNameInput = platformServices::requestDisplayNameInput,
                 onBack = onBack,

@@ -23,6 +23,34 @@ object UiBootstrapper {
     private val hostId = PlayerId("host")
     private const val idAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
     private const val maxDisplayNameLength = 24
+    private val funnyNamePrefixes = listOf(
+        "Disco",
+        "Turbo",
+        "Cosmic",
+        "Neon",
+        "Spicy",
+        "Chaotic",
+        "Lucky",
+        "Groovy",
+        "Funky",
+        "Sassy",
+        "Moon",
+        "Captain",
+    )
+    private val funnyNameSuffixes = listOf(
+        "Pelmen",
+        "Raccoon",
+        "Cucumber",
+        "Beat",
+        "Pigeon",
+        "Otter",
+        "Noodle",
+        "Banjo",
+        "Meteor",
+        "Potato",
+        "Fox",
+        "Dancer",
+    )
 
     /**
      * Creates the host-side controller with a fresh shuffled playlist and the local host identity already attached.
@@ -106,6 +134,13 @@ object UiBootstrapper {
 
     /** Produces a fresh per-session shuffle seed for real host lobbies. */
     internal fun nextShuffleSeed(random: Random = Random.Default): Long = random.nextLong()
+
+    /** Creates a short funny default name so the join flow starts from something usable instead of a blank field. */
+    fun randomFunnyDisplayName(random: Random = Random.Default): String {
+        val prefix = funnyNamePrefixes[random.nextInt(funnyNamePrefixes.size)]
+        val suffix = funnyNameSuffixes[random.nextInt(funnyNameSuffixes.size)]
+        return sanitizeDisplayName("$prefix $suffix").ifBlank { "Groovy Otter" }
+    }
 
     /** Normalizes user-entered display names into a short single-line value suitable for transport and UI. */
     fun sanitizeDisplayName(raw: String): String {

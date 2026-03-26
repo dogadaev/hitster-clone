@@ -42,6 +42,17 @@ class UiBootstrapperTest {
     }
 
     @Test
+    fun `funny default display name is short non blank and deterministic for a seed`() {
+        val first = UiBootstrapper.randomFunnyDisplayName(Random(1234))
+        val second = UiBootstrapper.randomFunnyDisplayName(Random(1234))
+
+        assertEquals(first, second)
+        assertTrue(first.isNotBlank())
+        assertTrue(first.length <= 24)
+        assertTrue(first.contains(' '))
+    }
+
+    @Test
     fun `hosted lobby deck order changes with different shuffle seeds`() {
         fun buildController(shuffleSeed: Long): HostedMatchController {
             return UiBootstrapper.createHostedMatchController(
