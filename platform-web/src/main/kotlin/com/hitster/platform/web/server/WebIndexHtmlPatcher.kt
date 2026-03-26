@@ -519,9 +519,12 @@ internal object WebIndexHtmlPatcher {
                   wakeFallbackVideo.setAttribute("title", "No Sleep");
                   wakeFallbackVideo.setAttribute("playsinline", "");
                   wakeFallbackVideo.setAttribute("webkit-playsinline", "");
+                  wakeFallbackVideo.setAttribute("muted", "");
                   wakeFallbackVideo.setAttribute("disableRemotePlayback", "");
                   wakeFallbackVideo.setAttribute("x-webkit-airplay", "deny");
                   wakeFallbackVideo.preload = "auto";
+                  wakeFallbackVideo.defaultMuted = true;
+                  wakeFallbackVideo.muted = true;
                   wakeFallbackVideo.playsInline = true;
                   if (typeof wakeFallbackVideo.disableRemotePlayback !== "undefined") {
                     wakeFallbackVideo.disableRemotePlayback = true;
@@ -647,7 +650,8 @@ internal object WebIndexHtmlPatcher {
               var wakeController = createWakeController();
 
               function releaseWakeLock() {
-                wakeController.disable();
+                wakeState.lastRelease = wakeNowLabel();
+                updateWakeDebug();
               }
 
               function requestWakeLock() {
@@ -747,7 +751,8 @@ internal object WebIndexHtmlPatcher {
 
               document.addEventListener("visibilitychange", function() {
                 if (document.hidden) {
-                  releaseWakeLock();
+                  wakeState.lastRelease = wakeNowLabel();
+                  updateWakeDebug();
                   return;
                 }
                 scheduleViewportSync();
@@ -813,7 +818,10 @@ internal object WebIndexHtmlPatcher {
                   requestWakeLock();
                 }
               }, { passive: true });
-              window.addEventListener("pagehide", releaseWakeLock, { passive: true });
+              window.addEventListener("pagehide", function() {
+                wakeState.lastRelease = wakeNowLabel();
+                updateWakeDebug();
+              }, { passive: true });
               window.addEventListener("focus", function() {
                 scheduleViewportSync();
                 if (shouldKeepScreenAwake && wakeActivationReceived) {
