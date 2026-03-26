@@ -180,11 +180,8 @@ internal object WebIndexHtmlPatcher {
               }
               canvas.setAttribute("tabindex", "0");
               canvas.style.touchAction = "none";
-              var wakeLockSentinel = null;
-              var wakeFallbackVideo = null;
-              var wakeFallbackTimer = 0;
               var shouldKeepScreenAwake = true;
-              var wakeFallbackEnabled = false;
+              var wakeActivationReceived = false;
               var viewportSyncFrame = 0;
               var lastViewportSignature = "";
               var lastFullscreenToggleAt = 0;
@@ -429,135 +426,140 @@ internal object WebIndexHtmlPatcher {
                 }, 0);
               }
 
-              function ensureWakeFallbackVideo() {
-                if (wakeFallbackVideo) {
+              function createWakeController() {
+                var wakeLockSentinel = null;
+                var wakeFallbackVideo = null;
+                var wakeFallbackTimer = 0;
+                var enabled = false;
+
+                function supportsNativeWakeLock() {
+                  return !!(navigator.wakeLock && window.isSecureContext);
+                }
+
+                function appendSource(videoElement, type, dataUri) {
+                  var source = document.createElement("source");
+                  source.src = dataUri;
+                  source.type = "video/" + type;
+                  videoElement.appendChild(source);
+                }
+
+                function ensureWakeFallbackVideo() {
+                  if (wakeFallbackVideo) {
+                    return wakeFallbackVideo;
+                  }
+                  wakeFallbackVideo = document.createElement("video");
+                  wakeFallbackVideo.id = "hitster-wake-video";
+                  wakeFallbackVideo.setAttribute("title", "No Sleep");
+                  wakeFallbackVideo.setAttribute("playsinline", "");
+                  wakeFallbackVideo.setAttribute("webkit-playsinline", "");
+                  wakeFallbackVideo.setAttribute("disableRemotePlayback", "");
+                  wakeFallbackVideo.setAttribute("x-webkit-airplay", "deny");
+                  wakeFallbackVideo.preload = "auto";
+                  wakeFallbackVideo.playsInline = true;
+                  if (typeof wakeFallbackVideo.disableRemotePlayback !== "undefined") {
+                    wakeFallbackVideo.disableRemotePlayback = true;
+                  }
+                  appendSource(wakeFallbackVideo, "webm", "${wakeLockFallbackWebmUri}");
+                  appendSource(wakeFallbackVideo, "mp4", "${wakeLockFallbackVideoUri}");
+                  wakeFallbackVideo.addEventListener("loadedmetadata", function() {
+                    if (wakeFallbackVideo.duration <= 1) {
+                      wakeFallbackVideo.setAttribute("loop", "");
+                      wakeFallbackVideo.loop = true;
+                      return;
+                    }
+                    if (wakeFallbackVideo.dataset.hitsterLoopHack === "true") {
+                      return;
+                    }
+                    wakeFallbackVideo.dataset.hitsterLoopHack = "true";
+                    wakeFallbackVideo.addEventListener("timeupdate", function() {
+                      if (wakeFallbackVideo.currentTime > 0.5) {
+                        wakeFallbackVideo.currentTime = Math.random();
+                      }
+                    });
+                  });
+                  wakeFallbackVideo.load();
                   return wakeFallbackVideo;
                 }
-                wakeFallbackVideo = document.createElement("video");
-                wakeFallbackVideo.id = "hitster-wake-video";
-                wakeFallbackVideo.setAttribute("title", "No Sleep");
-                wakeFallbackVideo.setAttribute("playsinline", "");
-                wakeFallbackVideo.setAttribute("webkit-playsinline", "");
-                wakeFallbackVideo.setAttribute("muted", "");
-                wakeFallbackVideo.setAttribute("disableRemotePlayback", "");
-                wakeFallbackVideo.setAttribute("autoplay", "");
-                wakeFallbackVideo.setAttribute("aria-hidden", "true");
-                wakeFallbackVideo.setAttribute("x-webkit-airplay", "deny");
-                wakeFallbackVideo.muted = true;
-                wakeFallbackVideo.autoplay = true;
-                wakeFallbackVideo.preload = "auto";
-                wakeFallbackVideo.volume = 0;
-                wakeFallbackVideo.tabIndex = -1;
-                wakeFallbackVideo.style.position = "fixed";
-                wakeFallbackVideo.style.width = "1px";
-                wakeFallbackVideo.style.height = "1px";
-                wakeFallbackVideo.style.left = "-10px";
-                wakeFallbackVideo.style.top = "-10px";
-                wakeFallbackVideo.style.opacity = "0.001";
-                wakeFallbackVideo.style.pointerEvents = "none";
-                wakeFallbackVideo.style.zIndex = "-1";
-                if (typeof wakeFallbackVideo.disableRemotePlayback !== "undefined") {
-                  wakeFallbackVideo.disableRemotePlayback = true;
-                }
-                wakeFallbackVideo.playsInline = true;
-                wakeFallbackVideo.setAttribute("loop", "");
-                var wakeWebmSource = document.createElement("source");
-                wakeWebmSource.src = "${wakeLockFallbackWebmUri}";
-                wakeWebmSource.type = "video/webm";
-                wakeFallbackVideo.appendChild(wakeWebmSource);
-                var wakeSource = document.createElement("source");
-                wakeSource.src = "${wakeLockFallbackVideoUri}";
-                wakeSource.type = "video/mp4";
-                wakeFallbackVideo.appendChild(wakeSource);
-                wakeFallbackVideo.addEventListener("loadedmetadata", function() {
-                  if (wakeFallbackVideo.duration <= 1) {
-                    wakeFallbackVideo.loop = true;
-                    wakeFallbackVideo.setAttribute("loop", "");
-                    return;
-                  }
-                  if (wakeFallbackVideo.dataset.hitsterLoopHack === "true") {
-                    return;
-                  }
-                  wakeFallbackVideo.dataset.hitsterLoopHack = "true";
-                  wakeFallbackVideo.addEventListener("timeupdate", function() {
-                    if (wakeFallbackVideo.currentTime > 0.5) {
-                      wakeFallbackVideo.currentTime = Math.random() * 0.5;
+
+                return {
+                  isEnabled: function() {
+                    return enabled;
+                  },
+                  enable: function() {
+                    if (supportsNativeWakeLock()) {
+                      return navigator.wakeLock.request("screen").then(function(lock) {
+                        wakeLockSentinel = lock;
+                        enabled = true;
+                        wakeLockSentinel.addEventListener("release", function() {
+                          wakeLockSentinel = null;
+                          if (enabled && !document.hidden) {
+                            wakeController.enable().catch(function() {});
+                          }
+                        });
+                      }).catch(function(error) {
+                        enabled = false;
+                        throw error;
+                      });
                     }
-                  });
-                });
-                if (!wakeFallbackVideo.parentNode) {
-                  document.body.appendChild(wakeFallbackVideo);
-                }
-                wakeFallbackVideo.load();
-                return wakeFallbackVideo;
+                    if (isLegacyIosBrowser()) {
+                      if (wakeFallbackTimer !== 0) {
+                        enabled = true;
+                        return Promise.resolve();
+                      }
+                      wakeFallbackTimer = window.setInterval(function() {
+                        if (!document.hidden) {
+                          window.location.href = window.location.href.split("#")[0];
+                          window.setTimeout(window.stop, 0);
+                        }
+                      }, 15000);
+                      enabled = true;
+                      return Promise.resolve();
+                    }
+                    var wakeVideo = ensureWakeFallbackVideo();
+                    var playPromise = wakeVideo.play();
+                    return Promise.resolve(playPromise).then(function(result) {
+                      enabled = true;
+                      return result;
+                    }).catch(function(error) {
+                      enabled = false;
+                      throw error;
+                    });
+                  },
+                  disable: function() {
+                    if (supportsNativeWakeLock()) {
+                      if (wakeLockSentinel) {
+                        wakeLockSentinel.release().catch(function() {});
+                      }
+                      wakeLockSentinel = null;
+                    } else if (isLegacyIosBrowser()) {
+                      if (wakeFallbackTimer !== 0) {
+                        window.clearInterval(wakeFallbackTimer);
+                        wakeFallbackTimer = 0;
+                      }
+                    } else if (wakeFallbackVideo) {
+                      wakeFallbackVideo.pause();
+                    }
+                    enabled = false;
+                  },
+                };
               }
 
+              var wakeController = createWakeController();
+
               function releaseWakeLock() {
-                if (wakeLockSentinel && wakeLockSentinel.release) {
-                  wakeLockSentinel.release().catch(function() {});
-                  wakeLockSentinel = null;
-                }
-                if (wakeFallbackTimer !== 0) {
-                  window.clearInterval(wakeFallbackTimer);
-                  wakeFallbackTimer = 0;
-                }
-                if (!wakeFallbackVideo) {
-                  return;
-                }
-                wakeFallbackEnabled = false;
-                wakeFallbackVideo.currentTime = 0;
-                wakeFallbackVideo.pause();
+                wakeController.disable();
               }
 
               function requestWakeLock() {
                 shouldKeepScreenAwake = true;
-                if (document.hidden) {
+                if (document.hidden || !wakeActivationReceived) {
                   return;
                 }
-                if (navigator.wakeLock && window.isSecureContext) {
-                  if (wakeLockSentinel) {
-                    return;
-                  }
-                  navigator.wakeLock.request("screen").then(function(lock) {
-                    wakeLockSentinel = lock;
-                    wakeLockSentinel.addEventListener("release", function() {
-                      wakeLockSentinel = null;
-                      if (shouldKeepScreenAwake && !document.hidden) {
-                        requestWakeLock();
-                      }
-                    });
-                  }).catch(function() {});
-                  return;
-                }
-                if (isLegacyIosBrowser()) {
-                  if (wakeFallbackTimer !== 0) {
-                    return;
-                  }
-                  wakeFallbackTimer = window.setInterval(function() {
-                    if (!document.hidden) {
-                      window.location.href = window.location.href.split("#")[0];
-                      window.setTimeout(window.stop, 0);
-                    }
-                  }, 15000);
-                  return;
-                }
-                var wakeVideo = ensureWakeFallbackVideo();
-                if (wakeFallbackEnabled && !wakeVideo.paused) {
-                  return;
-                }
-                var playPromise = wakeVideo.play();
-                if (playPromise && playPromise.catch) {
-                  playPromise.then(function() {
-                    wakeFallbackEnabled = true;
-                  }).catch(function() {
-                    wakeFallbackEnabled = false;
-                  });
-                } else {
-                  wakeFallbackEnabled = true;
-                }
+                wakeController.enable().catch(function() {});
               }
 
               function handleWakeGesture() {
+                wakeActivationReceived = true;
                 requestWakeLock();
                 scheduleViewportSync();
               }
@@ -574,13 +576,16 @@ internal object WebIndexHtmlPatcher {
 
               function handleInteractiveFocus() {
                 focusCanvas();
-                requestWakeLock();
                 scheduleViewportSync();
               }
 
-              ["touchstart", "pointerdown", "mousedown", "touchend", "pointerup", "mouseup", "click"].forEach(function(type) {
+              ["touchstart", "pointerdown", "mousedown"].forEach(function(type) {
                 canvas.addEventListener(type, handleInteractiveFocus, { passive: true });
-                document.addEventListener(type, handleWakeGesture, { passive: true, capture: true });
+              });
+
+              ["touchend", "pointerup", "mouseup", "click"].forEach(function(type) {
+                canvas.addEventListener(type, handleInteractiveFocus, { passive: true });
+                document.addEventListener(type, handleWakeGesture, { passive: false, capture: true });
               });
 
               if (supportsTouchBridge()) {
@@ -629,7 +634,7 @@ internal object WebIndexHtmlPatcher {
                   return;
                 }
                 scheduleViewportSync();
-                if (shouldKeepScreenAwake) {
+                if (shouldKeepScreenAwake && wakeActivationReceived) {
                   requestWakeLock();
                 }
               });
@@ -655,13 +660,13 @@ internal object WebIndexHtmlPatcher {
                     var togglePromise = isFullscreenActive() ? exitFullscreen() : requestFullscreen();
                     Promise.resolve(togglePromise).then(function() {
                       setFullscreenButtonState();
-                      if (shouldKeepScreenAwake) {
+                      if (shouldKeepScreenAwake && wakeActivationReceived) {
                         requestWakeLock();
                       }
                       scheduleViewportSync();
                     }, function() {
                       setFullscreenButtonState();
-                      if (shouldKeepScreenAwake) {
+                      if (shouldKeepScreenAwake && wakeActivationReceived) {
                         requestWakeLock();
                       }
                       scheduleViewportSync();
@@ -673,7 +678,7 @@ internal object WebIndexHtmlPatcher {
               ["fullscreenchange", "webkitfullscreenchange", "msfullscreenchange"].forEach(function(type) {
                 document.addEventListener(type, function() {
                   setFullscreenButtonState();
-                  if (shouldKeepScreenAwake) {
+                  if (shouldKeepScreenAwake && wakeActivationReceived) {
                     requestWakeLock();
                   }
                   scheduleViewportSync();
@@ -687,19 +692,19 @@ internal object WebIndexHtmlPatcher {
               }, { passive: true });
               window.addEventListener("pageshow", function() {
                 scheduleViewportSync();
-                if (shouldKeepScreenAwake) {
+                if (shouldKeepScreenAwake && wakeActivationReceived) {
                   requestWakeLock();
                 }
               }, { passive: true });
               window.addEventListener("pagehide", releaseWakeLock, { passive: true });
               window.addEventListener("focus", function() {
                 scheduleViewportSync();
-                if (shouldKeepScreenAwake) {
+                if (shouldKeepScreenAwake && wakeActivationReceived) {
                   requestWakeLock();
                 }
               }, { passive: true });
               window.setInterval(function() {
-                if (shouldKeepScreenAwake && !document.hidden) {
+                if (shouldKeepScreenAwake && wakeActivationReceived && !document.hidden && !wakeController.isEnabled()) {
                   requestWakeLock();
                 }
               }, 15000);
@@ -715,7 +720,6 @@ internal object WebIndexHtmlPatcher {
 
               setFullscreenButtonState();
               scheduleViewportSync();
-              requestWakeLock();
               window.setTimeout(scheduleViewportSync, 250);
               window.setTimeout(scheduleViewportSync, 1000);
             })();
