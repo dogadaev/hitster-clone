@@ -64,6 +64,8 @@ class WebIndexHtmlPatcherTest {
         assertContains(patchedHtml, "function pickWakeFallbackSource(videoElement) {")
         assertContains(patchedHtml, "videoElement.canPlayType(\"video/mp4\") !== \"\"")
         assertContains(patchedHtml, "videoElement.canPlayType(\"video/webm\") !== \"\"")
+        assertContains(patchedHtml, """return { type: "mp4", uri: "assets/wake-lock-fallback.mp4" };""")
+        assertContains(patchedHtml, """return { type: "webm", uri: "assets/wake-lock-fallback.webm" };""")
         assertContains(patchedHtml, "wakeFallbackVideo.src = selectedWakeSource.uri;")
         assertContains(patchedHtml, "wakeFallbackVideo.dataset.hitsterSourceType = selectedWakeSource.type;")
         assertContains(patchedHtml, "[\"play\", \"playing\", \"pause\", \"waiting\", \"stalled\", \"suspend\", \"abort\", \"ended\", \"canplay\", \"canplaythrough\", \"loadeddata\"].forEach(function(type) {")

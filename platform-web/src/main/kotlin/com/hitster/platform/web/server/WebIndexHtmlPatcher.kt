@@ -14,16 +14,8 @@ internal object WebIndexHtmlPatcher {
     """
     private const val shellOverlays = """<div id="hitster-wake-debug" aria-live="polite"></div>"""
 
-    private val wakeLockFallbackVideoUri by lazy {
-        checkNotNull(WebIndexHtmlPatcher::class.java.getResourceAsStream("/wake-lock-fallback-video-uri.txt")) {
-            "Missing wake-lock fallback video resource."
-        }.bufferedReader().use { resource -> resource.readText().trim() }
-    }
-    private val wakeLockFallbackWebmUri by lazy {
-        checkNotNull(WebIndexHtmlPatcher::class.java.getResourceAsStream("/wake-lock-fallback-video-webm-uri.txt")) {
-            "Missing wake-lock fallback webm resource."
-        }.bufferedReader().use { resource -> resource.readText().trim() }
-    }
+    private const val wakeLockFallbackMp4AssetPath = "assets/wake-lock-fallback.mp4"
+    private const val wakeLockFallbackWebmAssetPath = "assets/wake-lock-fallback.webm"
 
     private val mobileShellStyle = """
         <style id="hitster-mobile-shell">
@@ -326,12 +318,12 @@ internal object WebIndexHtmlPatcher {
                     canPlayWebm = videoElement.canPlayType("video/webm") !== "";
                   }
                   if (canPlayMp4 || isIosBrowser()) {
-                    return { type: "mp4", uri: "${wakeLockFallbackVideoUri}" };
+                    return { type: "mp4", uri: "${wakeLockFallbackMp4AssetPath}" };
                   }
                   if (canPlayWebm) {
-                    return { type: "webm", uri: "${wakeLockFallbackWebmUri}" };
+                    return { type: "webm", uri: "${wakeLockFallbackWebmAssetPath}" };
                   }
-                  return { type: "mp4", uri: "${wakeLockFallbackVideoUri}" };
+                  return { type: "mp4", uri: "${wakeLockFallbackMp4AssetPath}" };
                 }
 
                 function ensureWakeFallbackVideo() {
