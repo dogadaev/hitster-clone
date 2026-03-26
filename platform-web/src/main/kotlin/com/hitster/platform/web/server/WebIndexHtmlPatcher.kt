@@ -8,7 +8,14 @@ internal object WebIndexHtmlPatcher {
     private const val viewportMeta = """<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">"""
     private const val fullscreenControls = """
         <div id="hitster-web-controls" aria-hidden="false">
-            <button id="hitster-fullscreen-button" type="button" aria-label="Toggle fullscreen">FULLSCREEN</button>
+            <button id="hitster-fullscreen-button" type="button" aria-label="Toggle fullscreen">
+                <svg id="hitster-fullscreen-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M8 3H4v4" />
+                    <path d="M16 3h4v4" />
+                    <path d="M20 16v4h-4" />
+                    <path d="M4 16v4h4" />
+                </svg>
+            </button>
         </div>
     """
 
@@ -85,21 +92,31 @@ internal object WebIndexHtmlPatcher {
               pointer-events: auto;
               appearance: none;
               border: 1px solid rgba(255, 255, 255, 0.22);
-              border-radius: 999px;
-              padding: 12px 16px;
-              min-width: 148px;
+              border-radius: 18px;
+              width: 56px;
+              height: 56px;
+              padding: 0;
               background:
                 linear-gradient(180deg, rgba(28, 42, 76, 0.9) 0%, rgba(10, 18, 36, 0.94) 100%);
               color: rgba(255, 249, 235, 0.96);
-              font: 700 12px/1.1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-              letter-spacing: 0.16em;
-              text-transform: uppercase;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
               box-shadow:
                 0 14px 34px rgba(0, 0, 0, 0.42),
                 inset 0 1px 0 rgba(255, 255, 255, 0.24);
               backdrop-filter: blur(16px);
               -webkit-backdrop-filter: blur(16px);
               touch-action: manipulation;
+            }
+            #hitster-fullscreen-icon {
+              width: 24px;
+              height: 24px;
+              stroke: currentColor;
+              stroke-width: 2.4;
+              stroke-linecap: round;
+              stroke-linejoin: round;
+              fill: none;
             }
             #hitster-fullscreen-button:active {
               transform: translateY(1px) scale(0.99);
@@ -113,6 +130,9 @@ internal object WebIndexHtmlPatcher {
                 0 16px 36px rgba(0, 0, 0, 0.44),
                 0 0 20px rgba(236, 191, 96, 0.32),
                 inset 0 1px 0 rgba(255, 247, 221, 0.42);
+            }
+            #hitster-fullscreen-button[data-hitster-active="true"] #hitster-fullscreen-icon {
+              transform: scale(1.02);
             }
             #hitster-fullscreen-button[data-hitster-supported="false"] {
               opacity: 0.74;
@@ -198,6 +218,10 @@ internal object WebIndexHtmlPatcher {
                 }));
               }
 
+              function eventTargetsShellControls(target) {
+                return !!(target && target.closest && target.closest("#hitster-web-controls"));
+              }
+
               function supportsTouchBridge() {
                 return (navigator.maxTouchPoints || 0) > 0 || "ontouchstart" in window;
               }
@@ -242,7 +266,7 @@ internal object WebIndexHtmlPatcher {
                 var supported = supportsFullscreen();
                 fullscreenButton.dataset.hitsterSupported = supported ? "true" : "false";
                 var fullscreenActive = isFullscreenActive();
-                fullscreenButton.textContent = fullscreenActive ? "EXIT FULLSCREEN" : "FULLSCREEN";
+                fullscreenButton.setAttribute("title", fullscreenActive ? "Exit fullscreen" : "Enter fullscreen");
                 fullscreenButton.setAttribute("aria-pressed", fullscreenActive ? "true" : "false");
                 fullscreenButton.dataset.hitsterActive = fullscreenActive ? "true" : "false";
               }
@@ -437,6 +461,11 @@ internal object WebIndexHtmlPatcher {
                 }
               }
 
+              function handleWakeGesture() {
+                requestWakeLock();
+                scheduleViewportSync();
+              }
+
               function handleInteractiveFocus() {
                 focusCanvas();
                 requestWakeLock();
@@ -445,10 +474,14 @@ internal object WebIndexHtmlPatcher {
 
               ["touchstart", "pointerdown", "mousedown"].forEach(function(type) {
                 canvas.addEventListener(type, handleInteractiveFocus, { passive: true });
+                document.addEventListener(type, handleWakeGesture, { passive: true, capture: true });
               });
 
               if (supportsTouchBridge()) {
                 document.addEventListener("touchstart", function(event) {
+                  if (eventTargetsShellControls(event.target)) {
+                    return;
+                  }
                   var touch = event.changedTouches && event.changedTouches[0];
                   if (!canvasContainsTouch(touch)) {
                     return;
@@ -549,6 +582,11 @@ internal object WebIndexHtmlPatcher {
                   requestWakeLock();
                 }
               }, { passive: true });
+              window.setInterval(function() {
+                if (shouldKeepScreenAwake && !document.hidden) {
+                  requestWakeLock();
+                }
+              }, 15000);
               if (window.visualViewport) {
                 window.visualViewport.addEventListener("resize", scheduleViewportSync, { passive: true });
                 window.visualViewport.addEventListener("scroll", scheduleViewportSync, { passive: true });
