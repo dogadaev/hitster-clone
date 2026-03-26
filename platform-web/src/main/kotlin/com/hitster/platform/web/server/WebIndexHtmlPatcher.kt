@@ -206,8 +206,10 @@ internal object WebIndexHtmlPatcher {
               var wakeState = {
                 mode: "idle",
                 enabled: false,
+                pending: false,
                 attempts: 0,
                 media: "none",
+                mediaDetail: "none",
                 lastError: "none",
                 lastGesture: "never",
                 lastEnable: "never",
@@ -252,7 +254,9 @@ internal object WebIndexHtmlPatcher {
                   "visible " + (!document.hidden ? "yes" : "no") + " secure " + (window.isSecureContext ? "yes" : "no"),
                   "native " + (supportsNativeWakeLockApi() ? "yes" : "no") + " fullscreen " + (isFullscreenActive() ? "yes" : "no"),
                   "standalone " + (isStandaloneMode() ? "yes" : "no"),
+                  "pending " + (wakeState.pending ? "yes" : "no"),
                   "media " + wakeState.media,
+                  "detail " + wakeState.mediaDetail,
                   "gesture " + wakeState.lastGesture,
                   "enable " + wakeState.lastEnable,
                   "release " + wakeState.lastRelease,
@@ -504,6 +508,7 @@ internal object WebIndexHtmlPatcher {
                 var wakeFallbackVideo = null;
                 var wakeFallbackTimer = 0;
                 var enabled = false;
+                var pendingPromise = null;
 
                 function appendSource(videoElement, type, dataUri) {
                   var source = document.createElement("source");
@@ -547,7 +552,17 @@ internal object WebIndexHtmlPatcher {
                   }
                   appendSource(wakeFallbackVideo, "webm", "${wakeLockFallbackWebmUri}");
                   appendSource(wakeFallbackVideo, "mp4", "${wakeLockFallbackVideoUri}");
+                  function updateMediaDetail(type) {
+                    wakeState.media = type;
+                    wakeState.mediaDetail = [
+                      "ready=" + wakeFallbackVideo.readyState,
+                      "net=" + wakeFallbackVideo.networkState,
+                      "time=" + wakeFallbackVideo.currentTime.toFixed(2)
+                    ].join(" ");
+                    updateWakeDebug();
+                  }
                   wakeFallbackVideo.addEventListener("loadedmetadata", function() {
+                    updateMediaDetail("loadedmetadata");
                     if (wakeFallbackVideo.duration <= 1) {
                       wakeFallbackVideo.setAttribute("loop", "");
                       wakeFallbackVideo.loop = true;
@@ -561,12 +576,12 @@ internal object WebIndexHtmlPatcher {
                       if (wakeFallbackVideo.currentTime > 0.5) {
                         wakeFallbackVideo.currentTime = Math.random();
                       }
+                      updateMediaDetail("timeupdate");
                     });
                   });
-                  ["playing", "pause", "waiting", "stalled", "suspend", "abort", "ended"].forEach(function(type) {
+                  ["play", "playing", "pause", "waiting", "stalled", "suspend", "abort", "ended", "canplay", "canplaythrough", "loadeddata"].forEach(function(type) {
                     wakeFallbackVideo.addEventListener(type, function() {
-                      wakeState.media = type;
-                      updateWakeDebug();
+                      updateMediaDetail(type);
                     });
                   });
                   wakeFallbackVideo.addEventListener("error", function() {
@@ -575,6 +590,10 @@ internal object WebIndexHtmlPatcher {
                     if (mediaError && mediaError.code) {
                       wakeState.lastError = "MediaError code " + mediaError.code;
                     }
+                    wakeState.mediaDetail = [
+                      "ready=" + wakeFallbackVideo.readyState,
+                      "net=" + wakeFallbackVideo.networkState
+                    ].join(" ");
                     updateWakeDebug();
                   });
                   if (!wakeFallbackVideo.parentNode && document.body) {
@@ -589,12 +608,22 @@ internal object WebIndexHtmlPatcher {
                     return enabled;
                   },
                   enable: function() {
+                    if (enabled) {
+                      return Promise.resolve();
+                    }
+                    if (pendingPromise) {
+                      return pendingPromise;
+                    }
                     wakeState.attempts += 1;
                     if (supportsNativeWakeLockApi()) {
                       wakeState.mode = "native";
-                      return navigator.wakeLock.request("screen").then(function(lock) {
+                      wakeState.pending = true;
+                      updateWakeDebug();
+                      pendingPromise = navigator.wakeLock.request("screen").then(function(lock) {
                         wakeLockSentinel = lock;
                         enabled = true;
+                        pendingPromise = null;
+                        wakeState.pending = false;
                         wakeState.enabled = true;
                         wakeState.lastEnable = wakeNowLabel();
                         wakeState.lastError = "none";
@@ -611,11 +640,14 @@ internal object WebIndexHtmlPatcher {
                         });
                       }).catch(function(error) {
                         enabled = false;
+                        pendingPromise = null;
+                        wakeState.pending = false;
                         wakeState.enabled = false;
                         wakeState.lastError = formatWakeError(error);
                         updateWakeDebug();
                         throw error;
                       });
+                      return pendingPromise;
                     }
                     if (isLegacyIosBrowser()) {
                       wakeState.mode = "legacy-ios-timer";
@@ -642,28 +674,44 @@ internal object WebIndexHtmlPatcher {
                     }
                     wakeState.mode = "video-fallback";
                     wakeState.media = "starting";
+                    wakeState.mediaDetail = "ready=0 net=0 time=0.00";
+                    wakeState.pending = true;
                     updateWakeDebug();
                     var wakeVideo = ensureWakeFallbackVideo();
-                    var playPromise = wakeVideo.play();
-                    return Promise.resolve(playPromise).then(function(result) {
-                      enabled = true;
-                      wakeState.enabled = true;
-                      wakeState.lastEnable = wakeNowLabel();
-                      wakeState.lastError = "none";
-                      updateWakeDebug();
-                      return result;
+                    pendingPromise = Promise.resolve(wakeVideo.play()).then(function(result) {
+                        enabled = true;
+                        pendingPromise = null;
+                        wakeState.pending = false;
+                        wakeState.enabled = true;
+                        wakeState.lastEnable = wakeNowLabel();
+                        wakeState.lastError = "none";
+                        wakeState.mediaDetail = [
+                          "ready=" + wakeVideo.readyState,
+                          "net=" + wakeVideo.networkState,
+                          "time=" + wakeVideo.currentTime.toFixed(2)
+                        ].join(" ");
+                        updateWakeDebug();
+                        return result;
                     }).catch(function(error) {
-                      enabled = false;
-                      wakeState.enabled = false;
-                      wakeState.lastError = formatWakeError(error);
-                      updateWakeDebug();
-                      throw error;
+                        enabled = false;
+                        pendingPromise = null;
+                        wakeState.pending = false;
+                        wakeState.enabled = false;
+                        wakeState.lastError = formatWakeError(error);
+                        wakeState.mediaDetail = [
+                          "ready=" + wakeVideo.readyState,
+                          "net=" + wakeVideo.networkState,
+                          "time=" + wakeVideo.currentTime.toFixed(2)
+                        ].join(" ");
+                        updateWakeDebug();
+                        throw error;
                     });
+                    return pendingPromise;
                   },
                   disable: function() {
                     if (supportsNativeWakeLockApi()) {
                       if (wakeLockSentinel) {
-                        wakeLockSentinel.release().catch(function() {});
+                          wakeLockSentinel.release().catch(function() {});
                       }
                       wakeLockSentinel = null;
                     } else if (isLegacyIosBrowser()) {
@@ -674,7 +722,9 @@ internal object WebIndexHtmlPatcher {
                     } else if (wakeFallbackVideo) {
                       wakeFallbackVideo.pause();
                     }
+                    pendingPromise = null;
                     enabled = false;
+                    wakeState.pending = false;
                     wakeState.enabled = false;
                     wakeState.lastRelease = wakeNowLabel();
                     updateWakeDebug();
@@ -737,9 +787,8 @@ internal object WebIndexHtmlPatcher {
 
               ["touchend", "pointerup", "mouseup", "click"].forEach(function(type) {
                 canvas.addEventListener(type, handleInteractiveFocus, { passive: true });
-                document.addEventListener(type, handleWakeGesture, { passive: false, capture: true });
                 canvas.addEventListener(type, function() {
-                  activateWakeFromGesture();
+                  handleWakeGesture();
                 }, { passive: false });
               });
 
@@ -776,6 +825,7 @@ internal object WebIndexHtmlPatcher {
                     if (!touch) {
                       return;
                     }
+                    activateWakeFromGesture();
                     dispatchSyntheticMouse("mouseup", touch);
                     fallbackTouchId = null;
                     event.preventDefault();
