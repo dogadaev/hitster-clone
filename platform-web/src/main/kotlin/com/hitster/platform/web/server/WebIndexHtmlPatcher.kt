@@ -352,18 +352,22 @@ internal object WebIndexHtmlPatcher {
                   wakeFallbackVideo.setAttribute("disableremoteplayback", "");
                   appendWakeSource(wakeFallbackVideo, "webm", "${wakeLockFallbackWebmDataUri}");
                   appendWakeSource(wakeFallbackVideo, "mp4", "${wakeLockFallbackMp4DataUri}");
+                  function currentWakeSourceType() {
+                    var currentSource = wakeFallbackVideo.currentSrc || "";
+                    if (currentSource.indexOf("video/webm") !== -1) {
+                      return "webm";
+                    }
+                    if (currentSource.indexOf("video/mp4") !== -1 || currentSource.indexOf("ftyp") !== -1) {
+                      return "mp4";
+                    }
+                    return "unknown";
+                  }
                   function updateMediaDetail(type) {
                     wakeState.media = type;
                     if (!wakeDebugEnabled) {
                       return;
                     }
-                    var sourceType = "unknown";
-                    var currentSource = wakeFallbackVideo.currentSrc || "";
-                    if (currentSource.indexOf("video/webm") !== -1) {
-                      sourceType = "webm";
-                    } else if (currentSource.indexOf("video/mp4") !== -1 || currentSource.indexOf("ftyp") !== -1) {
-                      sourceType = "mp4";
-                    }
+                    var sourceType = currentWakeSourceType();
                     wakeState.mediaDetail = [
                       "src=" + sourceType,
                       "ready=" + wakeFallbackVideo.readyState,
@@ -374,7 +378,7 @@ internal object WebIndexHtmlPatcher {
                   }
                   wakeFallbackVideo.addEventListener("loadedmetadata", function() {
                     updateMediaDetail("loadedmetadata");
-                    if (wakeFallbackVideo.duration <= 1) {
+                    if (currentWakeSourceType() === "webm") {
                       wakeFallbackVideo.setAttribute("loop", "");
                       return;
                     }
