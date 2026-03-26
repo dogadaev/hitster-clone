@@ -109,6 +109,7 @@ internal object WebIndexHtmlPatcher {
               canvas.style.touchAction = "none";
               var shouldKeepScreenAwake = true;
               var wakeActivationReceived = false;
+              var wakeEnableRequested = false;
               var wakeState = {
                 mode: "idle",
                 enabled: false,
@@ -377,31 +378,21 @@ internal object WebIndexHtmlPatcher {
 
               var wakeController = createWakeController();
 
-              function releaseWakeLock() {
-                wakeState.lastRelease = wakeNowLabel();
-                updateWakeDebug();
-              }
-
-              function requestWakeLock() {
-                shouldKeepScreenAwake = true;
-                if (document.hidden || !wakeActivationReceived) {
-                  return;
-                }
-                wakeController.enable().catch(function() {});
-              }
-
               function activateWakeFromGesture() {
-                if (document.hidden) {
+                if (document.hidden || wakeEnableRequested) {
                   return;
                 }
                 shouldKeepScreenAwake = true;
                 wakeActivationReceived = true;
+                wakeEnableRequested = true;
                 wakeState.lastGesture = wakeNowLabel();
                 updateWakeDebug();
                 if (wakeController.isEnabled()) {
                   return;
                 }
-                wakeController.enable().catch(function() {});
+                wakeController.enable().catch(function() {
+                  wakeEnableRequested = false;
+                });
               }
 
               function handleWakeGesture() {
@@ -468,9 +459,6 @@ internal object WebIndexHtmlPatcher {
                   return;
                 }
                 scheduleViewportSync();
-                if (shouldKeepScreenAwake && wakeActivationReceived) {
-                  requestWakeLock();
-                }
               });
 
               window.addEventListener("resize", scheduleViewportSync, { passive: true });
@@ -480,9 +468,6 @@ internal object WebIndexHtmlPatcher {
               }, { passive: true });
               window.addEventListener("pageshow", function() {
                 scheduleViewportSync();
-                if (shouldKeepScreenAwake && wakeActivationReceived) {
-                  requestWakeLock();
-                }
               }, { passive: true });
               window.addEventListener("pagehide", function() {
                 wakeState.lastRelease = wakeNowLabel();
@@ -490,15 +475,7 @@ internal object WebIndexHtmlPatcher {
               }, { passive: true });
               window.addEventListener("focus", function() {
                 scheduleViewportSync();
-                if (shouldKeepScreenAwake && wakeActivationReceived) {
-                  requestWakeLock();
-                }
               }, { passive: true });
-              window.setInterval(function() {
-                if (shouldKeepScreenAwake && wakeActivationReceived && !document.hidden && !wakeController.isEnabled() && wakeState.mode !== "video-fallback") {
-                  requestWakeLock();
-                }
-              }, 15000);
               if (window.visualViewport) {
                 window.visualViewport.addEventListener("resize", scheduleViewportSync, { passive: true });
                 window.visualViewport.addEventListener("scroll", scheduleViewportSync, { passive: true });
