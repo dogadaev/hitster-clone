@@ -17,7 +17,9 @@ import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.request.header
 import io.ktor.server.request.path
+import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.head
@@ -53,7 +55,7 @@ class AndroidGuestWebServer(
                     hostSnapshotProvider = hostSnapshotProvider,
                 )
                 head("/") {
-                    call.respondNoStoreEmpty(contentTypeFor("$hostedWebRootAssetPath/index.html"))
+                    call.respondNoStoreAssetHead("$hostedWebRootAssetPath/index.html")
                 }
                 get("/") {
                     call.respondNoStoreAsset("$hostedWebRootAssetPath/index.html")
@@ -65,7 +67,7 @@ class AndroidGuestWebServer(
                         call.respondText("Not Found", status = HttpStatusCode.NotFound)
                         return@head
                     }
-                    call.respondNoStoreEmpty(contentTypeFor(assetPath))
+                    call.respondNoStoreAssetHead(assetPath)
                 }
                 get("{...}") {
                     val relativePath = call.request.path().removePrefix("/").trim()
@@ -118,21 +120,85 @@ class AndroidGuestWebServer(
         return "$hostedWebRootAssetPath/$normalizedPath"
     }
 
-    private suspend fun ApplicationCall.respondNoStoreAsset(assetPath: String) {
-        val bytes = try {
+    private fun loadAssetBytes(assetPath: String): ByteArray? {
+        return try {
             applicationContext.assets.open(assetPath).use { it.readBytes() }
         } catch (_: FileNotFoundException) {
+            null
+        }
+    }
+
+    private suspend fun ApplicationCall.respondNoStoreAsset(assetPath: String) {
+        val bytes = loadAssetBytes(assetPath) ?: run {
             respondText("Not Found", status = HttpStatusCode.NotFound)
             return
         }
+        val contentType = contentTypeFor(assetPath)
+        val totalSize = bytes.size.toLong()
         response.headers.append(HttpHeaders.CacheControl, "no-store, no-cache, must-revalidate, max-age=0")
         response.headers.append(HttpHeaders.Pragma, "no-cache")
         response.headers.append(HttpHeaders.Expires, "0")
-        respondBytes(
-            bytes = bytes,
-            contentType = contentTypeFor(assetPath),
-            status = HttpStatusCode.OK,
+        response.headers.append(HttpHeaders.AcceptRanges, "bytes")
+
+        val rangeHeader = request.header(HttpHeaders.Range)
+        val range = parseByteRange(rangeHeader, totalSize)
+
+        if (range == null) {
+            respondBytes(
+                bytes = bytes,
+                contentType = contentType,
+                status = HttpStatusCode.OK,
+            )
+            return
+        }
+
+        if (range.isUnsatisfied) {
+            response.headers.append(HttpHeaders.ContentRange, "bytes */$totalSize")
+            respond(HttpStatusCode.RequestedRangeNotSatisfiable)
+            return
+        }
+
+        val slice = bytes.copyOfRange(range.start.toInt(), range.endInclusive.toInt() + 1)
+        response.headers.append(
+            HttpHeaders.ContentRange,
+            "bytes ${range.start}-${range.endInclusive}/$totalSize",
         )
+        respondBytes(
+            bytes = slice,
+            contentType = contentType,
+            status = HttpStatusCode.PartialContent,
+        )
+    }
+
+    private suspend fun ApplicationCall.respondNoStoreAssetHead(assetPath: String) {
+        val bytes = loadAssetBytes(assetPath) ?: run {
+            respondText("Not Found", status = HttpStatusCode.NotFound)
+            return
+        }
+        val contentType = contentTypeFor(assetPath)
+        val totalSize = bytes.size.toLong()
+        response.headers.append(HttpHeaders.CacheControl, "no-store, no-cache, must-revalidate, max-age=0")
+        response.headers.append(HttpHeaders.Pragma, "no-cache")
+        response.headers.append(HttpHeaders.Expires, "0")
+        val range = parseByteRange(request.header(HttpHeaders.Range), totalSize)
+        response.headers.append(HttpHeaders.AcceptRanges, "bytes")
+        response.headers.append(HttpHeaders.ContentType, contentType.toString())
+        if (range != null && !range.isUnsatisfied) {
+            response.headers.append(
+                HttpHeaders.ContentRange,
+                "bytes ${range.start}-${range.endInclusive}/$totalSize",
+            )
+            response.headers.append(HttpHeaders.ContentLength, range.length.toString())
+            respond(HttpStatusCode.PartialContent)
+            return
+        }
+        if (range?.isUnsatisfied == true) {
+            response.headers.append(HttpHeaders.ContentRange, "bytes */$totalSize")
+            respond(HttpStatusCode.RequestedRangeNotSatisfiable)
+            return
+        }
+        response.headers.append(HttpHeaders.ContentLength, totalSize.toString())
+        respond(HttpStatusCode.OK)
     }
 
     private suspend fun ApplicationCall.respondNoStoreEmpty(contentType: ContentType) {
@@ -163,4 +229,61 @@ class AndroidGuestWebServer(
     companion object {
         const val port: Int = hostedWebPort
     }
+}
+
+private data class RequestedByteRange(
+    val start: Long,
+    val endInclusive: Long,
+    val isUnsatisfied: Boolean = false,
+) {
+    val length: Long get() = if (isUnsatisfied) 0 else (endInclusive - start) + 1
+}
+
+private fun parseByteRange(headerValue: String?, totalSize: Long): RequestedByteRange? {
+    if (headerValue.isNullOrBlank() || totalSize <= 0L) {
+        return null
+    }
+    val normalized = headerValue.trim()
+    if (!normalized.startsWith("bytes=")) {
+        return null
+    }
+    val requested = normalized.removePrefix("bytes=").substringBefore(',').trim()
+    if (requested.isBlank()) {
+        return null
+    }
+
+    val parts = requested.split('-', limit = 2)
+    val startPart = parts.getOrNull(0).orEmpty().trim()
+    val endPart = parts.getOrNull(1).orEmpty().trim()
+
+    if (startPart.isEmpty() && endPart.isEmpty()) {
+        return null
+    }
+
+    if (startPart.isEmpty()) {
+        val suffixLength = endPart.toLongOrNull() ?: return null
+        if (suffixLength <= 0L) {
+            return RequestedByteRange(0L, 0L, isUnsatisfied = true)
+        }
+        val actualLength = minOf(suffixLength, totalSize)
+        return RequestedByteRange(
+            start = totalSize - actualLength,
+            endInclusive = totalSize - 1L,
+        )
+    }
+
+    val start = startPart.toLongOrNull() ?: return null
+    if (start >= totalSize || start < 0L) {
+        return RequestedByteRange(0L, 0L, isUnsatisfied = true)
+    }
+    val end = if (endPart.isEmpty()) {
+        totalSize - 1L
+    } else {
+        val parsedEnd = endPart.toLongOrNull() ?: return null
+        minOf(parsedEnd, totalSize - 1L)
+    }
+    if (end < start) {
+        return RequestedByteRange(0L, 0L, isUnsatisfied = true)
+    }
+    return RequestedByteRange(start = start, endInclusive = end)
 }
