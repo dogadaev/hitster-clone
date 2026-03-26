@@ -6,6 +6,12 @@ package com.hitster.platform.web.server
 
 internal object WebIndexHtmlPatcher {
     private const val viewportMeta = """<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">"""
+    private const val mobileWebAppMeta = """
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="Hitster Clone">
+        <meta name="mobile-web-app-capable" content="yes">
+    """
     private const val fullscreenControls = """
         <div id="hitster-web-controls" aria-hidden="false">
             <button id="hitster-fullscreen-button" type="button" aria-label="Toggle fullscreen">
@@ -171,6 +177,7 @@ internal object WebIndexHtmlPatcher {
               canvas.style.touchAction = "none";
               var wakeLockSentinel = null;
               var wakeFallbackVideo = null;
+              var wakeFallbackTimer = 0;
               var shouldKeepScreenAwake = true;
               var viewportSyncFrame = 0;
               var lastViewportSignature = "";
@@ -243,6 +250,28 @@ internal object WebIndexHtmlPatcher {
 
               function supportsTouchBridge() {
                 return (navigator.maxTouchPoints || 0) > 0 || "ontouchstart" in window;
+              }
+
+              function isIosBrowser() {
+                return /iP(ad|hone|od)/i.test(navigator.userAgent || "");
+              }
+
+              function isLegacyIosBrowser() {
+                if (!isIosBrowser()) {
+                  return false;
+                }
+                var versionMatch = /OS ([0-9_]{1,5})/i.exec(navigator.userAgent || "");
+                if (!versionMatch) {
+                  return false;
+                }
+                var normalized = versionMatch[1].replace(/_/g, ".");
+                var parsed = parseFloat(normalized);
+                return Number.isFinite(parsed) && parsed < 10;
+              }
+
+              function isStandaloneMode() {
+                return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+                  window.navigator.standalone === true;
               }
 
               function readRootPixels(variableName) {
@@ -447,6 +476,10 @@ internal object WebIndexHtmlPatcher {
                   wakeLockSentinel.release().catch(function() {});
                   wakeLockSentinel = null;
                 }
+                if (wakeFallbackTimer !== 0) {
+                  window.clearInterval(wakeFallbackTimer);
+                  wakeFallbackTimer = 0;
+                }
                 if (!wakeFallbackVideo) {
                   return;
                 }
@@ -472,6 +505,18 @@ internal object WebIndexHtmlPatcher {
                       }
                     });
                   }).catch(function() {});
+                  return;
+                }
+                if (isLegacyIosBrowser()) {
+                  if (wakeFallbackTimer !== 0) {
+                    return;
+                  }
+                  wakeFallbackTimer = window.setInterval(function() {
+                    if (!document.hidden) {
+                      window.location.href = window.location.href.split("#")[0];
+                      window.setTimeout(window.stop, 0);
+                    }
+                  }, 15000);
                   return;
                 }
                 var wakeVideo = ensureWakeFallbackVideo();
@@ -570,6 +615,9 @@ internal object WebIndexHtmlPatcher {
                     requestWakeLock();
                     if (!supportsFullscreen()) {
                       setFullscreenButtonState();
+                      if (isIosBrowser() && !isStandaloneMode()) {
+                        window.alert("iPhone Safari does not support real page fullscreen in a browser tab. Use Share → Add to Home Screen to open the game fullscreen.");
+                      }
                       scheduleViewportSync();
                       return;
                     }
@@ -652,6 +700,9 @@ internal object WebIndexHtmlPatcher {
         }
         if (!patched.contains(viewportMeta)) {
             patched = patched.replace("</head>", "    $viewportMeta\n</head>")
+        }
+        if (!patched.contains("""<meta name="apple-mobile-web-app-capable" content="yes">""")) {
+            patched = patched.replace("</head>", "    $mobileWebAppMeta\n</head>")
         }
         if (!patched.contains("""<style id="hitster-mobile-shell">""")) {
             patched = patched.replace("</head>", "$mobileShellStyle\n</head>")
