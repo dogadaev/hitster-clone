@@ -9,11 +9,17 @@ internal object WebIndexHtmlPatcher {
     private const val fullscreenControls = """
         <div id="hitster-web-controls" aria-hidden="false">
             <button id="hitster-fullscreen-button" type="button" aria-label="Toggle fullscreen">
-                <svg id="hitster-fullscreen-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M8 3H4v4" />
-                    <path d="M16 3h4v4" />
-                    <path d="M20 16v4h-4" />
-                    <path d="M4 16v4h4" />
+                <svg id="hitster-fullscreen-enter-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M9 3H4v5" />
+                    <path d="M15 3h5v5" />
+                    <path d="M20 15v5h-5" />
+                    <path d="M4 15v5h5" />
+                </svg>
+                <svg id="hitster-fullscreen-exit-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M10 4v5H5" />
+                    <path d="M14 4v5h5" />
+                    <path d="M19 15h-5v5" />
+                    <path d="M5 15h5v5" />
                 </svg>
             </button>
         </div>
@@ -80,11 +86,11 @@ internal object WebIndexHtmlPatcher {
             }
             #hitster-web-controls {
               position: fixed;
-              top: calc(var(--hitster-safe-top) + 12px);
+              bottom: calc(var(--hitster-safe-bottom) + 12px);
               right: calc(var(--hitster-safe-right) + 12px);
               z-index: 2147483647;
               display: flex;
-              align-items: center;
+              align-items: flex-end;
               justify-content: flex-end;
               pointer-events: none;
             }
@@ -108,8 +114,11 @@ internal object WebIndexHtmlPatcher {
               backdrop-filter: blur(16px);
               -webkit-backdrop-filter: blur(16px);
               touch-action: manipulation;
+              -webkit-touch-callout: none;
+              -webkit-tap-highlight-color: transparent;
             }
-            #hitster-fullscreen-icon {
+            #hitster-fullscreen-enter-icon,
+            #hitster-fullscreen-exit-icon {
               width: 24px;
               height: 24px;
               stroke: currentColor;
@@ -117,6 +126,9 @@ internal object WebIndexHtmlPatcher {
               stroke-linecap: round;
               stroke-linejoin: round;
               fill: none;
+            }
+            #hitster-fullscreen-exit-icon {
+              display: none;
             }
             #hitster-fullscreen-button:active {
               transform: translateY(1px) scale(0.99);
@@ -131,7 +143,13 @@ internal object WebIndexHtmlPatcher {
                 0 0 20px rgba(236, 191, 96, 0.32),
                 inset 0 1px 0 rgba(255, 247, 221, 0.42);
             }
-            #hitster-fullscreen-button[data-hitster-active="true"] #hitster-fullscreen-icon {
+            #hitster-fullscreen-button[data-hitster-active="true"] #hitster-fullscreen-enter-icon {
+              display: none;
+            }
+            #hitster-fullscreen-button[data-hitster-active="true"] #hitster-fullscreen-exit-icon {
+              display: block;
+            }
+            #hitster-fullscreen-button[data-hitster-active="true"] #hitster-fullscreen-exit-icon {
               transform: scale(1.02);
             }
             #hitster-fullscreen-button[data-hitster-supported="false"] {
@@ -156,6 +174,7 @@ internal object WebIndexHtmlPatcher {
               var shouldKeepScreenAwake = true;
               var viewportSyncFrame = 0;
               var lastViewportSignature = "";
+              var lastFullscreenToggleAt = 0;
               var fallbackTouchId = null;
 
               function focusCanvas() {
@@ -266,7 +285,8 @@ internal object WebIndexHtmlPatcher {
                 var supported = supportsFullscreen();
                 fullscreenButton.dataset.hitsterSupported = supported ? "true" : "false";
                 var fullscreenActive = isFullscreenActive();
-                fullscreenButton.setAttribute("title", fullscreenActive ? "Exit fullscreen" : "Enter fullscreen");
+                fullscreenButton.setAttribute("title", fullscreenActive ? "Minimize game" : "Fullscreen game");
+                fullscreenButton.setAttribute("aria-label", fullscreenActive ? "Minimize game" : "Fullscreen game");
                 fullscreenButton.setAttribute("aria-pressed", fullscreenActive ? "true" : "false");
                 fullscreenButton.dataset.hitsterActive = fullscreenActive ? "true" : "false";
               }
@@ -466,13 +486,23 @@ internal object WebIndexHtmlPatcher {
                 scheduleViewportSync();
               }
 
+              function shouldIgnoreFullscreenToggle(eventType) {
+                var now = Date.now();
+                var isReleaseGesture = eventType === "touchend" || eventType === "pointerup" || eventType === "mouseup";
+                if (!isReleaseGesture && (now - lastFullscreenToggleAt) < 600) {
+                  return true;
+                }
+                lastFullscreenToggleAt = now;
+                return false;
+              }
+
               function handleInteractiveFocus() {
                 focusCanvas();
                 requestWakeLock();
                 scheduleViewportSync();
               }
 
-              ["touchstart", "pointerdown", "mousedown"].forEach(function(type) {
+              ["touchstart", "pointerdown", "mousedown", "touchend", "pointerup", "mouseup", "click"].forEach(function(type) {
                 canvas.addEventListener(type, handleInteractiveFocus, { passive: true });
                 document.addEventListener(type, handleWakeGesture, { passive: true, capture: true });
               });
@@ -529,28 +559,35 @@ internal object WebIndexHtmlPatcher {
               });
 
               if (fullscreenButton) {
-                fullscreenButton.addEventListener("click", function(event) {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  handleInteractiveFocus();
-                  if (!supportsFullscreen()) {
-                    setFullscreenButtonState();
-                    return;
-                  }
-                  var togglePromise = isFullscreenActive() ? exitFullscreen() : requestFullscreen();
-                  Promise.resolve(togglePromise).then(function() {
-                    setFullscreenButtonState();
-                    if (shouldKeepScreenAwake) {
-                      requestWakeLock();
+                ["touchend", "pointerup", "mouseup", "click"].forEach(function(type) {
+                  fullscreenButton.addEventListener(type, function(event) {
+                    if (shouldIgnoreFullscreenToggle(event.type)) {
+                      return;
                     }
-                    scheduleViewportSync();
-                  }, function() {
-                    setFullscreenButtonState();
-                    if (shouldKeepScreenAwake) {
-                      requestWakeLock();
+                    event.preventDefault();
+                    event.stopPropagation();
+                    focusCanvas();
+                    requestWakeLock();
+                    if (!supportsFullscreen()) {
+                      setFullscreenButtonState();
+                      scheduleViewportSync();
+                      return;
                     }
-                    scheduleViewportSync();
-                  });
+                    var togglePromise = isFullscreenActive() ? exitFullscreen() : requestFullscreen();
+                    Promise.resolve(togglePromise).then(function() {
+                      setFullscreenButtonState();
+                      if (shouldKeepScreenAwake) {
+                        requestWakeLock();
+                      }
+                      scheduleViewportSync();
+                    }, function() {
+                      setFullscreenButtonState();
+                      if (shouldKeepScreenAwake) {
+                        requestWakeLock();
+                      }
+                      scheduleViewportSync();
+                    });
+                  }, { passive: false });
                 });
               }
 
