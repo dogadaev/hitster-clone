@@ -149,6 +149,8 @@ class AndroidGuestWebServer(
             "json" -> ContentType.Application.Json
             "css" -> ContentType.Text.CSS
             "wasm" -> ContentType.parse("application/wasm")
+            "mp4", "m4v" -> ContentType.Video.MP4
+            "webm" -> ContentType.parse("video/webm")
             "png" -> ContentType.Image.PNG
             "jpg", "jpeg" -> ContentType.Image.JPEG
             "svg" -> ContentType.parse("image/svg+xml")
