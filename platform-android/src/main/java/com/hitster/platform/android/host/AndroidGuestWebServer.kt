@@ -55,7 +55,7 @@ class AndroidGuestWebServer(
                     hostSnapshotProvider = hostSnapshotProvider,
                 )
                 head("/") {
-                    call.respondNoStoreAssetHead("$hostedWebRootAssetPath/index.html")
+                    call.respondNoStoreAsset("$hostedWebRootAssetPath/index.html")
                 }
                 get("/") {
                     call.respondNoStoreAsset("$hostedWebRootAssetPath/index.html")
@@ -67,7 +67,7 @@ class AndroidGuestWebServer(
                         call.respondText("Not Found", status = HttpStatusCode.NotFound)
                         return@head
                     }
-                    call.respondNoStoreAssetHead(assetPath)
+                    call.respondNoStoreAsset(assetPath)
                 }
                 get("{...}") {
                     val relativePath = call.request.path().removePrefix("/").trim()
@@ -168,44 +168,6 @@ class AndroidGuestWebServer(
             contentType = contentType,
             status = HttpStatusCode.PartialContent,
         )
-    }
-
-    private suspend fun ApplicationCall.respondNoStoreAssetHead(assetPath: String) {
-        val bytes = loadAssetBytes(assetPath) ?: run {
-            respondText("Not Found", status = HttpStatusCode.NotFound)
-            return
-        }
-        val contentType = contentTypeFor(assetPath)
-        val totalSize = bytes.size.toLong()
-        response.headers.append(HttpHeaders.CacheControl, "no-store, no-cache, must-revalidate, max-age=0")
-        response.headers.append(HttpHeaders.Pragma, "no-cache")
-        response.headers.append(HttpHeaders.Expires, "0")
-        val range = parseByteRange(request.header(HttpHeaders.Range), totalSize)
-        response.headers.append(HttpHeaders.AcceptRanges, "bytes")
-        response.headers.append(HttpHeaders.ContentType, contentType.toString())
-        if (range != null && !range.isUnsatisfied) {
-            response.headers.append(
-                HttpHeaders.ContentRange,
-                "bytes ${range.start}-${range.endInclusive}/$totalSize",
-            )
-            response.headers.append(HttpHeaders.ContentLength, range.length.toString())
-            respond(HttpStatusCode.PartialContent)
-            return
-        }
-        if (range?.isUnsatisfied == true) {
-            response.headers.append(HttpHeaders.ContentRange, "bytes */$totalSize")
-            respond(HttpStatusCode.RequestedRangeNotSatisfiable)
-            return
-        }
-        response.headers.append(HttpHeaders.ContentLength, totalSize.toString())
-        respond(HttpStatusCode.OK)
-    }
-
-    private suspend fun ApplicationCall.respondNoStoreEmpty(contentType: ContentType) {
-        response.headers.append(HttpHeaders.CacheControl, "no-store, no-cache, must-revalidate, max-age=0")
-        response.headers.append(HttpHeaders.Pragma, "no-cache")
-        response.headers.append(HttpHeaders.Expires, "0")
-        respondText(text = "", contentType = contentType, status = HttpStatusCode.OK)
     }
 
     private fun contentTypeFor(assetPath: String): ContentType {
