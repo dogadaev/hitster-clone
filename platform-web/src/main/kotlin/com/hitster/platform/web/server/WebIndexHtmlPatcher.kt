@@ -558,9 +558,20 @@ internal object WebIndexHtmlPatcher {
                 wakeController.enable().catch(function() {});
               }
 
-              function handleWakeGesture() {
+              function activateWakeFromGesture() {
+                if (document.hidden) {
+                  return;
+                }
+                shouldKeepScreenAwake = true;
                 wakeActivationReceived = true;
-                requestWakeLock();
+                if (wakeController.isEnabled()) {
+                  return;
+                }
+                wakeController.enable().catch(function() {});
+              }
+
+              function handleWakeGesture() {
+                activateWakeFromGesture();
                 scheduleViewportSync();
               }
 
@@ -586,6 +597,9 @@ internal object WebIndexHtmlPatcher {
               ["touchend", "pointerup", "mouseup", "click"].forEach(function(type) {
                 canvas.addEventListener(type, handleInteractiveFocus, { passive: true });
                 document.addEventListener(type, handleWakeGesture, { passive: false, capture: true });
+                canvas.addEventListener(type, function() {
+                  activateWakeFromGesture();
+                }, { passive: false });
               });
 
               if (supportsTouchBridge()) {
@@ -598,6 +612,7 @@ internal object WebIndexHtmlPatcher {
                     return;
                   }
                   fallbackTouchId = touch.identifier;
+                  activateWakeFromGesture();
                   handleInteractiveFocus();
                   dispatchSyntheticMouse("mousedown", touch);
                   event.preventDefault();
@@ -648,7 +663,7 @@ internal object WebIndexHtmlPatcher {
                     event.preventDefault();
                     event.stopPropagation();
                     focusCanvas();
-                    requestWakeLock();
+                    activateWakeFromGesture();
                     if (!supportsFullscreen()) {
                       setFullscreenButtonState();
                       if (isIosBrowser() && !isStandaloneMode()) {
