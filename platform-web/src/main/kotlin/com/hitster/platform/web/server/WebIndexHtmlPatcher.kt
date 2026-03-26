@@ -36,6 +36,11 @@ internal object WebIndexHtmlPatcher {
             "Missing wake-lock fallback video resource."
         }.bufferedReader().use { resource -> resource.readText().trim() }
     }
+    private val wakeLockFallbackWebmUri by lazy {
+        checkNotNull(WebIndexHtmlPatcher::class.java.getResourceAsStream("/wake-lock-fallback-video-webm-uri.txt")) {
+            "Missing wake-lock fallback webm resource."
+        }.bufferedReader().use { resource -> resource.readText().trim() }
+    }
 
     private val mobileShellStyle = """
         <style id="hitster-mobile-shell">
@@ -179,6 +184,7 @@ internal object WebIndexHtmlPatcher {
               var wakeFallbackVideo = null;
               var wakeFallbackTimer = 0;
               var shouldKeepScreenAwake = true;
+              var wakeFallbackEnabled = false;
               var viewportSyncFrame = 0;
               var lastViewportSignature = "";
               var lastFullscreenToggleAt = 0;
@@ -260,13 +266,13 @@ internal object WebIndexHtmlPatcher {
                 if (!isIosBrowser()) {
                   return false;
                 }
-                var versionMatch = /OS ([0-9_]{1,5})/i.exec(navigator.userAgent || "");
-                if (!versionMatch) {
-                  return false;
-                }
-                var normalized = versionMatch[1].replace(/_/g, ".");
+                var versionMatch = /CPU.*OS ([0-9_]{3,4})[0-9_]{0,1}|(CPU like).*AppleWebKit.*Mobile/i.exec(navigator.userAgent || "") || [0, ""];
+                var normalized = String(versionMatch[1] || "")
+                  .replace("undefined", "3_2")
+                  .replace("_", ".")
+                  .replace("_", "");
                 var parsed = parseFloat(normalized);
-                return Number.isFinite(parsed) && parsed < 10;
+                return Number.isFinite(parsed) && parsed < 10 && !window.MSStream;
               }
 
               function isStandaloneMode() {
@@ -428,16 +434,37 @@ internal object WebIndexHtmlPatcher {
                   return wakeFallbackVideo;
                 }
                 wakeFallbackVideo = document.createElement("video");
+                wakeFallbackVideo.id = "hitster-wake-video";
                 wakeFallbackVideo.setAttribute("title", "No Sleep");
                 wakeFallbackVideo.setAttribute("playsinline", "");
                 wakeFallbackVideo.setAttribute("webkit-playsinline", "");
                 wakeFallbackVideo.setAttribute("muted", "");
                 wakeFallbackVideo.setAttribute("disableRemotePlayback", "");
+                wakeFallbackVideo.setAttribute("autoplay", "");
+                wakeFallbackVideo.setAttribute("aria-hidden", "true");
+                wakeFallbackVideo.setAttribute("x-webkit-airplay", "deny");
                 wakeFallbackVideo.muted = true;
+                wakeFallbackVideo.autoplay = true;
                 wakeFallbackVideo.preload = "auto";
+                wakeFallbackVideo.volume = 0;
+                wakeFallbackVideo.tabIndex = -1;
+                wakeFallbackVideo.style.position = "fixed";
+                wakeFallbackVideo.style.width = "1px";
+                wakeFallbackVideo.style.height = "1px";
+                wakeFallbackVideo.style.left = "-10px";
+                wakeFallbackVideo.style.top = "-10px";
+                wakeFallbackVideo.style.opacity = "0.001";
+                wakeFallbackVideo.style.pointerEvents = "none";
+                wakeFallbackVideo.style.zIndex = "-1";
                 if (typeof wakeFallbackVideo.disableRemotePlayback !== "undefined") {
                   wakeFallbackVideo.disableRemotePlayback = true;
                 }
+                wakeFallbackVideo.playsInline = true;
+                wakeFallbackVideo.setAttribute("loop", "");
+                var wakeWebmSource = document.createElement("source");
+                wakeWebmSource.src = "${wakeLockFallbackWebmUri}";
+                wakeWebmSource.type = "video/webm";
+                wakeFallbackVideo.appendChild(wakeWebmSource);
                 var wakeSource = document.createElement("source");
                 wakeSource.src = "${wakeLockFallbackVideoUri}";
                 wakeSource.type = "video/mp4";
@@ -458,15 +485,9 @@ internal object WebIndexHtmlPatcher {
                     }
                   });
                 });
-                wakeFallbackVideo.style.position = "fixed";
-                wakeFallbackVideo.style.right = "0";
-                wakeFallbackVideo.style.bottom = "0";
-                wakeFallbackVideo.style.width = "1px";
-                wakeFallbackVideo.style.height = "1px";
-                wakeFallbackVideo.style.opacity = "0.01";
-                wakeFallbackVideo.style.pointerEvents = "none";
-                wakeFallbackVideo.style.zIndex = "-1";
-                document.body.appendChild(wakeFallbackVideo);
+                if (!wakeFallbackVideo.parentNode) {
+                  document.body.appendChild(wakeFallbackVideo);
+                }
                 wakeFallbackVideo.load();
                 return wakeFallbackVideo;
               }
@@ -483,6 +504,7 @@ internal object WebIndexHtmlPatcher {
                 if (!wakeFallbackVideo) {
                   return;
                 }
+                wakeFallbackEnabled = false;
                 wakeFallbackVideo.currentTime = 0;
                 wakeFallbackVideo.pause();
               }
@@ -520,9 +542,18 @@ internal object WebIndexHtmlPatcher {
                   return;
                 }
                 var wakeVideo = ensureWakeFallbackVideo();
+                if (wakeFallbackEnabled && !wakeVideo.paused) {
+                  return;
+                }
                 var playPromise = wakeVideo.play();
                 if (playPromise && playPromise.catch) {
-                  playPromise.catch(function() {});
+                  playPromise.then(function() {
+                    wakeFallbackEnabled = true;
+                  }).catch(function() {
+                    wakeFallbackEnabled = false;
+                  });
+                } else {
+                  wakeFallbackEnabled = true;
                 }
               }
 

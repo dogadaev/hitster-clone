@@ -157,6 +157,7 @@ The guest-only web build must remain touch-usable on mobile browsers, including 
 The guest-only web build must size itself to the visible mobile browser viewport, respect safe-area insets, and render crisply on high-DPI screens instead of relying on raw `100vh` / `100vw` assumptions.
 The guest-only web build should expose an explicit browser fullscreen control and use the real Fullscreen API where the browser supports it instead of relying only on in-page pseudo-fullscreen layouts.
 When browser capabilities allow it, or when a safe local fallback is available, the guest-only web build should keep the screen awake during active play.
+Because the Android-hosted browser join path is typically served over raw-IP HTTP on the local network, browser wake handling must not rely solely on the secure-context Screen Wake Lock API; keep a non-native fallback path for browsers that cannot expose `navigator.wakeLock` there.
 
 ## Shared State vs Local UI State
 Shared synchronized state includes:
