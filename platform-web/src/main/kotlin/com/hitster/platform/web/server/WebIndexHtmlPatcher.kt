@@ -380,7 +380,7 @@ internal object WebIndexHtmlPatcher {
                   }
                   wakeFallbackVideo.addEventListener("loadedmetadata", function() {
                     updateMediaDetail("loadedmetadata");
-                    if (currentWakeSourceType() === "webm") {
+                    if (wakeFallbackVideo.duration <= 1 || currentWakeSourceType() === "webm") {
                       wakeFallbackVideo.setAttribute("loop", "");
                       return;
                     }
@@ -388,11 +388,9 @@ internal object WebIndexHtmlPatcher {
                       return;
                     }
                     wakeFallbackVideo.dataset.hitsterLoopHack = "true";
-                    var resetTargetTime = 0.01;
-                    var resetThreshold = Math.max(0.5, wakeFallbackVideo.duration - 0.1);
                     wakeFallbackVideo.addEventListener("timeupdate", function() {
-                      if (wakeFallbackVideo.currentTime >= resetThreshold) {
-                        wakeFallbackVideo.currentTime = resetTargetTime;
+                      if (wakeFallbackVideo.currentTime > 0.5) {
+                        wakeFallbackVideo.currentTime = Math.random();
                       }
                       updateMediaDetail("timeupdate");
                     });
@@ -404,6 +402,15 @@ internal object WebIndexHtmlPatcher {
                       });
                     });
                   }
+                  ["pause", "ended", "abort"].forEach(function(type) {
+                    wakeFallbackVideo.addEventListener(type, function() {
+                      enabled = false;
+                      wakeState.enabled = false;
+                      wakeState.lastRelease = wakeNowLabel();
+                      updateWakeDebug();
+                      resumeWakeFallbackPlayback(type);
+                    });
+                  });
                   wakeFallbackVideo.addEventListener("error", function() {
                     wakeState.media = "error";
                     var mediaError = wakeFallbackVideo.error;
@@ -421,6 +428,50 @@ internal object WebIndexHtmlPatcher {
                     updateWakeDebug();
                   });
                   return wakeFallbackVideo;
+                }
+
+                function resumeWakeFallbackPlayback(reason) {
+                  if (!wakeFallbackVideo || pendingPromise || document.hidden || !shouldKeepScreenAwake || !wakeActivationReceived) {
+                    return;
+                  }
+                  wakeState.pending = true;
+                  updateWakeDebug();
+                  pendingPromise = Promise.resolve(wakeFallbackVideo.play()).then(function(result) {
+                    enabled = true;
+                    pendingPromise = null;
+                    wakeState.pending = false;
+                    wakeState.enabled = true;
+                    wakeState.lastEnable = wakeNowLabel();
+                    wakeState.lastError = "none";
+                    if (wakeDebugEnabled) {
+                      wakeState.mediaDetail = [
+                        "resume=" + reason,
+                        "src=" + (wakeFallbackVideo.currentSrc || "unknown"),
+                        "ready=" + wakeFallbackVideo.readyState,
+                        "net=" + wakeFallbackVideo.networkState,
+                        "time=" + wakeFallbackVideo.currentTime.toFixed(2)
+                      ].join(" ");
+                    }
+                    updateWakeDebug();
+                    return result;
+                  }).catch(function(error) {
+                    enabled = false;
+                    pendingPromise = null;
+                    wakeState.pending = false;
+                    wakeState.enabled = false;
+                    wakeState.lastError = formatWakeError(error);
+                    if (wakeDebugEnabled) {
+                      wakeState.mediaDetail = [
+                        "resume=" + reason,
+                        "src=" + (wakeFallbackVideo.currentSrc || "unknown"),
+                        "ready=" + wakeFallbackVideo.readyState,
+                        "net=" + wakeFallbackVideo.networkState,
+                        "time=" + wakeFallbackVideo.currentTime.toFixed(2)
+                      ].join(" ");
+                    }
+                    updateWakeDebug();
+                    throw error;
+                  });
                 }
 
                 return {
