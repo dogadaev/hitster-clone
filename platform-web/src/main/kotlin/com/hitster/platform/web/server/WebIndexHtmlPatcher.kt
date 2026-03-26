@@ -267,7 +267,7 @@ internal object WebIndexHtmlPatcher {
 
               function fullscreenRequestCandidates() {
                 var container = canvas.parentElement || canvas.parentNode;
-                return [container, document.body, root, canvas].filter(function(target) {
+                return [document.body, root, container, canvas].filter(function(target) {
                   return !!target;
                 });
               }
