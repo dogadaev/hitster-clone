@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 
 class WebIndexHtmlPatcherTest {
     @Test
-    fun patchInjectsMobileViewportTouchHandlingCanvasSizingAndWakeLockSupport() {
+    fun patchInjectsMobileViewportTouchHandlingCanvasSizingWakeLockAndFullscreenSupport() {
         val originalHtml = """
             <!DOCTYPE html>
             <html>
@@ -31,7 +31,11 @@ class WebIndexHtmlPatcherTest {
         assertContains(patchedHtml, """<style id="hitster-mobile-shell">""")
         assertContains(patchedHtml, "--hitster-visible-height")
         assertContains(patchedHtml, "width: 100% !important;")
+        assertContains(patchedHtml, """<div id="hitster-web-controls"""")
+        assertContains(patchedHtml, """<button id="hitster-fullscreen-button"""")
+        assertContains(patchedHtml, """border-radius: 999px;""")
         assertContains(patchedHtml, """<script id="hitster-mobile-runtime">""")
+        assertContains(patchedHtml, "var fullscreenButton = document.getElementById(\"hitster-fullscreen-button\");")
         assertContains(patchedHtml, "canvas.addEventListener(type, handleInteractiveFocus")
         assertContains(patchedHtml, "if (supportsTouchBridge())")
         assertContains(patchedHtml, "document.addEventListener(\"touchstart\", function(event)")
@@ -50,7 +54,15 @@ class WebIndexHtmlPatcherTest {
         assertContains(patchedHtml, "wakeFallbackVideo.load();")
         assertContains(patchedHtml, "wakeFallbackVideo.addEventListener(\"loadedmetadata\"")
         assertContains(patchedHtml, "wakeFallbackVideo.currentTime > 0.5")
+        assertContains(patchedHtml, "var shouldKeepScreenAwake = true;")
         assertContains(patchedHtml, "return (navigator.maxTouchPoints || 0) > 0 || \"ontouchstart\" in window;")
+        assertContains(patchedHtml, "function supportsFullscreen() {")
+        assertContains(patchedHtml, "target.requestFullscreen({ navigationUI: \"hide\" })")
+        assertContains(patchedHtml, "document.exitFullscreen")
+        assertContains(patchedHtml, "fullscreenButton.addEventListener(\"click\", function(event)")
+        assertContains(patchedHtml, "\"EXIT FULLSCREEN\"")
+        assertContains(patchedHtml, "\"FULLSCREEN\"")
+        assertContains(patchedHtml, "\"fullscreenchange\", \"webkitfullscreenchange\", \"msfullscreenchange\"")
         assertContains(patchedHtml, "window.dispatchEvent(new Event(\"resize\"))")
     }
 

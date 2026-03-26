@@ -155,6 +155,7 @@ Authoritative host networking and command handling must not depend on the libGDX
 Guest reconnects must preserve the same player identity so a temporarily disconnected player can safely reattach to an in-progress match instead of being treated as a new player.
 The guest-only web build must remain touch-usable on mobile browsers, including iOS Safari and Android Chrome, rather than assuming desktop mouse-only interaction.
 The guest-only web build must size itself to the visible mobile browser viewport, respect safe-area insets, and render crisply on high-DPI screens instead of relying on raw `100vh` / `100vw` assumptions.
+The guest-only web build should expose an explicit browser fullscreen control and use the real Fullscreen API where the browser supports it instead of relying only on in-page pseudo-fullscreen layouts.
 When browser capabilities allow it, or when a safe local fallback is available, the guest-only web build should keep the screen awake during active play.
 
 ## Shared State vs Local UI State
