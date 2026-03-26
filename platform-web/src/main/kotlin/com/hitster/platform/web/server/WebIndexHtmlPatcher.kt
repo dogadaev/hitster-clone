@@ -388,9 +388,11 @@ internal object WebIndexHtmlPatcher {
                       return;
                     }
                     wakeFallbackVideo.dataset.hitsterLoopHack = "true";
+                    var resetTargetTime = 0.01;
+                    var resetThreshold = Math.max(0.5, wakeFallbackVideo.duration - 0.1);
                     wakeFallbackVideo.addEventListener("timeupdate", function() {
-                      if (wakeFallbackVideo.currentTime > 0.5) {
-                        wakeFallbackVideo.currentTime = Math.random();
+                      if (wakeFallbackVideo.currentTime >= resetThreshold) {
+                        wakeFallbackVideo.currentTime = resetTargetTime;
                       }
                       updateMediaDetail("timeupdate");
                     });
