@@ -344,10 +344,12 @@ internal object WebIndexHtmlPatcher {
                   wakeFallbackVideo.setAttribute("playsinline", "");
                   wakeFallbackVideo.setAttribute("webkit-playsinline", "");
                   wakeFallbackVideo.setAttribute("preload", "auto");
-                  wakeFallbackVideo.setAttribute("muted", "");
-                  wakeFallbackVideo.defaultMuted = true;
-                  wakeFallbackVideo.muted = true;
-                  wakeFallbackVideo.volume = 0;
+                  if (!isIosBrowser()) {
+                    wakeFallbackVideo.setAttribute("muted", "");
+                    wakeFallbackVideo.defaultMuted = true;
+                    wakeFallbackVideo.muted = true;
+                    wakeFallbackVideo.volume = 0;
+                  }
                   wakeFallbackVideo.disableRemotePlayback = true;
                   wakeFallbackVideo.setAttribute("disableremoteplayback", "");
                   appendWakeSource(wakeFallbackVideo, "webm", "${wakeLockFallbackWebmDataUri}");

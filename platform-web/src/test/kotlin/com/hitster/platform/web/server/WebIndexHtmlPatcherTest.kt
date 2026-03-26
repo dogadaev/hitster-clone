@@ -62,6 +62,7 @@ class WebIndexHtmlPatcherTest {
         assertContains(patchedHtml, "wakeFallbackVideo.id = \"hitster-wake-video\";")
         assertContains(patchedHtml, "wakeFallbackVideo.setAttribute(\"webkit-playsinline\", \"\");")
         assertContains(patchedHtml, "wakeFallbackVideo.setAttribute(\"preload\", \"auto\");")
+        assertContains(patchedHtml, "if (!isIosBrowser()) {")
         assertContains(patchedHtml, "wakeFallbackVideo.defaultMuted = true;")
         assertContains(patchedHtml, "wakeFallbackVideo.muted = true;")
         assertContains(patchedHtml, "wakeFallbackVideo.volume = 0;")
