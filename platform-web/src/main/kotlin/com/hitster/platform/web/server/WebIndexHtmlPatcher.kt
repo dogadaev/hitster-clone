@@ -510,11 +510,20 @@ internal object WebIndexHtmlPatcher {
                 var enabled = false;
                 var pendingPromise = null;
 
-                function appendSource(videoElement, type, dataUri) {
-                  var source = document.createElement("source");
-                  source.src = dataUri;
-                  source.type = "video/" + type;
-                  videoElement.appendChild(source);
+                function pickWakeFallbackSource(videoElement) {
+                  var canPlayMp4 = false;
+                  var canPlayWebm = false;
+                  if (videoElement && videoElement.canPlayType) {
+                    canPlayMp4 = videoElement.canPlayType("video/mp4") !== "";
+                    canPlayWebm = videoElement.canPlayType("video/webm") !== "";
+                  }
+                  if (canPlayMp4 || isIosBrowser()) {
+                    return { type: "mp4", uri: "${wakeLockFallbackVideoUri}" };
+                  }
+                  if (canPlayWebm) {
+                    return { type: "webm", uri: "${wakeLockFallbackWebmUri}" };
+                  }
+                  return { type: "mp4", uri: "${wakeLockFallbackVideoUri}" };
                 }
 
                 function ensureWakeFallbackVideo() {
@@ -550,11 +559,13 @@ internal object WebIndexHtmlPatcher {
                   if (typeof wakeFallbackVideo.disableRemotePlayback !== "undefined") {
                     wakeFallbackVideo.disableRemotePlayback = true;
                   }
-                  appendSource(wakeFallbackVideo, "webm", "${wakeLockFallbackWebmUri}");
-                  appendSource(wakeFallbackVideo, "mp4", "${wakeLockFallbackVideoUri}");
+                  var selectedWakeSource = pickWakeFallbackSource(wakeFallbackVideo);
+                  wakeFallbackVideo.src = selectedWakeSource.uri;
+                  wakeFallbackVideo.dataset.hitsterSourceType = selectedWakeSource.type;
                   function updateMediaDetail(type) {
                     wakeState.media = type;
                     wakeState.mediaDetail = [
+                      "src=" + wakeFallbackVideo.dataset.hitsterSourceType,
                       "ready=" + wakeFallbackVideo.readyState,
                       "net=" + wakeFallbackVideo.networkState,
                       "time=" + wakeFallbackVideo.currentTime.toFixed(2)
@@ -591,6 +602,7 @@ internal object WebIndexHtmlPatcher {
                       wakeState.lastError = "MediaError code " + mediaError.code;
                     }
                     wakeState.mediaDetail = [
+                      "src=" + wakeFallbackVideo.dataset.hitsterSourceType,
                       "ready=" + wakeFallbackVideo.readyState,
                       "net=" + wakeFallbackVideo.networkState
                     ].join(" ");
@@ -599,7 +611,6 @@ internal object WebIndexHtmlPatcher {
                   if (!wakeFallbackVideo.parentNode && document.body) {
                     document.body.appendChild(wakeFallbackVideo);
                   }
-                  wakeFallbackVideo.load();
                   return wakeFallbackVideo;
                 }
 
@@ -674,7 +685,7 @@ internal object WebIndexHtmlPatcher {
                     }
                     wakeState.mode = "video-fallback";
                     wakeState.media = "starting";
-                    wakeState.mediaDetail = "ready=0 net=0 time=0.00";
+                    wakeState.mediaDetail = "src=unknown ready=0 net=0 time=0.00";
                     wakeState.pending = true;
                     updateWakeDebug();
                     var wakeVideo = ensureWakeFallbackVideo();
@@ -686,6 +697,7 @@ internal object WebIndexHtmlPatcher {
                         wakeState.lastEnable = wakeNowLabel();
                         wakeState.lastError = "none";
                         wakeState.mediaDetail = [
+                          "src=" + wakeVideo.dataset.hitsterSourceType,
                           "ready=" + wakeVideo.readyState,
                           "net=" + wakeVideo.networkState,
                           "time=" + wakeVideo.currentTime.toFixed(2)
@@ -699,6 +711,7 @@ internal object WebIndexHtmlPatcher {
                         wakeState.enabled = false;
                         wakeState.lastError = formatWakeError(error);
                         wakeState.mediaDetail = [
+                          "src=" + wakeVideo.dataset.hitsterSourceType,
                           "ready=" + wakeVideo.readyState,
                           "net=" + wakeVideo.networkState,
                           "time=" + wakeVideo.currentTime.toFixed(2)
