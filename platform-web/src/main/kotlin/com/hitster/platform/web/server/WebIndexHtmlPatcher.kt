@@ -12,8 +12,6 @@ internal object WebIndexHtmlPatcher {
         <meta name="apple-mobile-web-app-title" content="Hitster Clone">
         <meta name="mobile-web-app-capable" content="yes">
     """
-    private const val shellOverlays = """<div id="hitster-wake-debug" aria-live="polite"></div>"""
-
     private val wakeLockFallbackMp4DataUri = loadResourceText("wake-lock-fallback-video-uri.txt")
     private val wakeLockFallbackWebmDataUri = loadResourceText("wake-lock-fallback-video-webm-uri.txt")
 
@@ -97,9 +95,16 @@ internal object WebIndexHtmlPatcher {
             (function() {
               var root = document.documentElement;
               var canvas = document.getElementById("canvas");
-              var wakeDebug = document.getElementById("hitster-wake-debug");
+              var wakeDebugEnabled = /(?:\?|&)wakeDebug=1(?:&|$)/.test(window.location.search || "");
+              var wakeDebug = null;
               if (!canvas) {
                 return;
+              }
+              if (wakeDebugEnabled) {
+                wakeDebug = document.createElement("div");
+                wakeDebug.id = "hitster-wake-debug";
+                wakeDebug.setAttribute("aria-live", "polite");
+                document.body.appendChild(wakeDebug);
               }
               canvas.setAttribute("tabindex", "0");
               canvas.style.touchAction = "none";
@@ -146,7 +151,7 @@ internal object WebIndexHtmlPatcher {
               }
 
               function updateWakeDebug() {
-                if (!wakeDebug) {
+                if (!wakeDebugEnabled || !wakeDebug) {
                   return;
                 }
                 wakeDebug.textContent = [
@@ -330,6 +335,9 @@ internal object WebIndexHtmlPatcher {
                   appendWakeSource(wakeFallbackVideo, "mp4", "${wakeLockFallbackMp4DataUri}");
                   function updateMediaDetail(type) {
                     wakeState.media = type;
+                    if (!wakeDebugEnabled) {
+                      return;
+                    }
                     var sourceType = "unknown";
                     var currentSource = wakeFallbackVideo.currentSrc || "";
                     if (currentSource.indexOf("video/webm") !== -1) {
@@ -372,6 +380,9 @@ internal object WebIndexHtmlPatcher {
                     var mediaError = wakeFallbackVideo.error;
                     if (mediaError && mediaError.code) {
                       wakeState.lastError = "MediaError code " + mediaError.code;
+                    }
+                    if (!wakeDebugEnabled) {
+                      return;
                     }
                     wakeState.mediaDetail = [
                       "src=" + (wakeFallbackVideo.currentSrc || "unknown"),
@@ -465,12 +476,14 @@ internal object WebIndexHtmlPatcher {
                         wakeState.enabled = true;
                         wakeState.lastEnable = wakeNowLabel();
                         wakeState.lastError = "none";
-                        wakeState.mediaDetail = [
-                          "src=" + (wakeVideo.currentSrc || "unknown"),
-                          "ready=" + wakeVideo.readyState,
-                          "net=" + wakeVideo.networkState,
-                          "time=" + wakeVideo.currentTime.toFixed(2)
-                        ].join(" ");
+                        if (wakeDebugEnabled) {
+                          wakeState.mediaDetail = [
+                            "src=" + (wakeVideo.currentSrc || "unknown"),
+                            "ready=" + wakeVideo.readyState,
+                            "net=" + wakeVideo.networkState,
+                            "time=" + wakeVideo.currentTime.toFixed(2)
+                          ].join(" ");
+                        }
                         updateWakeDebug();
                         return result;
                     }).catch(function(error) {
@@ -479,12 +492,14 @@ internal object WebIndexHtmlPatcher {
                         wakeState.pending = false;
                         wakeState.enabled = false;
                         wakeState.lastError = formatWakeError(error);
-                        wakeState.mediaDetail = [
-                          "src=" + (wakeVideo.currentSrc || "unknown"),
-                          "ready=" + wakeVideo.readyState,
-                          "net=" + wakeVideo.networkState,
-                          "time=" + wakeVideo.currentTime.toFixed(2)
-                        ].join(" ");
+                        if (wakeDebugEnabled) {
+                          wakeState.mediaDetail = [
+                            "src=" + (wakeVideo.currentSrc || "unknown"),
+                            "ready=" + wakeVideo.readyState,
+                            "net=" + wakeVideo.networkState,
+                            "time=" + wakeVideo.currentTime.toFixed(2)
+                          ].join(" ");
+                        }
                         updateWakeDebug();
                         throw error;
                     });
@@ -674,9 +689,6 @@ internal object WebIndexHtmlPatcher {
         }
         if (!patched.contains("""<style id="hitster-mobile-shell">""")) {
             patched = patched.replace("</head>", "$mobileShellStyle\n</head>")
-        }
-        if (!patched.contains("""<div id="hitster-wake-debug"""")) {
-            patched = patched.replace("</body>", "$shellOverlays\n</body>")
         }
         if (!patched.contains("""<script id="hitster-mobile-runtime">""")) {
             patched = patched.replace("</body>", "$mobileRuntimeScript\n</body>")
