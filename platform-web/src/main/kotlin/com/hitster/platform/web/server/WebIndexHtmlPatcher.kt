@@ -29,6 +29,7 @@ internal object WebIndexHtmlPatcher {
                 </svg>
             </button>
         </div>
+        <div id="hitster-wake-debug" aria-live="polite"></div>
     """
 
     private val wakeLockFallbackVideoUri by lazy {
@@ -166,6 +167,25 @@ internal object WebIndexHtmlPatcher {
             #hitster-fullscreen-button[data-hitster-supported="false"] {
               opacity: 0.74;
             }
+            #hitster-wake-debug {
+              position: fixed;
+              top: calc(var(--hitster-safe-top) + 12px);
+              left: calc(var(--hitster-safe-left) + 12px);
+              z-index: 2147483646;
+              min-width: 188px;
+              max-width: min(52vw, 280px);
+              padding: 10px 12px;
+              border-radius: 12px;
+              background: rgba(7, 11, 22, 0.78);
+              border: 1px solid rgba(255, 255, 255, 0.12);
+              box-shadow: 0 10px 24px rgba(0, 0, 0, 0.26);
+              color: rgba(240, 245, 255, 0.96);
+              font: 600 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+              white-space: pre-wrap;
+              pointer-events: none;
+              backdrop-filter: blur(12px);
+              -webkit-backdrop-filter: blur(12px);
+            }
         </style>
     """.trimIndent()
 
@@ -175,6 +195,7 @@ internal object WebIndexHtmlPatcher {
               var root = document.documentElement;
               var canvas = document.getElementById("canvas");
               var fullscreenButton = document.getElementById("hitster-fullscreen-button");
+              var wakeDebug = document.getElementById("hitster-wake-debug");
               if (!canvas) {
                 return;
               }
@@ -182,10 +203,60 @@ internal object WebIndexHtmlPatcher {
               canvas.style.touchAction = "none";
               var shouldKeepScreenAwake = true;
               var wakeActivationReceived = false;
+              var wakeState = {
+                mode: "idle",
+                enabled: false,
+                attempts: 0,
+                lastError: "none",
+                lastGesture: "never",
+                lastEnable: "never",
+                lastRelease: "never"
+              };
               var viewportSyncFrame = 0;
               var lastViewportSignature = "";
               var lastFullscreenToggleAt = 0;
               var fallbackTouchId = null;
+
+              function wakeNowLabel() {
+                try {
+                  return new Date().toLocaleTimeString();
+                } catch (error) {
+                  return String(Date.now());
+                }
+              }
+
+              function supportsNativeWakeLockApi() {
+                return !!(navigator.wakeLock && window.isSecureContext);
+              }
+
+              function formatWakeError(error) {
+                if (!error) {
+                  return "none";
+                }
+                if (typeof error === "string") {
+                  return error;
+                }
+                var name = error.name || "Error";
+                var message = error.message || String(error);
+                return name + ": " + message;
+              }
+
+              function updateWakeDebug() {
+                if (!wakeDebug) {
+                  return;
+                }
+                wakeDebug.textContent = [
+                  "wake " + wakeState.mode + " " + (wakeState.enabled ? "on" : "off"),
+                  "activation " + (wakeActivationReceived ? "yes" : "no") + " attempts " + wakeState.attempts,
+                  "visible " + (!document.hidden ? "yes" : "no") + " secure " + (window.isSecureContext ? "yes" : "no"),
+                  "native " + (supportsNativeWakeLockApi() ? "yes" : "no") + " fullscreen " + (isFullscreenActive() ? "yes" : "no"),
+                  "standalone " + (isStandaloneMode() ? "yes" : "no"),
+                  "gesture " + wakeState.lastGesture,
+                  "enable " + wakeState.lastEnable,
+                  "release " + wakeState.lastRelease,
+                  "error " + wakeState.lastError
+                ].join("\n");
+              }
 
               function focusCanvas() {
                 try {
@@ -432,10 +503,6 @@ internal object WebIndexHtmlPatcher {
                 var wakeFallbackTimer = 0;
                 var enabled = false;
 
-                function supportsNativeWakeLock() {
-                  return !!(navigator.wakeLock && window.isSecureContext);
-                }
-
                 function appendSource(videoElement, type, dataUri) {
                   var source = document.createElement("source");
                   source.src = dataUri;
@@ -486,24 +553,42 @@ internal object WebIndexHtmlPatcher {
                     return enabled;
                   },
                   enable: function() {
-                    if (supportsNativeWakeLock()) {
+                    wakeState.attempts += 1;
+                    if (supportsNativeWakeLockApi()) {
+                      wakeState.mode = "native";
                       return navigator.wakeLock.request("screen").then(function(lock) {
                         wakeLockSentinel = lock;
                         enabled = true;
+                        wakeState.enabled = true;
+                        wakeState.lastEnable = wakeNowLabel();
+                        wakeState.lastError = "none";
+                        updateWakeDebug();
                         wakeLockSentinel.addEventListener("release", function() {
                           wakeLockSentinel = null;
-                          if (enabled && !document.hidden) {
+                          enabled = false;
+                          wakeState.enabled = false;
+                          wakeState.lastRelease = wakeNowLabel();
+                          updateWakeDebug();
+                          if (shouldKeepScreenAwake && !document.hidden) {
                             wakeController.enable().catch(function() {});
                           }
                         });
                       }).catch(function(error) {
                         enabled = false;
+                        wakeState.enabled = false;
+                        wakeState.lastError = formatWakeError(error);
+                        updateWakeDebug();
                         throw error;
                       });
                     }
                     if (isLegacyIosBrowser()) {
+                      wakeState.mode = "legacy-ios-timer";
                       if (wakeFallbackTimer !== 0) {
                         enabled = true;
+                        wakeState.enabled = true;
+                        wakeState.lastEnable = wakeNowLabel();
+                        wakeState.lastError = "none";
+                        updateWakeDebug();
                         return Promise.resolve();
                       }
                       wakeFallbackTimer = window.setInterval(function() {
@@ -513,20 +598,32 @@ internal object WebIndexHtmlPatcher {
                         }
                       }, 15000);
                       enabled = true;
+                      wakeState.enabled = true;
+                      wakeState.lastEnable = wakeNowLabel();
+                      wakeState.lastError = "none";
+                      updateWakeDebug();
                       return Promise.resolve();
                     }
+                    wakeState.mode = "video-fallback";
                     var wakeVideo = ensureWakeFallbackVideo();
                     var playPromise = wakeVideo.play();
                     return Promise.resolve(playPromise).then(function(result) {
                       enabled = true;
+                      wakeState.enabled = true;
+                      wakeState.lastEnable = wakeNowLabel();
+                      wakeState.lastError = "none";
+                      updateWakeDebug();
                       return result;
                     }).catch(function(error) {
                       enabled = false;
+                      wakeState.enabled = false;
+                      wakeState.lastError = formatWakeError(error);
+                      updateWakeDebug();
                       throw error;
                     });
                   },
                   disable: function() {
-                    if (supportsNativeWakeLock()) {
+                    if (supportsNativeWakeLockApi()) {
                       if (wakeLockSentinel) {
                         wakeLockSentinel.release().catch(function() {});
                       }
@@ -540,6 +637,9 @@ internal object WebIndexHtmlPatcher {
                       wakeFallbackVideo.pause();
                     }
                     enabled = false;
+                    wakeState.enabled = false;
+                    wakeState.lastRelease = wakeNowLabel();
+                    updateWakeDebug();
                   },
                 };
               }
@@ -564,6 +664,8 @@ internal object WebIndexHtmlPatcher {
                 }
                 shouldKeepScreenAwake = true;
                 wakeActivationReceived = true;
+                wakeState.lastGesture = wakeNowLabel();
+                updateWakeDebug();
                 if (wakeController.isEnabled()) {
                   return;
                 }
@@ -734,6 +836,7 @@ internal object WebIndexHtmlPatcher {
               });
 
               setFullscreenButtonState();
+              updateWakeDebug();
               scheduleViewportSync();
               window.setTimeout(scheduleViewportSync, 250);
               window.setTimeout(scheduleViewportSync, 1000);
