@@ -343,15 +343,6 @@ internal object WebIndexHtmlPatcher {
                   wakeFallbackVideo.setAttribute("title", "No Sleep");
                   wakeFallbackVideo.setAttribute("playsinline", "");
                   wakeFallbackVideo.setAttribute("webkit-playsinline", "");
-                  wakeFallbackVideo.setAttribute("preload", "auto");
-                  if (!isIosBrowser()) {
-                    wakeFallbackVideo.setAttribute("muted", "");
-                    wakeFallbackVideo.defaultMuted = true;
-                    wakeFallbackVideo.muted = true;
-                    wakeFallbackVideo.volume = 0;
-                  }
-                  wakeFallbackVideo.disableRemotePlayback = true;
-                  wakeFallbackVideo.setAttribute("disableremoteplayback", "");
                   appendWakeSource(wakeFallbackVideo, "webm", "${wakeLockFallbackWebmDataUri}");
                   appendWakeSource(wakeFallbackVideo, "mp4", "${wakeLockFallbackMp4DataUri}");
                   function currentWakeSourceType() {
@@ -380,7 +371,7 @@ internal object WebIndexHtmlPatcher {
                   }
                   wakeFallbackVideo.addEventListener("loadedmetadata", function() {
                     updateMediaDetail("loadedmetadata");
-                    if (wakeFallbackVideo.duration <= 1 || currentWakeSourceType() === "webm") {
+                    if (wakeFallbackVideo.duration <= 1) {
                       wakeFallbackVideo.setAttribute("loop", "");
                       return;
                     }
@@ -402,15 +393,6 @@ internal object WebIndexHtmlPatcher {
                       });
                     });
                   }
-                  ["pause", "ended", "abort"].forEach(function(type) {
-                    wakeFallbackVideo.addEventListener(type, function() {
-                      enabled = false;
-                      wakeState.enabled = false;
-                      wakeState.lastRelease = wakeNowLabel();
-                      updateWakeDebug();
-                      resumeWakeFallbackPlayback(type);
-                    });
-                  });
                   wakeFallbackVideo.addEventListener("error", function() {
                     wakeState.media = "error";
                     var mediaError = wakeFallbackVideo.error;
@@ -428,50 +410,6 @@ internal object WebIndexHtmlPatcher {
                     updateWakeDebug();
                   });
                   return wakeFallbackVideo;
-                }
-
-                function resumeWakeFallbackPlayback(reason) {
-                  if (!wakeFallbackVideo || pendingPromise || document.hidden || !shouldKeepScreenAwake || !wakeActivationReceived) {
-                    return;
-                  }
-                  wakeState.pending = true;
-                  updateWakeDebug();
-                  pendingPromise = Promise.resolve(wakeFallbackVideo.play()).then(function(result) {
-                    enabled = true;
-                    pendingPromise = null;
-                    wakeState.pending = false;
-                    wakeState.enabled = true;
-                    wakeState.lastEnable = wakeNowLabel();
-                    wakeState.lastError = "none";
-                    if (wakeDebugEnabled) {
-                      wakeState.mediaDetail = [
-                        "resume=" + reason,
-                        "src=" + (wakeFallbackVideo.currentSrc || "unknown"),
-                        "ready=" + wakeFallbackVideo.readyState,
-                        "net=" + wakeFallbackVideo.networkState,
-                        "time=" + wakeFallbackVideo.currentTime.toFixed(2)
-                      ].join(" ");
-                    }
-                    updateWakeDebug();
-                    return result;
-                  }).catch(function(error) {
-                    enabled = false;
-                    pendingPromise = null;
-                    wakeState.pending = false;
-                    wakeState.enabled = false;
-                    wakeState.lastError = formatWakeError(error);
-                    if (wakeDebugEnabled) {
-                      wakeState.mediaDetail = [
-                        "resume=" + reason,
-                        "src=" + (wakeFallbackVideo.currentSrc || "unknown"),
-                        "ready=" + wakeFallbackVideo.readyState,
-                        "net=" + wakeFallbackVideo.networkState,
-                        "time=" + wakeFallbackVideo.currentTime.toFixed(2)
-                      ].join(" ");
-                    }
-                    updateWakeDebug();
-                    throw error;
-                  });
                 }
 
                 return {
