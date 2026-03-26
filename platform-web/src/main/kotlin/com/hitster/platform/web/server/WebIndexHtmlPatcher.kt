@@ -188,6 +188,17 @@ internal object WebIndexHtmlPatcher {
                 });
               }
 
+              function effectivePixelRatio() {
+                var pixelRatio = window.devicePixelRatio || 1;
+                if (!supportsTouchBridge()) {
+                  return pixelRatio;
+                }
+                if (isIosBrowser()) {
+                  return Math.min(pixelRatio, 1.5);
+                }
+                return Math.min(pixelRatio, 2);
+              }
+
               function canvasContainsTouch(touch) {
                 if (!touch) {
                   return false;
@@ -269,7 +280,7 @@ internal object WebIndexHtmlPatcher {
                 var viewport = window.visualViewport;
                 var visibleWidth = viewport ? viewport.width : window.innerWidth;
                 var visibleHeight = viewport ? viewport.height : window.innerHeight;
-                var pixelRatio = window.devicePixelRatio || 1;
+                var pixelRatio = effectivePixelRatio();
                 var canvasContainer = canvas.parentElement || canvas.parentNode;
                 var targetCssWidth = canvasContainer && canvasContainer.clientWidth ? canvasContainer.clientWidth : visibleWidth;
                 var targetCssHeight = canvasContainer && canvasContainer.clientHeight ? canvasContainer.clientHeight : visibleHeight;
@@ -560,12 +571,10 @@ internal object WebIndexHtmlPatcher {
 
               function handleWakeGesture() {
                 activateWakeFromGesture();
-                scheduleViewportSync();
               }
 
               function handleInteractiveFocus() {
                 focusCanvas();
-                scheduleViewportSync();
               }
 
               ["touchstart", "pointerdown", "mousedown"].forEach(function(type) {
