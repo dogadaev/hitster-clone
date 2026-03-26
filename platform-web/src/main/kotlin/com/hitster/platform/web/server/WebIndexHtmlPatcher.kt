@@ -14,8 +14,8 @@ internal object WebIndexHtmlPatcher {
     """
     private const val shellOverlays = """<div id="hitster-wake-debug" aria-live="polite"></div>"""
 
-    private const val wakeLockFallbackMp4AssetPath = "assets/wake-lock-fallback.mp4"
-    private const val wakeLockFallbackWebmAssetPath = "assets/wake-lock-fallback.webm"
+    private val wakeLockFallbackMp4DataUri = loadResourceText("wake-lock-fallback-video-uri.txt")
+    private val wakeLockFallbackWebmDataUri = loadResourceText("wake-lock-fallback-video-webm-uri.txt")
 
     private val mobileShellStyle = """
         <style id="hitster-mobile-shell">
@@ -303,28 +303,20 @@ internal object WebIndexHtmlPatcher {
                 }, 0);
               }
 
-              function createWakeController() {
-                var wakeLockSentinel = null;
-                var wakeFallbackVideo = null;
-                var wakeFallbackTimer = 0;
-                var enabled = false;
-                var pendingPromise = null;
-
-                function pickWakeFallbackSource(videoElement) {
-                  var canPlayMp4 = false;
-                  var canPlayWebm = false;
-                  if (videoElement && videoElement.canPlayType) {
-                    canPlayMp4 = videoElement.canPlayType("video/mp4") !== "";
-                    canPlayWebm = videoElement.canPlayType("video/webm") !== "";
-                  }
-                  if (canPlayMp4 || isIosBrowser()) {
-                    return { type: "mp4", uri: "${wakeLockFallbackMp4AssetPath}" };
-                  }
-                  if (canPlayWebm) {
-                    return { type: "webm", uri: "${wakeLockFallbackWebmAssetPath}" };
-                  }
-                  return { type: "mp4", uri: "${wakeLockFallbackMp4AssetPath}" };
+                function appendWakeSource(videoElement, type, uri) {
+                  var source = document.createElement("source");
+                  source.src = uri;
+                  source.type = "video/" + type;
+                  source.dataset.hitsterSourceType = type;
+                  videoElement.appendChild(source);
                 }
+
+                function createWakeController() {
+                  var wakeLockSentinel = null;
+                  var wakeFallbackVideo = null;
+                  var wakeFallbackTimer = 0;
+                  var enabled = false;
+                  var pendingPromise = null;
 
                 function ensureWakeFallbackVideo() {
                   if (wakeFallbackVideo) {
@@ -334,38 +326,19 @@ internal object WebIndexHtmlPatcher {
                   wakeFallbackVideo.id = "hitster-wake-video";
                   wakeFallbackVideo.setAttribute("title", "No Sleep");
                   wakeFallbackVideo.setAttribute("playsinline", "");
-                  wakeFallbackVideo.setAttribute("webkit-playsinline", "");
-                  wakeFallbackVideo.setAttribute("muted", "");
-                  wakeFallbackVideo.setAttribute("autoplay", "");
-                  wakeFallbackVideo.setAttribute("loop", "");
-                  wakeFallbackVideo.setAttribute("aria-hidden", "true");
-                  wakeFallbackVideo.setAttribute("disableRemotePlayback", "");
-                  wakeFallbackVideo.setAttribute("x-webkit-airplay", "deny");
-                  wakeFallbackVideo.preload = "auto";
-                  wakeFallbackVideo.defaultMuted = true;
-                  wakeFallbackVideo.muted = true;
-                  wakeFallbackVideo.autoplay = true;
-                  wakeFallbackVideo.loop = true;
-                  wakeFallbackVideo.volume = 0;
-                  wakeFallbackVideo.playsInline = true;
-                  wakeFallbackVideo.style.position = "fixed";
-                  wakeFallbackVideo.style.width = "1px";
-                  wakeFallbackVideo.style.height = "1px";
-                  wakeFallbackVideo.style.left = "-10px";
-                  wakeFallbackVideo.style.bottom = "-10px";
-                  wakeFallbackVideo.style.opacity = "0.001";
-                  wakeFallbackVideo.style.pointerEvents = "none";
-                  wakeFallbackVideo.style.zIndex = "-1";
-                  if (typeof wakeFallbackVideo.disableRemotePlayback !== "undefined") {
-                    wakeFallbackVideo.disableRemotePlayback = true;
-                  }
-                  var selectedWakeSource = pickWakeFallbackSource(wakeFallbackVideo);
-                  wakeFallbackVideo.src = selectedWakeSource.uri;
-                  wakeFallbackVideo.dataset.hitsterSourceType = selectedWakeSource.type;
+                  appendWakeSource(wakeFallbackVideo, "webm", "${wakeLockFallbackWebmDataUri}");
+                  appendWakeSource(wakeFallbackVideo, "mp4", "${wakeLockFallbackMp4DataUri}");
                   function updateMediaDetail(type) {
                     wakeState.media = type;
+                    var sourceType = "unknown";
+                    var currentSource = wakeFallbackVideo.currentSrc || "";
+                    if (currentSource.indexOf("video/webm") !== -1) {
+                      sourceType = "webm";
+                    } else if (currentSource.indexOf("video/mp4") !== -1 || currentSource.indexOf("ftyp") !== -1) {
+                      sourceType = "mp4";
+                    }
                     wakeState.mediaDetail = [
-                      "src=" + wakeFallbackVideo.dataset.hitsterSourceType,
+                      "src=" + sourceType,
                       "ready=" + wakeFallbackVideo.readyState,
                       "net=" + wakeFallbackVideo.networkState,
                       "time=" + wakeFallbackVideo.currentTime.toFixed(2)
@@ -376,7 +349,6 @@ internal object WebIndexHtmlPatcher {
                     updateMediaDetail("loadedmetadata");
                     if (wakeFallbackVideo.duration <= 1) {
                       wakeFallbackVideo.setAttribute("loop", "");
-                      wakeFallbackVideo.loop = true;
                       return;
                     }
                     if (wakeFallbackVideo.dataset.hitsterLoopHack === "true") {
@@ -402,15 +374,12 @@ internal object WebIndexHtmlPatcher {
                       wakeState.lastError = "MediaError code " + mediaError.code;
                     }
                     wakeState.mediaDetail = [
-                      "src=" + wakeFallbackVideo.dataset.hitsterSourceType,
+                      "src=" + (wakeFallbackVideo.currentSrc || "unknown"),
                       "ready=" + wakeFallbackVideo.readyState,
                       "net=" + wakeFallbackVideo.networkState
                     ].join(" ");
                     updateWakeDebug();
                   });
-                  if (!wakeFallbackVideo.parentNode && document.body) {
-                    document.body.appendChild(wakeFallbackVideo);
-                  }
                   return wakeFallbackVideo;
                 }
 
@@ -497,7 +466,7 @@ internal object WebIndexHtmlPatcher {
                         wakeState.lastEnable = wakeNowLabel();
                         wakeState.lastError = "none";
                         wakeState.mediaDetail = [
-                          "src=" + wakeVideo.dataset.hitsterSourceType,
+                          "src=" + (wakeVideo.currentSrc || "unknown"),
                           "ready=" + wakeVideo.readyState,
                           "net=" + wakeVideo.networkState,
                           "time=" + wakeVideo.currentTime.toFixed(2)
@@ -511,7 +480,7 @@ internal object WebIndexHtmlPatcher {
                         wakeState.enabled = false;
                         wakeState.lastError = formatWakeError(error);
                         wakeState.mediaDetail = [
-                          "src=" + wakeVideo.dataset.hitsterSourceType,
+                          "src=" + (wakeVideo.currentSrc || "unknown"),
                           "ready=" + wakeVideo.readyState,
                           "net=" + wakeVideo.networkState,
                           "time=" + wakeVideo.currentTime.toFixed(2)
@@ -714,4 +683,10 @@ internal object WebIndexHtmlPatcher {
         }
         return patched
     }
+}
+
+private fun loadResourceText(resourceName: String): String {
+    return checkNotNull(WebIndexHtmlPatcher::class.java.getResourceAsStream("/$resourceName")) {
+        "Missing web shell resource: $resourceName"
+    }.bufferedReader().use { it.readText().trim() }
 }
