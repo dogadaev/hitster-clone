@@ -8,7 +8,7 @@ internal object WebIndexHtmlPatcher {
     private const val viewportMeta = """<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">"""
     private const val fullscreenControls = """
         <div id="hitster-web-controls" aria-hidden="false">
-            <button id="hitster-fullscreen-button" type="button" hidden aria-label="Toggle fullscreen">FULLSCREEN</button>
+            <button id="hitster-fullscreen-button" type="button" aria-label="Toggle fullscreen">FULLSCREEN</button>
         </div>
     """
 
@@ -114,8 +114,8 @@ internal object WebIndexHtmlPatcher {
                 0 0 20px rgba(236, 191, 96, 0.32),
                 inset 0 1px 0 rgba(255, 247, 221, 0.42);
             }
-            #hitster-fullscreen-button[hidden] {
-              display: none;
+            #hitster-fullscreen-button[data-hitster-supported="false"] {
+              opacity: 0.74;
             }
         </style>
     """.trimIndent()
@@ -240,10 +240,7 @@ internal object WebIndexHtmlPatcher {
                   return;
                 }
                 var supported = supportsFullscreen();
-                fullscreenButton.hidden = !supported;
-                if (!supported) {
-                  return;
-                }
+                fullscreenButton.dataset.hitsterSupported = supported ? "true" : "false";
                 var fullscreenActive = isFullscreenActive();
                 fullscreenButton.textContent = fullscreenActive ? "EXIT FULLSCREEN" : "FULLSCREEN";
                 fullscreenButton.setAttribute("aria-pressed", fullscreenActive ? "true" : "false");
@@ -503,6 +500,10 @@ internal object WebIndexHtmlPatcher {
                   event.preventDefault();
                   event.stopPropagation();
                   handleInteractiveFocus();
+                  if (!supportsFullscreen()) {
+                    setFullscreenButtonState();
+                    return;
+                  }
                   var togglePromise = isFullscreenActive() ? exitFullscreen() : requestFullscreen();
                   Promise.resolve(togglePromise).then(function() {
                     setFullscreenButtonState();
