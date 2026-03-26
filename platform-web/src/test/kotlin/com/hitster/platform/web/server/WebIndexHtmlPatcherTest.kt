@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 
 class WebIndexHtmlPatcherTest {
     @Test
-    fun patchInjectsMobileViewportTouchHandlingCanvasSizingWakeLockAndFullscreenSupport() {
+    fun patchInjectsMobileViewportTouchHandlingCanvasSizingAndWakeLockSupport() {
         val originalHtml = """
             <!DOCTYPE html>
             <html>
@@ -32,25 +32,16 @@ class WebIndexHtmlPatcherTest {
         assertContains(patchedHtml, """<style id="hitster-mobile-shell">""")
         assertContains(patchedHtml, "--hitster-visible-height")
         assertContains(patchedHtml, "width: 100% !important;")
-        assertContains(patchedHtml, """<div id="hitster-web-controls"""")
-        assertContains(patchedHtml, """<button id="hitster-fullscreen-button"""")
         assertContains(patchedHtml, """<div id="hitster-wake-debug"""")
-        assertContains(patchedHtml, """<svg id="hitster-fullscreen-enter-icon"""")
-        assertContains(patchedHtml, """<svg id="hitster-fullscreen-exit-icon"""")
-        assertContains(patchedHtml, """border-radius: 18px;""")
-        assertContains(patchedHtml, """#hitster-fullscreen-button[data-hitster-supported="false"]""")
         assertContains(patchedHtml, """#hitster-wake-debug {""")
         assertContains(patchedHtml, """white-space: pre-wrap;""")
         assertContains(patchedHtml, """<script id="hitster-mobile-runtime">""")
-        assertContains(patchedHtml, "var fullscreenButton = document.getElementById(\"hitster-fullscreen-button\");")
         assertContains(patchedHtml, "var wakeDebug = document.getElementById(\"hitster-wake-debug\");")
         assertContains(patchedHtml, "canvas.addEventListener(type, handleInteractiveFocus")
         assertContains(patchedHtml, "if (supportsTouchBridge())")
         assertContains(patchedHtml, "function isIosBrowser() {")
         assertContains(patchedHtml, "function isStandaloneMode() {")
-        assertContains(patchedHtml, "function eventTargetsShellControls(target) {")
         assertContains(patchedHtml, "document.addEventListener(\"touchstart\", function(event)")
-        assertContains(patchedHtml, "if (eventTargetsShellControls(event.target)) {")
         assertContains(patchedHtml, "activateWakeFromGesture();")
         assertContains(patchedHtml, "dispatchSyntheticMouse(\"mousedown\", touch);")
         assertContains(patchedHtml, "window.visualViewport.addEventListener(\"resize\", scheduleViewportSync")
@@ -104,18 +95,6 @@ class WebIndexHtmlPatcherTest {
         assertContains(patchedHtml, "handleWakeGesture();")
         assertContains(patchedHtml, "window.location.href = window.location.href.split(\"#\")[0];")
         assertContains(patchedHtml, "var shouldKeepScreenAwake = true;")
-        assertContains(patchedHtml, "function shouldIgnoreFullscreenToggle(eventType) {")
-        assertContains(patchedHtml, "return (navigator.maxTouchPoints || 0) > 0 || \"ontouchstart\" in window;")
-        assertContains(patchedHtml, "function supportsFullscreen() {")
-        assertContains(patchedHtml, "target.requestFullscreen({ navigationUI: \"hide\" })")
-        assertContains(patchedHtml, "document.exitFullscreen")
-        assertContains(patchedHtml, "fullscreenButton.dataset.hitsterSupported = supported ? \"true\" : \"false\";")
-        assertContains(patchedHtml, "fullscreenButton.setAttribute(\"title\", fullscreenActive ? \"Minimize game\" : \"Fullscreen game\");")
-        assertContains(patchedHtml, "[\"touchend\", \"pointerup\", \"mouseup\", \"click\"].forEach(function(type) {")
-        assertContains(patchedHtml, "fullscreenButton.addEventListener(type, function(event) {")
-        assertContains(patchedHtml, "if (shouldIgnoreFullscreenToggle(event.type)) {")
-        assertContains(patchedHtml, "window.alert(\"iPhone Safari does not support real page fullscreen in a browser tab. Use Share → Add to Home Screen to open the game fullscreen.\");")
-        assertContains(patchedHtml, "\"fullscreenchange\", \"webkitfullscreenchange\", \"msfullscreenchange\"")
         assertContains(patchedHtml, "window.setInterval(function() {")
         assertContains(patchedHtml, "updateWakeDebug();")
         assertContains(patchedHtml, "window.dispatchEvent(new Event(\"resize\"))")

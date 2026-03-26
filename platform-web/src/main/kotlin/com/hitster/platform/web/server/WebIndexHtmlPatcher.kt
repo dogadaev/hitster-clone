@@ -12,25 +12,7 @@ internal object WebIndexHtmlPatcher {
         <meta name="apple-mobile-web-app-title" content="Hitster Clone">
         <meta name="mobile-web-app-capable" content="yes">
     """
-    private const val fullscreenControls = """
-        <div id="hitster-web-controls" aria-hidden="false">
-            <button id="hitster-fullscreen-button" type="button" aria-label="Toggle fullscreen">
-                <svg id="hitster-fullscreen-enter-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M9 3H4v5" />
-                    <path d="M15 3h5v5" />
-                    <path d="M20 15v5h-5" />
-                    <path d="M4 15v5h5" />
-                </svg>
-                <svg id="hitster-fullscreen-exit-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M10 4v5H5" />
-                    <path d="M14 4v5h5" />
-                    <path d="M19 15h-5v5" />
-                    <path d="M5 15h5v5" />
-                </svg>
-            </button>
-        </div>
-        <div id="hitster-wake-debug" aria-live="polite"></div>
-    """
+    private const val shellOverlays = """<div id="hitster-wake-debug" aria-live="polite"></div>"""
 
     private val wakeLockFallbackVideoUri by lazy {
         checkNotNull(WebIndexHtmlPatcher::class.java.getResourceAsStream("/wake-lock-fallback-video-uri.txt")) {
@@ -96,77 +78,6 @@ internal object WebIndexHtmlPatcher {
               user-select: none;
               outline: none;
             }
-            #hitster-web-controls {
-              position: fixed;
-              bottom: calc(var(--hitster-safe-bottom) + 12px);
-              right: calc(var(--hitster-safe-right) + 12px);
-              z-index: 2147483647;
-              display: flex;
-              align-items: flex-end;
-              justify-content: flex-end;
-              pointer-events: none;
-            }
-            #hitster-fullscreen-button {
-              pointer-events: auto;
-              appearance: none;
-              border: 1px solid rgba(255, 255, 255, 0.22);
-              border-radius: 18px;
-              width: 56px;
-              height: 56px;
-              padding: 0;
-              background:
-                linear-gradient(180deg, rgba(28, 42, 76, 0.9) 0%, rgba(10, 18, 36, 0.94) 100%);
-              color: rgba(255, 249, 235, 0.96);
-              display: inline-flex;
-              align-items: center;
-              justify-content: center;
-              box-shadow:
-                0 14px 34px rgba(0, 0, 0, 0.42),
-                inset 0 1px 0 rgba(255, 255, 255, 0.24);
-              backdrop-filter: blur(16px);
-              -webkit-backdrop-filter: blur(16px);
-              touch-action: manipulation;
-              -webkit-touch-callout: none;
-              -webkit-tap-highlight-color: transparent;
-            }
-            #hitster-fullscreen-enter-icon,
-            #hitster-fullscreen-exit-icon {
-              width: 24px;
-              height: 24px;
-              stroke: currentColor;
-              stroke-width: 2.4;
-              stroke-linecap: round;
-              stroke-linejoin: round;
-              fill: none;
-            }
-            #hitster-fullscreen-exit-icon {
-              display: none;
-            }
-            #hitster-fullscreen-button:active {
-              transform: translateY(1px) scale(0.99);
-            }
-            #hitster-fullscreen-button[data-hitster-active="true"] {
-              background:
-                linear-gradient(180deg, rgba(214, 167, 76, 0.96) 0%, rgba(149, 101, 18, 0.94) 100%);
-              border-color: rgba(255, 231, 183, 0.44);
-              color: rgba(26, 14, 2, 0.92);
-              box-shadow:
-                0 16px 36px rgba(0, 0, 0, 0.44),
-                0 0 20px rgba(236, 191, 96, 0.32),
-                inset 0 1px 0 rgba(255, 247, 221, 0.42);
-            }
-            #hitster-fullscreen-button[data-hitster-active="true"] #hitster-fullscreen-enter-icon {
-              display: none;
-            }
-            #hitster-fullscreen-button[data-hitster-active="true"] #hitster-fullscreen-exit-icon {
-              display: block;
-            }
-            #hitster-fullscreen-button[data-hitster-active="true"] #hitster-fullscreen-exit-icon {
-              transform: scale(1.02);
-            }
-            #hitster-fullscreen-button[data-hitster-supported="false"] {
-              opacity: 0.74;
-            }
             #hitster-wake-debug {
               position: fixed;
               top: calc(var(--hitster-safe-top) + 12px);
@@ -194,7 +105,6 @@ internal object WebIndexHtmlPatcher {
             (function() {
               var root = document.documentElement;
               var canvas = document.getElementById("canvas");
-              var fullscreenButton = document.getElementById("hitster-fullscreen-button");
               var wakeDebug = document.getElementById("hitster-wake-debug");
               if (!canvas) {
                 return;
@@ -217,7 +127,6 @@ internal object WebIndexHtmlPatcher {
               };
               var viewportSyncFrame = 0;
               var lastViewportSignature = "";
-              var lastFullscreenToggleAt = 0;
               var fallbackTouchId = null;
 
               function wakeNowLabel() {
@@ -252,7 +161,7 @@ internal object WebIndexHtmlPatcher {
                   "wake " + wakeState.mode + " " + (wakeState.enabled ? "on" : "off"),
                   "activation " + (wakeActivationReceived ? "yes" : "no") + " attempts " + wakeState.attempts,
                   "visible " + (!document.hidden ? "yes" : "no") + " secure " + (window.isSecureContext ? "yes" : "no"),
-                  "native " + (supportsNativeWakeLockApi() ? "yes" : "no") + " fullscreen " + (isFullscreenActive() ? "yes" : "no"),
+                  "native " + (supportsNativeWakeLockApi() ? "yes" : "no"),
                   "standalone " + (isStandaloneMode() ? "yes" : "no"),
                   "pending " + (wakeState.pending ? "yes" : "no"),
                   "media " + wakeState.media,
@@ -324,10 +233,6 @@ internal object WebIndexHtmlPatcher {
                 }));
               }
 
-              function eventTargetsShellControls(target) {
-                return !!(target && target.closest && target.closest("#hitster-web-controls"));
-              }
-
               function supportsTouchBridge() {
                 return (navigator.maxTouchPoints || 0) > 0 || "ontouchstart" in window;
               }
@@ -361,103 +266,6 @@ internal object WebIndexHtmlPatcher {
                 }
                 var parsed = parseFloat(value);
                 return Number.isFinite(parsed) ? parsed : 0;
-              }
-
-              function currentFullscreenElement() {
-                return document.fullscreenElement ||
-                  document.webkitFullscreenElement ||
-                  document.msFullscreenElement ||
-                  null;
-              }
-
-              function isFullscreenActive() {
-                return currentFullscreenElement() !== null;
-              }
-
-              function fullscreenRequestCandidates() {
-                var container = canvas.parentElement || canvas.parentNode;
-                return [document.body, root, container, canvas].filter(function(target) {
-                  return !!target;
-                });
-              }
-
-              function supportsFullscreen() {
-                return fullscreenRequestCandidates().some(function(target) {
-                  return !!(target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen);
-                }) || !!(document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen);
-              }
-
-              function setFullscreenButtonState() {
-                if (!fullscreenButton) {
-                  return;
-                }
-                var supported = supportsFullscreen();
-                fullscreenButton.dataset.hitsterSupported = supported ? "true" : "false";
-                var fullscreenActive = isFullscreenActive();
-                fullscreenButton.setAttribute("title", fullscreenActive ? "Minimize game" : "Fullscreen game");
-                fullscreenButton.setAttribute("aria-label", fullscreenActive ? "Minimize game" : "Fullscreen game");
-                fullscreenButton.setAttribute("aria-pressed", fullscreenActive ? "true" : "false");
-                fullscreenButton.dataset.hitsterActive = fullscreenActive ? "true" : "false";
-              }
-
-              function requestElementFullscreen(target) {
-                if (!target) {
-                  return Promise.reject(new Error("No fullscreen target."));
-                }
-                try {
-                  if (target.requestFullscreen) {
-                    try {
-                      var withOptions = target.requestFullscreen({ navigationUI: "hide" });
-                      return Promise.resolve(withOptions).catch(function() {
-                        return target.requestFullscreen();
-                      });
-                    } catch (navigationUiError) {
-                      return Promise.resolve(target.requestFullscreen());
-                    }
-                  }
-                  if (target.webkitRequestFullscreen) {
-                    return Promise.resolve(target.webkitRequestFullscreen());
-                  }
-                  if (target.msRequestFullscreen) {
-                    return Promise.resolve(target.msRequestFullscreen());
-                  }
-                } catch (error) {
-                  return Promise.reject(error);
-                }
-                return Promise.reject(new Error("Fullscreen unsupported."));
-              }
-
-              function requestFullscreen() {
-                var candidates = fullscreenRequestCandidates();
-                var index = 0;
-                function attemptNext() {
-                  if (index >= candidates.length) {
-                    return Promise.reject(new Error("Fullscreen unsupported."));
-                  }
-                  var candidate = candidates[index];
-                  index += 1;
-                  return requestElementFullscreen(candidate).catch(function() {
-                    return attemptNext();
-                  });
-                }
-                return attemptNext();
-              }
-
-              function exitFullscreen() {
-                try {
-                  if (document.exitFullscreen) {
-                    return Promise.resolve(document.exitFullscreen());
-                  }
-                  if (document.webkitExitFullscreen) {
-                    return Promise.resolve(document.webkitExitFullscreen());
-                  }
-                  if (document.msExitFullscreen) {
-                    return Promise.resolve(document.msExitFullscreen());
-                  }
-                } catch (error) {
-                  return Promise.reject(error);
-                }
-                return Promise.resolve();
               }
 
               function syncVisibleViewport() {
@@ -779,16 +587,6 @@ internal object WebIndexHtmlPatcher {
                 scheduleViewportSync();
               }
 
-              function shouldIgnoreFullscreenToggle(eventType) {
-                var now = Date.now();
-                var isReleaseGesture = eventType === "touchend" || eventType === "pointerup" || eventType === "mouseup";
-                if (!isReleaseGesture && (now - lastFullscreenToggleAt) < 600) {
-                  return true;
-                }
-                lastFullscreenToggleAt = now;
-                return false;
-              }
-
               function handleInteractiveFocus() {
                 focusCanvas();
                 scheduleViewportSync();
@@ -807,9 +605,6 @@ internal object WebIndexHtmlPatcher {
 
               if (supportsTouchBridge()) {
                 document.addEventListener("touchstart", function(event) {
-                  if (eventTargetsShellControls(event.target)) {
-                    return;
-                  }
                   var touch = event.changedTouches && event.changedTouches[0];
                   if (!canvasContainsTouch(touch)) {
                     return;
@@ -859,52 +654,6 @@ internal object WebIndexHtmlPatcher {
                 }
               });
 
-              if (fullscreenButton) {
-                ["touchend", "pointerup", "mouseup", "click"].forEach(function(type) {
-                  fullscreenButton.addEventListener(type, function(event) {
-                    if (shouldIgnoreFullscreenToggle(event.type)) {
-                      return;
-                    }
-                    event.preventDefault();
-                    event.stopPropagation();
-                    focusCanvas();
-                    activateWakeFromGesture();
-                    if (!supportsFullscreen()) {
-                      setFullscreenButtonState();
-                      if (isIosBrowser() && !isStandaloneMode()) {
-                        window.alert("iPhone Safari does not support real page fullscreen in a browser tab. Use Share → Add to Home Screen to open the game fullscreen.");
-                      }
-                      scheduleViewportSync();
-                      return;
-                    }
-                    var togglePromise = isFullscreenActive() ? exitFullscreen() : requestFullscreen();
-                    Promise.resolve(togglePromise).then(function() {
-                      setFullscreenButtonState();
-                      if (shouldKeepScreenAwake && wakeActivationReceived) {
-                        requestWakeLock();
-                      }
-                      scheduleViewportSync();
-                    }, function() {
-                      setFullscreenButtonState();
-                      if (shouldKeepScreenAwake && wakeActivationReceived) {
-                        requestWakeLock();
-                      }
-                      scheduleViewportSync();
-                    });
-                  }, { passive: false });
-                });
-              }
-
-              ["fullscreenchange", "webkitfullscreenchange", "msfullscreenchange"].forEach(function(type) {
-                document.addEventListener(type, function() {
-                  setFullscreenButtonState();
-                  if (shouldKeepScreenAwake && wakeActivationReceived) {
-                    requestWakeLock();
-                  }
-                  scheduleViewportSync();
-                });
-              });
-
               window.addEventListener("resize", scheduleViewportSync, { passive: true });
               window.addEventListener("orientationchange", function() {
                 scheduleViewportSync();
@@ -941,7 +690,6 @@ internal object WebIndexHtmlPatcher {
                 }, { passive: false });
               });
 
-              setFullscreenButtonState();
               updateWakeDebug();
               scheduleViewportSync();
               window.setTimeout(scheduleViewportSync, 250);
@@ -966,8 +714,8 @@ internal object WebIndexHtmlPatcher {
         if (!patched.contains("""<style id="hitster-mobile-shell">""")) {
             patched = patched.replace("</head>", "$mobileShellStyle\n</head>")
         }
-        if (!patched.contains("""<div id="hitster-web-controls"""")) {
-            patched = patched.replace("</body>", "$fullscreenControls\n</body>")
+        if (!patched.contains("""<div id="hitster-wake-debug"""")) {
+            patched = patched.replace("</body>", "$shellOverlays\n</body>")
         }
         if (!patched.contains("""<script id="hitster-mobile-runtime">""")) {
             patched = patched.replace("</body>", "$mobileRuntimeScript\n</body>")
