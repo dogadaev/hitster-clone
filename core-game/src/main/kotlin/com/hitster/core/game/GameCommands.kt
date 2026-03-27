@@ -64,6 +64,10 @@ sealed interface GameCommand {
     data class EndTurn(
         val actorId: PlayerId,
     ) : GameCommand
+
+    data class FinalizeDoubtWindow(
+        val actorId: PlayerId,
+    ) : GameCommand
 }
 
 sealed interface GameEffect {

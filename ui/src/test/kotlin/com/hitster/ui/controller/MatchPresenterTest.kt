@@ -56,7 +56,7 @@ class MatchPresenterTest {
 
         presenter.drawCard()
 
-        assertEquals("Only the active player can draw a card.", presenter.lastError)
+        assertEquals("Card draw is not allowed at this point in the turn.", presenter.lastError)
     }
 
     @Test

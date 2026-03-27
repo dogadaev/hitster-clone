@@ -196,6 +196,10 @@ class RemoteGuestMatchController(
             } else {
                 turn
             },
+            doubt = state.doubt?.takeUnless {
+                it.phase == DoubtPhase.ARMED && snappedSlot != pendingCard.proposedSlotIndex
+            },
+            lastResolution = null,
         )
     }
 

@@ -50,7 +50,7 @@ interface MatchController {
     /** Updates the local player's intended insertion slot for their active hidden card. */
     fun movePendingCard(requestedSlotIndex: Int)
 
-    /** Updates the doubter's temporary insertion slot inside the isolated doubt placement flow. */
+    /** Updates the doubter's temporary insertion slot on the shared gameplay timeline during doubt placement. */
     fun moveDoubtCard(requestedSlotIndex: Int)
 
     /** Applies a manual host-side coin adjustment for a specific player. */

@@ -14,6 +14,7 @@ enum class TurnPhase {
     WAITING_FOR_DRAW,
     AWAITING_PLACEMENT,
     CARD_POSITIONED,
+    AWAITING_DOUBT_WINDOW,
     AWAITING_DOUBT_PLACEMENT,
     DOUBT_POSITIONED,
     COMPLETE,
@@ -66,6 +67,7 @@ data class TurnState(
     val number: Int,
     val activePlayerId: PlayerId,
     val phase: TurnPhase,
+    val doubtWindowEndsAtEpochMillis: Long? = null,
 )
 
 data class TurnResolution(

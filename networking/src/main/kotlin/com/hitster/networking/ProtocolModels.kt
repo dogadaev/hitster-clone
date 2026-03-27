@@ -201,6 +201,7 @@ data class TurnStateDto(
     val number: Int,
     val activePlayerId: String,
     val phase: String,
+    val doubtWindowEndsAtEpochMillis: Long? = null,
 )
 
 @Serializable
@@ -263,6 +264,7 @@ object GameStateMapper {
                     number = it.number,
                     activePlayerId = it.activePlayerId.value,
                     phase = it.phase.name,
+                    doubtWindowEndsAtEpochMillis = it.doubtWindowEndsAtEpochMillis,
                 )
             },
             doubt = state.doubt?.let {
@@ -345,6 +347,7 @@ object GameStateMapper {
                     number = it.number,
                     activePlayerId = PlayerId(it.activePlayerId),
                     phase = TurnPhase.valueOf(it.phase),
+                    doubtWindowEndsAtEpochMillis = it.doubtWindowEndsAtEpochMillis,
                 )
             },
             doubt = state.doubt?.let {

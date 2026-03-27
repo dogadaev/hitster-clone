@@ -264,7 +264,9 @@ Turn flow:
 - the timeline must visually fit up to 10 cards; committed cards may overlap slightly when compressed, but the hidden in-turn card must never overlap adjacent cards
 - after insertion or rearrangement, the full set of cards in the player's timeline must remain visually centered as a group
 - waiting players with at least one coin may arm a single active doubt before reveal; only one doubt may be armed at a time
+- if an armed doubt exists and the active player changes the hidden card's proposed slot before ending the turn, that armed doubt must clear automatically
 - the player confirms the move using an end-turn button
+- after the player confirms the move, the shared turn enters a short synchronized doubt window of about 3 seconds so waiting players still have a last chance to arm a doubt before the turn resolves normally
 - the current preview track should continue playing across turn resolution and should stop only when a later draw or redraw replaces it with a new preview track
 - if a doubt is armed, the active player's turn pauses after their placement and the doubting player reuses the same main gameplay timeline surface for their doubt placement instead of opening a separate popup timeline
 - a successful doubt on an otherwise wrong placement spends one coin and steals the card into the doubter's own timeline; in all other doubt outcomes the coin is still spent and the original turn resolves normally

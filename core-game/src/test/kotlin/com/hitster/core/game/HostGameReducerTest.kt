@@ -189,9 +189,17 @@ class HostGameReducerTest {
         state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
         state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
         state = acceptedState(reducer.reduce(state, GameCommand.MovePendingCard(hostId, 1)))
-        val result = reducer.reduce(state, GameCommand.EndTurn(hostId))
-        val accepted = assertIs<ReducerResult.Accepted>(result)
+        val waitingForDoubt = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.EndTurn(hostId)))
 
+        assertEquals(MatchStatus.ACTIVE, waitingForDoubt.state.status)
+        assertEquals(TurnPhase.AWAITING_DOUBT_WINDOW, waitingForDoubt.state.turn?.phase)
+        assertTrue(waitingForDoubt.state.turn?.doubtWindowEndsAtEpochMillis != null)
+        assertTrue(waitingForDoubt.effects.none { it is GameEffect.PausePlayback })
+        assertTrue(waitingForDoubt.effects.any { it is GameEffect.PublishSnapshot })
+
+        val accepted = assertIs<ReducerResult.Accepted>(
+            reducer.reduce(waitingForDoubt.state, GameCommand.FinalizeDoubtWindow(hostId)),
+        )
         assertEquals(MatchStatus.ACTIVE, accepted.state.status)
         assertEquals(guestId, accepted.state.turn?.activePlayerId)
         assertEquals(2, accepted.state.players.first().timeline.cards.size)
@@ -220,6 +228,77 @@ class HostGameReducerTest {
 
         val cleared = assertIs<ReducerResult.Accepted>(reducer.reduce(armed.state, GameCommand.ToggleDoubt(guestId)))
         assertEquals(null, cleared.state.doubt)
+    }
+
+    @Test
+    fun `moving the pending card clears an armed doubt when the active player changes slot`() {
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("draw-host", 1990),
+                entry("draw-guest", 2010),
+            ),
+        )
+
+        state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.AdjustPlayerCoins(hostId, guestId, 1)))
+        state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.MovePendingCard(hostId, 1)))
+        state = acceptedState(reducer.reduce(state, GameCommand.ToggleDoubt(guestId)))
+
+        val accepted = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.MovePendingCard(hostId, 0)))
+
+        assertEquals(null, accepted.state.doubt)
+        assertEquals(0, accepted.state.requirePlayer(hostId)?.pendingCard?.proposedSlotIndex)
+    }
+
+    @Test
+    fun `end turn opens a three second doubt window when no doubt is armed`() {
+        var nowMillis = 1_000L
+        val reducer = HostGameReducer(currentTimeMillis = { nowMillis })
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("draw-host", 1990),
+                entry("draw-guest", 2010),
+            ),
+        )
+
+        state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.MovePendingCard(hostId, 1)))
+
+        val accepted = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.EndTurn(hostId)))
+
+        assertEquals(TurnPhase.AWAITING_DOUBT_WINDOW, accepted.state.turn?.phase)
+        assertEquals(4_000L, accepted.state.turn?.doubtWindowEndsAtEpochMillis)
+    }
+
+    @Test
+    fun `guest can arm doubt during the countdown window`() {
+        var state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("draw-host", 1990),
+                entry("draw-guest", 2010),
+            ),
+        )
+
+        state = acceptedState(reducer.reduce(state, GameCommand.StartGame(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.AdjustPlayerCoins(hostId, guestId, 1)))
+        state = acceptedState(reducer.reduce(state, GameCommand.DrawCard(hostId)))
+        state = acceptedState(reducer.reduce(state, GameCommand.MovePendingCard(hostId, 1)))
+        state = acceptedState(reducer.reduce(state, GameCommand.EndTurn(hostId)))
+
+        val accepted = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.ToggleDoubt(guestId)))
+
+        assertEquals(TurnPhase.AWAITING_DOUBT_PLACEMENT, accepted.state.turn?.phase)
+        assertEquals(DoubtPhase.POSITIONING, accepted.state.doubt?.phase)
+        assertEquals(1, accepted.state.doubt?.proposedSlotIndex)
+        assertEquals(guestId, accepted.state.doubt?.doubterId)
     }
 
     @Test
@@ -394,8 +473,10 @@ class HostGameReducerTest {
             },
         )
 
-        val result = reducer.reduce(state, GameCommand.EndTurn(hostId))
-        val accepted = assertIs<ReducerResult.Accepted>(result)
+        val waitingForDoubt = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.EndTurn(hostId)))
+        val accepted = assertIs<ReducerResult.Accepted>(
+            reducer.reduce(waitingForDoubt.state, GameCommand.FinalizeDoubtWindow(hostId)),
+        )
 
         assertEquals(MatchStatus.COMPLETE, accepted.state.status)
         assertEquals(1, accepted.state.discardPile.size)
@@ -428,7 +509,10 @@ class HostGameReducerTest {
             },
         )
 
-        val accepted = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.EndTurn(hostId)))
+        val waitingForDoubt = assertIs<ReducerResult.Accepted>(reducer.reduce(state, GameCommand.EndTurn(hostId)))
+        val accepted = assertIs<ReducerResult.Accepted>(
+            reducer.reduce(waitingForDoubt.state, GameCommand.FinalizeDoubtWindow(hostId)),
+        )
 
         assertEquals(MatchStatus.COMPLETE, accepted.state.status)
         assertEquals(TurnPhase.COMPLETE, accepted.state.turn?.phase)

@@ -1535,8 +1535,17 @@ class MatchScreen(
         if (showDoubtToggleButton()) {
             val isActive = isDoubtToggleActive()
             val labelColor = if (isActive) color(0x041C2FFF) else color(0x1A1308FF)
+            val countdown = if (presenter.state.turn?.phase == TurnPhase.AWAITING_DOUBT_WINDOW) {
+                doubtWindowCountdownSecondsRemaining()
+            } else {
+                null
+            }
             val fittedLabel = fitSingleLineText(
-                text = if (isActive) "DOUBTING" else "DOUBT",
+                text = when {
+                    isActive -> "DOUBTING"
+                    countdown != null -> "DOUBT $countdown"
+                    else -> "DOUBT"
+                },
                 color = labelColor,
                 maxWidth = doubtButtonRect.width - 28f,
                 preferredScale = 0.92f,
@@ -2264,6 +2273,7 @@ class MatchScreen(
             }
             return resolvedTrackLabel(resolution.cardId)
         }
+        doubtWindowStatusText()?.let { return it }
         presenter.state.doubt?.let { doubt ->
             val doubterName = presenter.state.requirePlayer(doubt.doubterId)?.displayName?.uppercase() ?: "PLAYER"
             return when {
@@ -2362,7 +2372,12 @@ class MatchScreen(
             return false
         }
         return when {
-            doubt == null -> turn.phase == TurnPhase.AWAITING_PLACEMENT || turn.phase == TurnPhase.CARD_POSITIONED
+            doubt == null -> {
+                turn.phase == TurnPhase.AWAITING_PLACEMENT ||
+                    turn.phase == TurnPhase.CARD_POSITIONED ||
+                    turn.phase == TurnPhase.AWAITING_DOUBT_WINDOW
+            }
+
             doubt.doubterId == presenter.localPlayerId && doubt.phase == DoubtPhase.ARMED -> true
             else -> false
         }
@@ -2436,6 +2451,21 @@ class MatchScreen(
     private fun localResolution() = presenter.state.lastResolution?.takeIf { it.playerId == presenter.localPlayerId }
 
     private fun isLocalPlayersTurn(): Boolean = presenter.state.turn?.activePlayerId == presenter.localPlayerId
+
+    private fun doubtWindowStatusText(): String? {
+        val turn = presenter.state.turn ?: return null
+        if (turn.phase != TurnPhase.AWAITING_DOUBT_WINDOW) {
+            return null
+        }
+        val seconds = doubtWindowCountdownSecondsRemaining()
+        return "DOUBT WINDOW ${seconds ?: 0}"
+    }
+
+    private fun doubtWindowCountdownSecondsRemaining(): Int? {
+        val deadline = presenter.state.turn?.doubtWindowEndsAtEpochMillis ?: return null
+        val remainingMillis = max(0L, deadline - System.currentTimeMillis())
+        return max(1, ((remainingMillis + 999L) / 1_000L).toInt())
+    }
 
     private fun canDraw(): Boolean = isLocalPlayersTurn() && presenter.state.turn?.phase == TurnPhase.WAITING_FOR_DRAW
 

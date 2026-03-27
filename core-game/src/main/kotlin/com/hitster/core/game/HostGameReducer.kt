@@ -18,6 +18,8 @@ import com.hitster.core.model.TurnState
 
 class HostGameReducer(
     private val placementValidator: TimelinePlacementValidator = TimelinePlacementValidator(),
+    private val currentTimeMillis: () -> Long = System::currentTimeMillis,
+    private val doubtWindowDurationMillis: Long = DOUBT_WINDOW_DURATION_MILLIS,
 ) {
     /**
      * Applies one player or host command to the authoritative match state.
@@ -41,6 +43,7 @@ class HostGameReducer(
             is GameCommand.MoveDoubtCard -> moveDoubtCard(state, command.actorId, command.requestedSlotIndex)
             is GameCommand.AdjustPlayerCoins -> adjustPlayerCoins(state, command.actorId, command.playerId, command.delta)
             is GameCommand.EndTurn -> endTurn(state, command.actorId)
+            is GameCommand.FinalizeDoubtWindow -> finalizeDoubtWindow(state, command.actorId)
         }
     }
 
@@ -296,13 +299,41 @@ class HostGameReducer(
         if (actorId == turn.activePlayerId) {
             return reject(state, "The active player cannot doubt their own card.")
         }
-        if (turn.phase != TurnPhase.AWAITING_PLACEMENT && turn.phase != TurnPhase.CARD_POSITIONED) {
+        if (
+            turn.phase != TurnPhase.AWAITING_PLACEMENT &&
+            turn.phase != TurnPhase.CARD_POSITIONED &&
+            turn.phase != TurnPhase.AWAITING_DOUBT_WINDOW
+        ) {
             return reject(state, "A doubt can only be armed after the active player draws a card.")
         }
 
         val doubter = state.requirePlayer(actorId) ?: return reject(state, "Unknown player.")
         if (doubter.coins <= 0) {
             return reject(state, "A coin is required to arm a doubt.")
+        }
+
+        if (turn.phase == TurnPhase.AWAITING_DOUBT_WINDOW) {
+            if (state.doubt != null) {
+                return reject(state, "Another player already armed a doubt.")
+            }
+            val targetPlayer = state.requirePlayer(turn.activePlayerId) ?: return reject(state, "Unknown target player.")
+            val pendingCard = targetPlayer.pendingCard ?: return reject(state, "The target player has no card to doubt.")
+            return accept(
+                state.copy(
+                    revision = state.revision + 1,
+                    doubt = DoubtState(
+                        doubterId = actorId,
+                        targetPlayerId = turn.activePlayerId,
+                        phase = DoubtPhase.POSITIONING,
+                        proposedSlotIndex = pendingCard.proposedSlotIndex,
+                    ),
+                    turn = turn.copy(
+                        phase = TurnPhase.AWAITING_DOUBT_PLACEMENT,
+                        doubtWindowEndsAtEpochMillis = null,
+                    ),
+                    lastResolution = null,
+                ),
+            )
         }
 
         val nextDoubt = when (val currentDoubt = state.doubt) {
@@ -340,10 +371,14 @@ class HostGameReducer(
         if (turn.activePlayerId != actorId) {
             return reject(state, "Only the active player can move the pending card.")
         }
+        if (turn.phase != TurnPhase.AWAITING_PLACEMENT && turn.phase != TurnPhase.CARD_POSITIONED) {
+            return reject(state, "The pending card can only be moved while the active player is still placing it.")
+        }
 
         val activePlayer = state.requirePlayer(actorId) ?: return reject(state, "Unknown player.")
         val pendingCard = activePlayer.pendingCard ?: return reject(state, "There is no pending card to place.")
         val snappedSlot = placementValidator.snapSlot(activePlayer.timeline.cards.size, requestedSlotIndex)
+        val changedDecision = snappedSlot != pendingCard.proposedSlotIndex
         val updatedPlayer = activePlayer.copy(
             pendingCard = pendingCard.copy(proposedSlotIndex = snappedSlot),
         )
@@ -352,6 +387,8 @@ class HostGameReducer(
             revision = state.revision + 1,
             players = state.players.replacePlayer(updatedPlayer),
             turn = turn.copy(phase = TurnPhase.CARD_POSITIONED),
+            doubt = if (changedDecision && state.doubt?.phase == DoubtPhase.ARMED) null else state.doubt,
+            lastResolution = null,
         )
 
         return accept(nextState)
@@ -423,12 +460,35 @@ class HostGameReducer(
         actorId: PlayerId,
     ): ReducerResult {
         return when (state.turn?.phase) {
+            TurnPhase.AWAITING_DOUBT_WINDOW ->
+                reject(state, "The doubt window is active.")
+
             TurnPhase.AWAITING_DOUBT_PLACEMENT,
             TurnPhase.DOUBT_POSITIONED,
             -> resolveDoubt(state, actorId)
 
             else -> resolveTurn(state, actorId)
         }
+    }
+
+    private fun finalizeDoubtWindow(
+        state: GameState,
+        actorId: PlayerId,
+    ): ReducerResult {
+        val turn = state.turn ?: return reject(state, "Match has not started yet.")
+        if (state.status != MatchStatus.ACTIVE) {
+            return reject(state, "Match is not active.")
+        }
+        if (actorId != state.hostId) {
+            return reject(state, "Only the host can finalize the doubt window.")
+        }
+        if (turn.phase != TurnPhase.AWAITING_DOUBT_WINDOW) {
+            return reject(state, "The doubt window is not active.")
+        }
+
+        val activePlayer = state.requirePlayer(turn.activePlayerId) ?: return reject(state, "Unknown player.")
+        val pendingCard = activePlayer.pendingCard ?: return reject(state, "There is no pending card to resolve.")
+        return finalizeResolvedTurn(state, turn, activePlayer, pendingCard)
     }
 
     private fun resolveTurn(
@@ -449,7 +509,10 @@ class HostGameReducer(
         if (armedDoubt?.phase == DoubtPhase.ARMED) {
             val nextState = state.copy(
                 revision = state.revision + 1,
-                turn = turn.copy(phase = TurnPhase.AWAITING_DOUBT_PLACEMENT),
+                turn = turn.copy(
+                    phase = TurnPhase.AWAITING_DOUBT_PLACEMENT,
+                    doubtWindowEndsAtEpochMillis = null,
+                ),
                 doubt = armedDoubt.copy(
                     targetPlayerId = actorId,
                     phase = DoubtPhase.POSITIONING,
@@ -460,6 +523,23 @@ class HostGameReducer(
 
             return accept(nextState)
         }
+        val nextState = state.copy(
+            revision = state.revision + 1,
+            turn = turn.copy(
+                phase = TurnPhase.AWAITING_DOUBT_WINDOW,
+                doubtWindowEndsAtEpochMillis = currentTimeMillis() + doubtWindowDurationMillis,
+            ),
+            lastResolution = null,
+        )
+        return accept(nextState)
+    }
+
+    private fun finalizeResolvedTurn(
+        state: GameState,
+        turn: TurnState,
+        activePlayer: PlayerState,
+        pendingCard: PendingCard,
+    ): ReducerResult {
         val validation = placementValidator.validate(
             timeline = activePlayer.timeline.cards,
             entry = pendingCard.entry,
@@ -484,7 +564,7 @@ class HostGameReducer(
         }
 
         val resolution = TurnResolution(
-            playerId = actorId,
+            playerId = activePlayer.id,
             cardId = pendingCard.entry.id,
             attemptedSlotIndex = validation.slotIndex,
             correct = validation.isValid,
@@ -504,7 +584,10 @@ class HostGameReducer(
             (state.activePlayerIndex + 1) % state.players.size
         }
         val nextTurn = if (matchComplete) {
-            turn.copy(phase = TurnPhase.COMPLETE)
+            turn.copy(
+                phase = TurnPhase.COMPLETE,
+                doubtWindowEndsAtEpochMillis = null,
+            )
         } else {
             TurnState(
                 number = turn.number + 1,
@@ -633,7 +716,10 @@ class HostGameReducer(
             (state.activePlayerIndex + 1) % state.players.size
         }
         val nextTurn = if (matchComplete) {
-            turn.copy(phase = TurnPhase.COMPLETE)
+            turn.copy(
+                phase = TurnPhase.COMPLETE,
+                doubtWindowEndsAtEpochMillis = null,
+            )
         } else {
             TurnState(
                 number = turn.number + 1,
@@ -709,6 +795,7 @@ class HostGameReducer(
 
     private companion object {
         const val WINNING_TIMELINE_SIZE = 10
+        const val DOUBT_WINDOW_DURATION_MILLIS = 3_000L
     }
 }
 

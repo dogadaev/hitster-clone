@@ -1,7 +1,7 @@
 package com.hitster.ui.layout
 
 /**
- * Shared timeline spacing and compression math used by the main timeline and the doubt popup timeline.
+ * Shared timeline spacing and compression math used by the main gameplay timeline for both normal placement and doubt placement.
  */
 
 import kotlin.math.abs

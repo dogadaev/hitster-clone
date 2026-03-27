@@ -19,6 +19,9 @@ import com.hitster.playback.api.PlaybackController
 import com.hitster.playback.api.PlaybackEventListener
 import com.hitster.playback.api.PlaybackIssue
 import com.hitster.playback.api.PlaybackSessionState
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 
 class MatchPresenter(
     private val reducer: HostGameReducer,
@@ -50,6 +53,10 @@ class MatchPresenter(
         private set
 
     private val stateLock = Any()
+    private val timerExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
+        Thread(runnable, "match-presenter-timers").apply { isDaemon = true }
+    }
+    private var doubtWindowFuture: ScheduledFuture<*>? = null
 
     var snapshotListener: ((GameStateDto) -> Unit)? = null
     var rejectionListener: ((String, String, Long) -> Unit)? = null
@@ -231,6 +238,16 @@ class MatchPresenter(
             state.players.size > 1
     }
 
+    /** Releases playback listeners and background timers owned by the presenter. */
+    override fun dispose() {
+        synchronized(stateLock) {
+            doubtWindowFuture?.cancel(false)
+            doubtWindowFuture = null
+        }
+        timerExecutor.shutdownNow()
+        playbackController.setListener(null)
+    }
+
     /** Converts transport DTO commands back into reducer commands on the authoritative host. */
     fun handleRemoteCommand(command: ClientCommandDto) {
         when (command) {
@@ -333,12 +350,15 @@ class MatchPresenter(
                 is ReducerResult.Accepted -> {
                     lastError = null
                     state = result.state
+                    rescheduleDoubtWindowFinalizer()
                     applyEffects(result.effects)
                 }
 
                 is ReducerResult.Rejected -> {
-                    lastError = result.reason
-                    rejectionListener?.invoke(command.actorId().value, result.reason, result.state.revision)
+                    if (command !is GameCommand.FinalizeDoubtWindow) {
+                        lastError = result.reason
+                        rejectionListener?.invoke(command.actorId().value, result.reason, result.state.revision)
+                    }
                 }
             }
         }
@@ -369,6 +389,39 @@ class MatchPresenter(
             }
         }
     }
+
+    /** Keeps one host-side timer aligned with the active shared doubt window so it resolves without UI input. */
+    private fun rescheduleDoubtWindowFinalizer() {
+        doubtWindowFuture?.cancel(false)
+        doubtWindowFuture = null
+        if (!isLocalHost) {
+            return
+        }
+        val turn = state.turn ?: return
+        val deadline = turn.doubtWindowEndsAtEpochMillis ?: return
+        if (turn.phase != com.hitster.core.model.TurnPhase.AWAITING_DOUBT_WINDOW) {
+            return
+        }
+        val delayMillis = maxOf(0L, deadline - System.currentTimeMillis())
+        val expectedTurnNumber = turn.number
+        doubtWindowFuture = timerExecutor.schedule(
+            {
+                val shouldFinalize = synchronized(stateLock) {
+                    val latestTurn = state.turn
+                    state.status == MatchStatus.ACTIVE &&
+                        latestTurn?.phase == com.hitster.core.model.TurnPhase.AWAITING_DOUBT_WINDOW &&
+                        latestTurn.number == expectedTurnNumber &&
+                        latestTurn.doubtWindowEndsAtEpochMillis == deadline &&
+                        System.currentTimeMillis() >= deadline
+                }
+                if (shouldFinalize) {
+                    dispatch(GameCommand.FinalizeDoubtWindow(actorId = hostId))
+                }
+            },
+            delayMillis,
+            TimeUnit.MILLISECONDS,
+        )
+    }
 }
 
 /** Resolves the actor id carried by any reducer command so rejection callbacks can target the right client. */
@@ -386,5 +439,6 @@ private fun GameCommand.actorId(): PlayerId {
         is GameCommand.MoveDoubtCard -> actorId
         is GameCommand.AdjustPlayerCoins -> actorId
         is GameCommand.EndTurn -> actorId
+        is GameCommand.FinalizeDoubtWindow -> actorId
     }
 }

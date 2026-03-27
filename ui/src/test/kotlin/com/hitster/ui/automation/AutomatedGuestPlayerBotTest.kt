@@ -20,19 +20,20 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class AutomatedGuestPlayerBotTest {
-    private val reducer = HostGameReducer()
     private val hostId = PlayerId("host")
     private val guestId = PlayerId("guest")
 
     @Test
     fun `bot resolves the guest turn and returns control to the host`() {
+        val reducer = HostGameReducer(doubtWindowDurationMillis = 15L)
         val presenter = MatchPresenter(
             reducer = reducer,
             playbackController = NoOpPlaybackController(),
             hostId = hostId,
             localPlayerId = hostId,
             initialState = lobbyWithGuest(
-                listOf(
+                reducer = reducer,
+                entries = listOf(
                     entry("seed-host", 1980),
                     entry("seed-guest", 1990),
                     entry("draw-host", 1985),
@@ -54,8 +55,9 @@ class AutomatedGuestPlayerBotTest {
         presenter.movePendingCard(requestedSlotIndex = 1)
         presenter.endTurn()
 
-        repeat(3) {
+        repeat(10) {
             bot.update(0.02f)
+            Thread.sleep(25)
         }
 
         val guest = presenter.state.requirePlayer(guestId)
@@ -67,7 +69,10 @@ class AutomatedGuestPlayerBotTest {
         assertNull(presenter.lastError)
     }
 
-    private fun lobbyWithGuest(entries: List<PlaylistEntry>) =
+    private fun lobbyWithGuest(
+        reducer: HostGameReducer,
+        entries: List<PlaylistEntry>,
+    ) =
         acceptedState(
             reducer.reduce(
                 GameSessionFactory.createLobby(
