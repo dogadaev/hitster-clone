@@ -40,7 +40,14 @@ class HostingForegroundService : Service() {
 
             else -> Unit
         }
-        return START_STICKY
+        return START_NOT_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        releaseNetworkLocks()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {

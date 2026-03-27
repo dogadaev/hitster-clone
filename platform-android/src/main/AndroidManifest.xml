@@ -38,7 +38,8 @@
         <service
             android:name=".host.HostingForegroundService"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="dataSync"
+            android:stopWithTask="true" />
     </application>
 
 </manifest>

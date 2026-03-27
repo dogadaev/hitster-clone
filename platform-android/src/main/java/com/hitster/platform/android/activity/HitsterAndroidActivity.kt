@@ -19,6 +19,7 @@ import com.hitster.platform.android.playback.AndroidSpotifyBridge
 import com.hitster.platform.android.playback.SpotifyAppRemoteBridge
 import com.hitster.platform.android.playback.SpotifyAppRemoteConfigurationLoader
 import com.hitster.platform.android.playback.StubAndroidSpotifyBridge
+import com.hitster.platform.android.host.HostingForegroundService
 import com.hitster.platform.android.services.AndroidPlatformServices
 import com.hitster.platform.android.system.AndroidKeepScreenAwakeController
 import com.hitster.ui.app.HitsterGameApp
@@ -95,6 +96,9 @@ class HitsterAndroidActivity : AndroidApplication() {
     override fun onDestroy() {
         Log.d(tag, "onDestroy")
         spotifyBridge.disconnect()
+        if (isFinishing && !isChangingConfigurations) {
+            HostingForegroundService.stop(applicationContext)
+        }
         keepScreenAwakeController.disable(window)
         super.onDestroy()
     }
