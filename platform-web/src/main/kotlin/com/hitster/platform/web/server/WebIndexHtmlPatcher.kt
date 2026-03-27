@@ -108,8 +108,7 @@ internal object WebIndexHtmlPatcher {
               canvas.setAttribute("tabindex", "0");
               canvas.style.touchAction = "none";
               var noSleep = typeof NoSleep === "function" ? new NoSleep() : null;
-              var wakeHandlersAttached = false;
-              var wakeEnableInFlight = false;
+              var wakeActivationArmed = false;
               var wakeState = {
                 enabled: false,
                 attempts: 0,
@@ -150,9 +149,9 @@ internal object WebIndexHtmlPatcher {
                 }
                 wakeDebug.textContent = [
                   "wake nosleep " + (wakeState.enabled ? "on" : "off"),
-                  "handlers " + (wakeHandlersAttached ? "armed" : "off"),
+                  "handlers " + (wakeActivationArmed ? "armed" : "off"),
                   "visible " + (!document.hidden ? "yes" : "no") + " secure " + (window.isSecureContext ? "yes" : "no"),
-                  "pending " + (wakeEnableInFlight ? "yes" : "no"),
+                  "pending no",
                   "media " + wakeState.media,
                   "detail " + wakeState.mediaDetail,
                   "event " + wakeState.lastEvent,
@@ -293,49 +292,44 @@ internal object WebIndexHtmlPatcher {
                 }, 0);
               }
 
-              function detachWakeHandlers() {
-                if (!wakeHandlersAttached) {
+              function detachWakeActivation() {
+                if (!wakeActivationArmed) {
                   return;
                 }
-                wakeHandlersAttached = false;
+                wakeActivationArmed = false;
                 document.removeEventListener("click", enableNoSleep, false);
-                document.removeEventListener("touchend", enableNoSleep, false);
-                document.removeEventListener("pointerup", enableNoSleep, false);
+                document.removeEventListener("touchend", enableNoSleep, true);
                 updateWakeDebug();
               }
 
-              function attachWakeHandlers() {
-                if (wakeHandlersAttached || !noSleep) {
+              function armWakeActivation() {
+                if (wakeActivationArmed || !noSleep || noSleep.isEnabled) {
                   return;
                 }
-                wakeHandlersAttached = true;
+                wakeActivationArmed = true;
                 document.addEventListener("click", enableNoSleep, false);
-                document.addEventListener("touchend", enableNoSleep, false);
-                document.addEventListener("pointerup", enableNoSleep, false);
+                document.addEventListener("touchend", enableNoSleep, true);
                 updateWakeDebug();
               }
 
               function enableNoSleep(event) {
-                if (!noSleep || noSleep.isEnabled || wakeEnableInFlight || document.hidden) {
+                if (!noSleep || noSleep.isEnabled || document.hidden) {
                   return;
                 }
-                detachWakeHandlers();
-                wakeEnableInFlight = true;
+                detachWakeActivation();
                 wakeState.attempts += 1;
                 wakeState.lastEvent = event && event.type ? event.type : "manual";
                 wakeState.lastGesture = wakeNowLabel();
                 updateWakeDebug();
                 Promise.resolve(noSleep.enable()).then(function() {
-                  wakeEnableInFlight = false;
                   wakeState.enabled = !!noSleep.isEnabled;
                   wakeState.lastEnable = wakeNowLabel();
                   wakeState.lastError = "none";
                   updateWakeDebug();
                 }).catch(function(error) {
-                  wakeEnableInFlight = false;
                   wakeState.enabled = !!(noSleep && noSleep.isEnabled);
                   wakeState.lastError = formatWakeError(error);
-                  attachWakeHandlers();
+                  armWakeActivation();
                   updateWakeDebug();
                 });
               }
@@ -381,7 +375,6 @@ internal object WebIndexHtmlPatcher {
                     if (!touch) {
                       return;
                     }
-                    enableNoSleep(event);
                     dispatchSyntheticMouse("mouseup", touch);
                     fallbackTouchId = null;
                     event.preventDefault();
@@ -415,7 +408,7 @@ internal object WebIndexHtmlPatcher {
                 }, { passive: false });
               });
 
-              attachWakeHandlers();
+              armWakeActivation();
               updateWakeDebug();
               scheduleViewportSync();
               window.setTimeout(scheduleViewportSync, 250);
