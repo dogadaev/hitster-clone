@@ -107,20 +107,18 @@ internal object WebIndexHtmlPatcher {
               }
               canvas.setAttribute("tabindex", "0");
               canvas.style.touchAction = "none";
-              var shouldKeepScreenAwake = true;
-              var wakeActivationReceived = false;
-              var wakeEnableRequested = false;
+              var noSleep = typeof NoSleep === "function" ? new NoSleep() : null;
+              var wakeHandlersAttached = false;
+              var wakeEnableInFlight = false;
               var wakeState = {
-                mode: "idle",
                 enabled: false,
-                pending: false,
                 attempts: 0,
-                media: "none",
-                mediaDetail: "none",
+                media: "managed-by-nosleep",
+                mediaDetail: "readme-flow",
                 lastError: "none",
                 lastGesture: "never",
                 lastEnable: "never",
-                lastRelease: "never"
+                lastEvent: "none"
               };
               var viewportSyncFrame = 0;
               var lastViewportSignature = "";
@@ -132,10 +130,6 @@ internal object WebIndexHtmlPatcher {
                 } catch (error) {
                   return String(Date.now());
                 }
-              }
-
-              function supportsNativeWakeLockApi() {
-                return !!(navigator.wakeLock && window.isSecureContext);
               }
 
               function formatWakeError(error) {
@@ -155,17 +149,15 @@ internal object WebIndexHtmlPatcher {
                   return;
                 }
                 wakeDebug.textContent = [
-                  "wake " + wakeState.mode + " " + (wakeState.enabled ? "on" : "off"),
-                  "activation " + (wakeActivationReceived ? "yes" : "no") + " attempts " + wakeState.attempts,
+                  "wake nosleep " + (wakeState.enabled ? "on" : "off"),
+                  "handlers " + (wakeHandlersAttached ? "armed" : "off"),
                   "visible " + (!document.hidden ? "yes" : "no") + " secure " + (window.isSecureContext ? "yes" : "no"),
-                  "native " + (supportsNativeWakeLockApi() ? "yes" : "no"),
-                  "standalone " + (isStandaloneMode() ? "yes" : "no"),
-                  "pending " + (wakeState.pending ? "yes" : "no"),
+                  "pending " + (wakeEnableInFlight ? "yes" : "no"),
                   "media " + wakeState.media,
                   "detail " + wakeState.mediaDetail,
+                  "event " + wakeState.lastEvent,
                   "gesture " + wakeState.lastGesture,
                   "enable " + wakeState.lastEnable,
-                  "release " + wakeState.lastRelease,
                   "error " + wakeState.lastError
                 ].join("\n");
               }
@@ -249,24 +241,6 @@ internal object WebIndexHtmlPatcher {
                 return /iP(ad|hone|od)/i.test(navigator.userAgent || "");
               }
 
-              function isLegacyIosBrowser() {
-                if (!isIosBrowser()) {
-                  return false;
-                }
-                var versionMatch = /CPU.*OS ([0-9_]{3,4})[0-9_]{0,1}|(CPU like).*AppleWebKit.*Mobile/i.exec(navigator.userAgent || "") || [0, ""];
-                var normalized = String(versionMatch[1] || "")
-                  .replace("undefined", "3_2")
-                  .replace("_", ".")
-                  .replace("_", "");
-                var parsed = parseFloat(normalized);
-                return Number.isFinite(parsed) && parsed < 10 && !window.MSStream;
-              }
-
-              function isStandaloneMode() {
-                return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
-                  window.navigator.standalone === true;
-              }
-
               function readRootPixels(variableName) {
                 var value = window.getComputedStyle(root).getPropertyValue(variableName).trim();
                 if (!value) {
@@ -319,84 +293,51 @@ internal object WebIndexHtmlPatcher {
                 }, 0);
               }
 
-                function createWakeController() {
-                  var noSleep = typeof NoSleep === "function" ? new NoSleep() : null;
-                  var pendingPromise = null;
-
-                return {
-                  isEnabled: function() {
-                    return !!(noSleep && noSleep.isEnabled);
-                  },
-                  enable: function() {
-                    if (!noSleep) {
-                      wakeState.lastError = "NoSleep unavailable";
-                      updateWakeDebug();
-                      return Promise.reject(new Error("NoSleep unavailable"));
-                    }
-                    if (noSleep.isEnabled) {
-                      return Promise.resolve();
-                    }
-                    if (pendingPromise) {
-                      return pendingPromise;
-                    }
-                    wakeState.attempts += 1;
-                    wakeState.mode = supportsNativeWakeLockApi() ? "native" : (isLegacyIosBrowser() ? "legacy-ios-timer" : "video-fallback");
-                    wakeState.media = wakeState.mode === "video-fallback" ? "managed-by-nosleep" : "none";
-                    wakeState.mediaDetail = wakeState.mode === "video-fallback" ? "upstream NoSleep.js" : "none";
-                    wakeState.pending = true;
-                    updateWakeDebug();
-                    pendingPromise = Promise.resolve(noSleep.enable()).then(function(result) {
-                        pendingPromise = null;
-                        wakeState.pending = false;
-                        wakeState.enabled = !!noSleep.isEnabled;
-                        wakeState.lastEnable = wakeNowLabel();
-                        wakeState.lastError = "none";
-                        updateWakeDebug();
-                        return result;
-                    }).catch(function(error) {
-                        pendingPromise = null;
-                        wakeState.pending = false;
-                        wakeState.enabled = false;
-                        wakeState.lastError = formatWakeError(error);
-                        updateWakeDebug();
-                        throw error;
-                    });
-                    return pendingPromise;
-                  },
-                  disable: function() {
-                    if (noSleep && noSleep.isEnabled) {
-                      noSleep.disable();
-                    }
-                    pendingPromise = null;
-                    wakeState.pending = false;
-                    wakeState.enabled = false;
-                    wakeState.lastRelease = wakeNowLabel();
-                    updateWakeDebug();
-                  },
-                };
-              }
-
-              var wakeController = createWakeController();
-
-              function activateWakeFromGesture() {
-                if (document.hidden || wakeEnableRequested) {
+              function detachWakeHandlers() {
+                if (!wakeHandlersAttached) {
                   return;
                 }
-                shouldKeepScreenAwake = true;
-                wakeActivationReceived = true;
-                wakeEnableRequested = true;
+                wakeHandlersAttached = false;
+                document.removeEventListener("click", enableNoSleep, false);
+                document.removeEventListener("touchend", enableNoSleep, false);
+                document.removeEventListener("pointerup", enableNoSleep, false);
+                updateWakeDebug();
+              }
+
+              function attachWakeHandlers() {
+                if (wakeHandlersAttached || !noSleep) {
+                  return;
+                }
+                wakeHandlersAttached = true;
+                document.addEventListener("click", enableNoSleep, false);
+                document.addEventListener("touchend", enableNoSleep, false);
+                document.addEventListener("pointerup", enableNoSleep, false);
+                updateWakeDebug();
+              }
+
+              function enableNoSleep(event) {
+                if (!noSleep || noSleep.isEnabled || wakeEnableInFlight || document.hidden) {
+                  return;
+                }
+                detachWakeHandlers();
+                wakeEnableInFlight = true;
+                wakeState.attempts += 1;
+                wakeState.lastEvent = event && event.type ? event.type : "manual";
                 wakeState.lastGesture = wakeNowLabel();
                 updateWakeDebug();
-                if (wakeController.isEnabled()) {
-                  return;
-                }
-                wakeController.enable().catch(function() {
-                  wakeEnableRequested = false;
+                Promise.resolve(noSleep.enable()).then(function() {
+                  wakeEnableInFlight = false;
+                  wakeState.enabled = !!noSleep.isEnabled;
+                  wakeState.lastEnable = wakeNowLabel();
+                  wakeState.lastError = "none";
+                  updateWakeDebug();
+                }).catch(function(error) {
+                  wakeEnableInFlight = false;
+                  wakeState.enabled = !!(noSleep && noSleep.isEnabled);
+                  wakeState.lastError = formatWakeError(error);
+                  attachWakeHandlers();
+                  updateWakeDebug();
                 });
-              }
-
-              function handleWakeGesture() {
-                activateWakeFromGesture();
               }
 
               function handleInteractiveFocus() {
@@ -409,9 +350,6 @@ internal object WebIndexHtmlPatcher {
 
               ["touchend", "pointerup", "mouseup", "click"].forEach(function(type) {
                 canvas.addEventListener(type, handleInteractiveFocus, { passive: true });
-                canvas.addEventListener(type, function() {
-                  handleWakeGesture();
-                }, { passive: false });
               });
 
               if (supportsTouchBridge()) {
@@ -443,7 +381,7 @@ internal object WebIndexHtmlPatcher {
                     if (!touch) {
                       return;
                     }
-                    activateWakeFromGesture();
+                    enableNoSleep(event);
                     dispatchSyntheticMouse("mouseup", touch);
                     fallbackTouchId = null;
                     event.preventDefault();
@@ -453,11 +391,6 @@ internal object WebIndexHtmlPatcher {
               }
 
               document.addEventListener("visibilitychange", function() {
-                if (document.hidden) {
-                  wakeState.lastRelease = wakeNowLabel();
-                  updateWakeDebug();
-                  return;
-                }
                 scheduleViewportSync();
               });
 
@@ -468,10 +401,6 @@ internal object WebIndexHtmlPatcher {
               }, { passive: true });
               window.addEventListener("pageshow", function() {
                 scheduleViewportSync();
-              }, { passive: true });
-              window.addEventListener("pagehide", function() {
-                wakeState.lastRelease = wakeNowLabel();
-                updateWakeDebug();
               }, { passive: true });
               window.addEventListener("focus", function() {
                 scheduleViewportSync();
@@ -486,6 +415,7 @@ internal object WebIndexHtmlPatcher {
                 }, { passive: false });
               });
 
+              attachWakeHandlers();
               updateWakeDebug();
               scheduleViewportSync();
               window.setTimeout(scheduleViewportSync, 250);
