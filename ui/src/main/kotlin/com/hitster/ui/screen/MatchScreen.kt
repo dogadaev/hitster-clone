@@ -1,7 +1,7 @@
 package com.hitster.ui.screen
 
 /**
- * Main libGDX renderer and input handler for the landscape gameplay, lobby, doubt popup, and animated match presentation.
+ * Main libGDX renderer and input handler for the landscape gameplay, lobby, and animated match presentation.
  */
 
 import com.badlogic.gdx.Gdx
@@ -200,7 +200,7 @@ class MatchScreen(
         }
 
         if (presenter.state.status != MatchStatus.LOBBY) {
-            if (showDoubtPlacementPopup() || coinPanelOpen) {
+            if (coinPanelOpen) {
                 shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
                 drawModalShapes()
                 shapeRenderer.end()
@@ -209,16 +209,6 @@ class MatchScreen(
                 drawModalTextures()
                 drawModalText()
                 batch.end()
-
-                if (hasOverlayDoubtTimelineVisuals()) {
-                    shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-                    drawDoubtPopupCards(includeOverlay = true)
-                    shapeRenderer.end()
-
-                    batch.begin()
-                    drawDoubtPopupCardText(includeOverlay = true)
-                    batch.end()
-                }
             }
 
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
@@ -508,7 +498,7 @@ class MatchScreen(
         doubtPendingCardVisual = null
         transientCardVisual = null
 
-        if (showDoubtPlacementPopup()) {
+        if (isLocalDoubtPlacementPhase()) {
             coinPanelOpen = false
         }
 
@@ -529,7 +519,7 @@ class MatchScreen(
             )
         }
 
-        val player = localPlayer()
+        val player = displayedTimelinePlayer()
         if (presenter.state.status == MatchStatus.LOBBY || player == null) {
             animatedCardLefts.clear()
             animatedDoubtCardLefts.clear()
@@ -563,20 +553,30 @@ class MatchScreen(
             }
             animatedPendingCardLeft = null
             animatedCardLefts.keys.retainAll(visibleCardIds)
-            updateDoubtTimelineVisuals(delta)
             return
         }
 
+        val localDoubtPlacement = isLocalDoubtPlacementPhase()
         val arrangement = timelineLayout.pendingArrangement(
             existingCardCount = player.timeline.cards.size,
-            pendingSlotIndex = pendingCard.proposedSlotIndex,
+            pendingSlotIndex = if (localDoubtPlacement) {
+                presenter.state.doubt?.proposedSlotIndex ?: pendingCard.proposedSlotIndex
+            } else {
+                pendingCard.proposedSlotIndex
+            },
         )
-        val pendingLeftTarget = if (draggingPendingCard) {
-            clamp(worldTouch.x - pendingCardGrabOffsetX, timelineCardsX, timelineCardsX + timelineCardsWidth - arrangement.cardWidth)
-        } else {
-            arrangement.pendingCardLeft
+        val pendingLeftTarget = when {
+            localDoubtPlacement && draggingDoubtCard -> {
+                clamp(worldTouch.x - doubtPendingCardGrabOffsetX, timelineCardsX, timelineCardsX + timelineCardsWidth - arrangement.cardWidth)
+            }
+
+            draggingPendingCard -> {
+                clamp(worldTouch.x - pendingCardGrabOffsetX, timelineCardsX, timelineCardsX + timelineCardsWidth - arrangement.cardWidth)
+            }
+
+            else -> arrangement.pendingCardLeft
         }
-        val pendingLeft = if (draggingPendingCard) {
+        val pendingLeft = if (draggingPendingCard || (localDoubtPlacement && draggingDoubtCard)) {
             pendingLeftTarget
         } else {
             animatedPendingCardLeft?.let { current ->
@@ -602,100 +602,28 @@ class MatchScreen(
         }
         animatedPendingCardLeft = pendingLeft
 
+        val pendingTopColor = if (localDoubtPlacement) 0x7ED9FFFF else 0xF5B348FF
+        val pendingBottomColor = if (localDoubtPlacement) 0x2D8FCAFF else 0xD48620FF
+        val pendingEdgeColor = if (localDoubtPlacement) 0xDBF5FFFF else 0xFFF1D089
         pendingCardVisual = TimelineCardVisual(
             id = pendingCard.entry.id,
             rect = Rectangle(pendingLeft, cardBottom, arrangement.cardWidth, cardHeight),
             face = CardFace.Hidden,
-            topColor = 0xF5B348FF,
-            bottomColor = 0xD48620FF,
-            edgeColor = 0xFFF1D089,
+            topColor = pendingTopColor,
+            bottomColor = pendingBottomColor,
+            edgeColor = pendingEdgeColor,
             primaryText = "?",
-            secondaryText = "LISTEN",
+            secondaryText = if (localDoubtPlacement) "DOUBT" else "LISTEN",
         )
         pendingCardVisual?.let(timelineCardVisuals::add)
         animatedCardLefts.keys.retainAll(visibleCardIds)
-        updateDoubtTimelineVisuals(delta)
     }
 
     private fun updateDoubtTimelineVisuals(delta: Float) {
-        if (!showDoubtPlacementPopup()) {
-            animatedDoubtCardLefts.clear()
-            animatedDoubtPendingCardLeft = null
-            doubtTimelineCardVisuals.clear()
-            doubtPendingCardVisual = null
-            return
-        }
-
-        val doubt = presenter.state.doubt ?: return
-        val targetPlayer = presenter.state.requirePlayer(doubt.targetPlayerId) ?: return
-        val pendingCard = targetPlayer.pendingCard ?: return
-        val animationAlpha = clamp(delta * 12f, 0f, 1f)
-        val popupTrackX = doubtPopupTimelineX()
-        val popupTrackWidth = doubtPopupTimelineWidth()
-        val cardWidthPreferred = clamp(doubtPopupTrackRect.width * 0.16f, 134f, 184f)
-        val cardWidthMin = clamp(doubtPopupTrackRect.width * 0.088f, 92f, 118f)
-        val popupLayout = TimelineLayoutCalculator(
-            trackX = popupTrackX,
-            trackWidth = popupTrackWidth,
-            preferredCardWidth = cardWidthPreferred,
-            minCardWidth = cardWidthMin,
-            preferredGap = clamp(doubtPopupTrackRect.width * 0.018f, 14f, 24f),
-            minGap = 10f,
-        )
-        val arrangement = popupLayout.pendingArrangement(
-            existingCardCount = targetPlayer.timeline.cards.size,
-            pendingSlotIndex = doubt.proposedSlotIndex ?: pendingCard.proposedSlotIndex,
-        )
-        val popupCardHeight = clamp(doubtPopupTrackRect.height * 0.84f, 228f, 304f)
-        val popupCardBottom = doubtPopupTrackRect.y + (doubtPopupTrackRect.height - popupCardHeight) / 2f
-        val pendingLeftTarget = if (draggingDoubtCard) {
-            clamp(
-                worldTouch.x - doubtPendingCardGrabOffsetX,
-                popupTrackX,
-                popupTrackX + popupTrackWidth - arrangement.cardWidth,
-            )
-        } else {
-            arrangement.pendingCardLeft
-        }
-        val pendingLeft = if (draggingDoubtCard) {
-            pendingLeftTarget
-        } else {
-            animatedDoubtPendingCardLeft?.let { current ->
-                lerpToward(current, pendingLeftTarget, animationAlpha)
-            } ?: pendingLeftTarget
-        }
-        val visibleCardIds = mutableSetOf<String>()
-
-        targetPlayer.timeline.cards.forEachIndexed { index, card ->
-            val visualLeft = animatedDoubtLeft(card.id, arrangement.committedCardLefts[index], animationAlpha)
-            val palette = DecadeCardPalettes.forYear(card.releaseYear)
-            visibleCardIds += card.id
-            doubtTimelineCardVisuals += TimelineCardVisual(
-                id = card.id,
-                rect = Rectangle(visualLeft, popupCardBottom, arrangement.cardWidth, popupCardHeight),
-                face = CardFace.Revealed,
-                topColor = palette.topColor,
-                bottomColor = palette.bottomColor,
-                edgeColor = palette.edgeColor,
-                primaryText = card.title,
-                secondaryText = card.artist,
-                tertiaryText = card.releaseYear.toString(),
-            )
-        }
-
-        animatedDoubtPendingCardLeft = pendingLeft
-        doubtPendingCardVisual = TimelineCardVisual(
-            id = pendingCard.entry.id,
-            rect = Rectangle(pendingLeft, popupCardBottom, arrangement.cardWidth, popupCardHeight),
-            face = CardFace.Hidden,
-            topColor = 0x7ED9FFFF,
-            bottomColor = 0x2D8FCAFF,
-            edgeColor = 0xDBF5FFFF,
-            primaryText = "?",
-            secondaryText = "DOUBT",
-        )
-        doubtPendingCardVisual?.let(doubtTimelineCardVisuals::add)
-        animatedDoubtCardLefts.keys.retainAll(visibleCardIds)
+        animatedDoubtCardLefts.clear()
+        animatedDoubtPendingCardLeft = null
+        doubtTimelineCardVisuals.clear()
+        doubtPendingCardVisual = null
     }
 
     private fun animatedDoubtLeft(cardId: String, target: Float, alpha: Float): Float {
@@ -1418,7 +1346,7 @@ class MatchScreen(
     }
 
     private fun drawMatchText(includeOverlay: Boolean) {
-        val player = localPlayer()
+        val player = displayedTimelinePlayer()
         val toolbarStatus = toolbarStatusText()
         val turnLabelWidth = if (toolbarStatus == null) 170f else 142f
         val turnX = heroRect.x + heroRect.width - panelPadding - turnLabelWidth
@@ -1492,7 +1420,7 @@ class MatchScreen(
         }
 
         drawTextBlock(
-            text = "Timeline",
+            text = timelineHeaderLabel(player),
             x = timelinePanelRect.x,
             y = timelineHeaderRect.y,
             width = timelineHeaderRect.width * 0.45f,
@@ -1533,27 +1461,18 @@ class MatchScreen(
 
     private fun drawModalShapes() {
         fillRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x03060CB2)
-        if (showDoubtPlacementPopup()) {
-            drawDoubtPopupShapes()
-        }
         if (coinPanelOpen) {
             drawCoinPanelShapes()
         }
     }
 
     private fun drawModalTextures() {
-        if (showDoubtPlacementPopup()) {
-            drawDoubtPopupTextures()
-        }
         if (coinPanelOpen) {
             drawCoinPanelTextures()
         }
     }
 
     private fun drawModalText() {
-        if (showDoubtPlacementPopup()) {
-            drawDoubtPopupText()
-        }
         if (coinPanelOpen) {
             drawCoinPanelText()
         }
@@ -2225,7 +2144,7 @@ class MatchScreen(
     }
 
     private fun hasOverlayTimelineVisuals(): Boolean {
-        return draggingPendingCard && pendingCardVisual != null || transientCardVisual != null
+        return ((draggingPendingCard || draggingDoubtCard) && pendingCardVisual != null) || transientCardVisual != null
     }
 
     private fun hasOverlayDoubtTimelineVisuals(): Boolean {
@@ -2233,7 +2152,7 @@ class MatchScreen(
     }
 
     private fun isOverlayVisual(visual: TimelineCardVisual): Boolean {
-        return draggingPendingCard && pendingCardVisual?.id == visual.id
+        return (draggingPendingCard || draggingDoubtCard) && pendingCardVisual?.id == visual.id
     }
 
     private fun isDoubtOverlayVisual(visual: TimelineCardVisual): Boolean {
@@ -2348,7 +2267,7 @@ class MatchScreen(
         presenter.state.doubt?.let { doubt ->
             val doubterName = presenter.state.requirePlayer(doubt.doubterId)?.displayName?.uppercase() ?: "PLAYER"
             return when {
-                showDoubtPlacementPopup() -> "PLACE YOUR DOUBT"
+                isLocalDoubtPlacementPhase() -> "PLACE YOUR DOUBT"
                 presenter.localPlayerId == doubt.targetPlayerId && doubt.phase == DoubtPhase.ARMED -> "$doubterName DOUBTS"
                 presenter.localPlayerId == doubt.targetPlayerId -> "$doubterName IS DOUBTING"
                 presenter.localPlayerId != doubt.doubterId && doubt.phase == DoubtPhase.ARMED -> "$doubterName ARMED A DOUBT"
@@ -2382,7 +2301,7 @@ class MatchScreen(
     }
 
     private fun activeTurnToolbarLabel(): String {
-        if (showDoubtPlacementPopup()) {
+        if (isLocalDoubtPlacementPhase()) {
             return "YOUR DOUBT"
         }
         val turnPlayer = presenter.state.turn
@@ -2415,22 +2334,22 @@ class MatchScreen(
     private fun shouldShowInactiveTurnFilter(): Boolean {
         return presenter.state.status == MatchStatus.ACTIVE &&
             !isLocalPlayersTurn() &&
-            !showDoubtPlacementPopup()
+            !isLocalDoubtPlacementPhase()
     }
 
     private fun showActionButton(): Boolean = canEndTurn()
 
-    private fun showRedrawButton(): Boolean = canRedraw() && !showDoubtPlacementPopup()
+    private fun showRedrawButton(): Boolean = canRedraw() && !isLocalDoubtPlacementPhase()
 
     private fun showHostCoinsButton(): Boolean = presenter.isLocalHost && presenter.state.status == MatchStatus.ACTIVE
 
     private fun showCoinsShortcutButton(): Boolean =
         showHostCoinsButton() &&
             !coinPanelOpen &&
-            !showDoubtPlacementPopup()
+            !isLocalDoubtPlacementPhase()
 
     private fun showDoubtToggleButton(): Boolean {
-        if (presenter.state.status != MatchStatus.ACTIVE || showDoubtPlacementPopup()) {
+        if (presenter.state.status != MatchStatus.ACTIVE || isLocalDoubtPlacementPhase()) {
             return false
         }
         val localPlayer = localPlayer() ?: return false
@@ -2454,7 +2373,7 @@ class MatchScreen(
         return doubt.doubterId == presenter.localPlayerId && doubt.phase == DoubtPhase.ARMED
     }
 
-    private fun showDoubtPlacementPopup(): Boolean {
+    private fun isLocalDoubtPlacementPhase(): Boolean {
         val doubt = presenter.state.doubt ?: return false
         val phase = presenter.state.turn?.phase ?: return false
         return doubt.doubterId == presenter.localPlayerId &&
@@ -2500,6 +2419,20 @@ class MatchScreen(
 
     private fun localPlayer(): PlayerState? = presenter.localPlayer
 
+    private fun displayedTimelinePlayer(): PlayerState? {
+        val activePlayerId = presenter.state.turn?.activePlayerId
+        return activePlayerId?.let { presenter.state.requirePlayer(it) } ?: presenter.localPlayer
+    }
+
+    private fun timelineHeaderLabel(player: PlayerState?): String {
+        player ?: return "Timeline"
+        return if (player.id == presenter.localPlayerId) {
+            "Your Timeline"
+        } else {
+            "${player.displayName} Timeline"
+        }
+    }
+
     private fun localResolution() = presenter.state.lastResolution?.takeIf { it.playerId == presenter.localPlayerId }
 
     private fun isLocalPlayersTurn(): Boolean = presenter.state.turn?.activePlayerId == presenter.localPlayerId
@@ -2518,7 +2451,7 @@ class MatchScreen(
     private fun canEndTurn(): Boolean {
         val phase = presenter.state.turn?.phase ?: return false
         return when {
-            showDoubtPlacementPopup() -> phase == TurnPhase.AWAITING_DOUBT_PLACEMENT || phase == TurnPhase.DOUBT_POSITIONED
+            isLocalDoubtPlacementPhase() -> phase == TurnPhase.AWAITING_DOUBT_PLACEMENT || phase == TurnPhase.DOUBT_POSITIONED
             isLocalPlayersTurn() -> phase == TurnPhase.CARD_POSITIONED
             else -> false
         }
@@ -2531,7 +2464,7 @@ class MatchScreen(
 
     private fun canMoveDoubtCard(): Boolean {
         val phase = presenter.state.turn?.phase ?: return false
-        return showDoubtPlacementPopup() &&
+        return isLocalDoubtPlacementPhase() &&
             (phase == TurnPhase.AWAITING_DOUBT_PLACEMENT || phase == TurnPhase.DOUBT_POSITIONED)
     }
 
@@ -2569,36 +2502,22 @@ class MatchScreen(
         val doubt = presenter.state.doubt ?: return 0
         val targetPlayer = presenter.state.requirePlayer(doubt.targetPlayerId) ?: return 0
         val pendingCard = targetPlayer.pendingCard ?: return 0
-        val popupTrackX = doubtPopupTimelineX()
-        val popupTrackWidth = doubtPopupTimelineWidth()
-        val popupLayout = TimelineLayoutCalculator(
-            trackX = popupTrackX,
-            trackWidth = popupTrackWidth,
-            preferredCardWidth = clamp(doubtPopupTrackRect.width * 0.16f, 134f, 184f),
-            minCardWidth = clamp(doubtPopupTrackRect.width * 0.088f, 92f, 118f),
-            preferredGap = clamp(doubtPopupTrackRect.width * 0.018f, 14f, 24f),
-            minGap = 10f,
-        )
         if (!draggingDoubtCard) {
-            return popupLayout.nearestSlotIndex(targetPlayer.timeline.cards.size, x)
+            return timelineLayout.nearestSlotIndex(targetPlayer.timeline.cards.size, x)
         }
 
-        val arrangement = popupLayout.pendingArrangement(
+        val arrangement = timelineLayout.pendingArrangement(
             existingCardCount = targetPlayer.timeline.cards.size,
             pendingSlotIndex = doubt.proposedSlotIndex ?: pendingCard.proposedSlotIndex,
         )
         val pendingLeft = clamp(
             x - doubtPendingCardGrabOffsetX,
-            popupTrackX,
-            popupTrackX + popupTrackWidth - arrangement.cardWidth,
+            timelineCardsX,
+            timelineCardsX + timelineCardsWidth - arrangement.cardWidth,
         )
         val probeX = pendingLeft + arrangement.cardWidth * 0.5f
-        return popupLayout.nearestSlotIndex(targetPlayer.timeline.cards.size, probeX)
+        return timelineLayout.nearestSlotIndex(targetPlayer.timeline.cards.size, probeX)
     }
-
-    private fun doubtPopupTimelineX(): Float = doubtPopupTrackRect.x + panelPadding * 0.03f
-
-    private fun doubtPopupTimelineWidth(): Float = doubtPopupTrackRect.width - panelPadding * 0.06f
 
     private fun drawTargetDoubtArrow() {
         val arrowX = doubtArrowXForMainTimeline() ?: return
@@ -2611,10 +2530,13 @@ class MatchScreen(
         if (phase != TurnPhase.AWAITING_DOUBT_PLACEMENT && phase != TurnPhase.DOUBT_POSITIONED) {
             return null
         }
-        if (doubt.targetPlayerId != presenter.localPlayerId) {
+        if (isLocalDoubtPlacementPhase()) {
             return null
         }
-        val targetPlayer = localPlayer() ?: return null
+        val targetPlayer = displayedTimelinePlayer() ?: return null
+        if (doubt.targetPlayerId != targetPlayer.id) {
+            return null
+        }
         val pendingCard = targetPlayer.pendingCard ?: return null
         val pendingVisual = pendingCardVisual ?: return null
         val committedVisuals = timelineCardVisuals
@@ -2982,21 +2904,6 @@ class MatchScreen(
                 }
             }
 
-            if (showDoubtPlacementPopup()) {
-                if (canEndTurn() && actionButtonContains(world.x, world.y)) {
-                    presenter.endTurn()
-                    return true
-                }
-                val popupPendingCard = doubtPendingCardVisual
-                if (canMoveDoubtCard() && popupPendingCard?.rect?.contains(world.x, world.y) == true) {
-                    draggingDoubtCard = true
-                    worldTouch.set(world)
-                    doubtPendingCardGrabOffsetX = world.x - popupPendingCard.rect.x
-                    return true
-                }
-                return doubtPopupRect.contains(world.x, world.y)
-            }
-
             if (presenter.state.status != MatchStatus.ACTIVE) {
                 return false
             }
@@ -3016,6 +2923,14 @@ class MatchScreen(
                 return true
             }
 
+            val currentPendingCard = pendingCardVisual
+            if (canMoveDoubtCard() && currentPendingCard?.rect?.contains(world.x, world.y) == true) {
+                draggingDoubtCard = true
+                worldTouch.set(world)
+                doubtPendingCardGrabOffsetX = world.x - currentPendingCard.rect.x
+                return true
+            }
+
             if (showDoubtToggleButton() && doubtButtonRect.contains(world.x, world.y)) {
                 presenter.toggleDoubt()
                 return true
@@ -3028,7 +2943,6 @@ class MatchScreen(
                 return true
             }
 
-            val currentPendingCard = pendingCardVisual
             if (canMoveMainPendingCard() && currentPendingCard?.rect?.contains(world.x, world.y) == true) {
                 draggingPendingCard = true
                 worldTouch.set(world)

@@ -18,9 +18,9 @@ The goal is to reproduce the physical personal-play experience as closely as pra
 This is not a shared-board game UI.
 
 Each player has their own personal UI on their own device.
-A device should normally display only:
-- that player's own timeline
-- that player's current interactive card
+A device should normally display:
+- the current turn player's timeline as the main gameplay surface
+- that device player's current interactive card or doubt interaction when they are the acting player
 - shared match information relevant to everyone
 
 Do not design the game as:
@@ -178,10 +178,10 @@ Local per-device presentation state includes:
 - loading indicators
 - playback status presentation
 
-A player's personal timeline is part of the authoritative match state, but it should normally be rendered only on that player's device.
+A player's personal timeline is part of the authoritative match state. During active play, the main gameplay timeline shown on all devices should follow the current turn player rather than each device always showing its owner's timeline.
 
 ## Privacy / Visibility Rule
-A player's personal timeline should not be shown to other players during normal gameplay unless the game rules explicitly require reveal or result display.
+A device should not show every player's timeline at once during normal gameplay. The synchronized gameplay view should focus on the current turn player's timeline rather than a multi-board overview.
 
 Do not build the normal game flow around full visibility of every player's cards on every device.
 
@@ -265,8 +265,8 @@ Turn flow:
 - after insertion or rearrangement, the full set of cards in the player's timeline must remain visually centered as a group
 - waiting players with at least one coin may arm a single active doubt before reveal; only one doubt may be armed at a time
 - the player confirms the move using an end-turn button
-- ending the turn pauses playback
-- if a doubt is armed, the active player's turn pauses after their placement and the doubting player receives a temporary isolated placement UI for that same hidden card against the target timeline, without mutating the target timeline directly
+- the current preview track should continue playing across turn resolution and should stop only when a later draw or redraw replaces it with a new preview track
+- if a doubt is armed, the active player's turn pauses after their placement and the doubting player reuses the same main gameplay timeline surface for their doubt placement instead of opening a separate popup timeline
 - a successful doubt on an otherwise wrong placement spends one coin and steals the card into the doubter's own timeline; in all other doubt outcomes the coin is still spent and the original turn resolves normally
 - the host validates whether the placement is chronologically correct
 - the result is synchronized to all players
@@ -287,12 +287,12 @@ Do not implement the timeline as a fixed-position layout that only appends cards
 
 ## Player UI Requirements
 Each player's normal screen should focus on:
-- their own personal timeline
+- the current turn player's timeline
 - their current turn interaction
 - shared match state relevant to everyone
 
 The normal player view may include:
-- the player's timeline
+- the current turn player's timeline
 - current card
 - deck area
 - turn indicator
@@ -458,12 +458,12 @@ The MVP is successful when:
 - available Android hosts are discoverable over the local network through a real networking layer rather than a simulated local flow
 - the guest-only web build can discover and join an Android-hosted local session while rendering the same libGDX gameplay client
 - the Android host can serve that guest-only web build itself over the local network, and that browser entry should join the single hosted session without requiring a separate host-selection tap
-- each player sees only their own normal gameplay UI on their own device
+- each player sees the current turn player's timeline in the main gameplay area on their own device
 - each player starts with one revealed random card already on their own timeline
 - the deck is visible and interactive
 - the active player can draw a card
 - drawing starts playback through the playback integration layer
-- the player can place the card on their own timeline
+- the player can place the card on the active timeline shown for the current turn player
 - the first player to reach 10 revealed timeline cards wins
 - the player can insert the card between existing cards or at the far left or far right
 - all timeline cards automatically shift to fit the new card
@@ -476,12 +476,12 @@ The MVP is successful when:
 
 ## Agent Instructions
 When implementing features:
-- preserve the personal one-device-per-player interaction model
+- preserve the one-device-per-player interaction model even when the main timeline view follows the current turn player
 - do not accidentally redesign the app into a shared-board UI
 - keep core game logic independent from platform SDKs
 - keep Spotify integration behind abstractions
 - keep Spotify client credentials and redirect configuration in ignored local developer config such as `local.properties`; do not hardcode or commit environment-specific secrets
-- a device must render and act only as its own local player; do not implement hotseat-style timeline switching or command impersonation based on the active turn
+- a device must act only as its own local player; synchronized viewing of the current turn player's timeline is allowed, but do not implement hotseat-style command impersonation based on the active turn
 - keep Android host/session transport and browser guest transport as real networked flows, not simulated local stand-ins
 - keep the browser guest build on the shared libGDX client path instead of introducing a separate browser-only UI
 - prefer modular, testable, maintainable code
