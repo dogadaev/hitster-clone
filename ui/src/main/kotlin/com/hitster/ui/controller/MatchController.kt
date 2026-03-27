@@ -25,6 +25,8 @@ interface MatchController {
         get() = null
     val guestJoinQrTexture: Texture?
         get() = null
+    val currentSharedTimeMillis: Long
+        get() = System.currentTimeMillis()
 
     /** Starts the match from the lobby when the current device is allowed to do so. */
     fun startMatch()

@@ -171,6 +171,7 @@ data class GameStateDto(
     val sessionId: String,
     val hostId: String,
     val revision: Long,
+    val hostTimeEpochMillis: Long = 0L,
     val status: MatchStatusDto,
     val activePlayerIndex: Int,
     val deckRemaining: Int,
@@ -276,11 +277,15 @@ fun interface ClientEventListener {
 
 object GameStateMapper {
     /** Converts the full authoritative shared state into a transport-safe DTO graph. */
-    fun toDto(state: GameState): GameStateDto {
+    fun toDto(
+        state: GameState,
+        hostTimeEpochMillis: Long = System.currentTimeMillis(),
+    ): GameStateDto {
         return GameStateDto(
             sessionId = state.sessionId.value,
             hostId = state.hostId.value,
             revision = state.revision,
+            hostTimeEpochMillis = hostTimeEpochMillis,
             status = state.status.toDto(),
             activePlayerIndex = state.activePlayerIndex,
             deckRemaining = state.deck.size,

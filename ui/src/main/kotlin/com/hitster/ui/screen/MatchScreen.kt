@@ -2514,7 +2514,7 @@ class MatchScreen(
 
     private fun doubtWindowCountdownSecondsRemaining(): Int? {
         val deadline = presenter.state.turn?.doubtWindowEndsAtEpochMillis ?: return null
-        val remainingMillis = max(0L, deadline - System.currentTimeMillis())
+        val remainingMillis = max(0L, deadline - presenter.currentSharedTimeMillis)
         return countdownSecondsRemaining(remainingMillis)
     }
 

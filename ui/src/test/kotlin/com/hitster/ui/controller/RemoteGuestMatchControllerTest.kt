@@ -28,6 +28,7 @@ import com.hitster.playback.api.PlaybackSessionState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class RemoteGuestMatchControllerTest {
     @Test
@@ -99,6 +100,24 @@ class RemoteGuestMatchControllerTest {
         assertEquals(TurnPhase.DOUBT_POSITIONED, controller.state.turn?.phase)
         val command = assertIs<ClientCommandDto.MoveDoubtCard>(client.commands.single())
         assertEquals(1, command.requestedSlotIndex)
+    }
+
+    @Test
+    fun `snapshot syncs guest shared clock to host time`() {
+        val localPlayerId = PlayerId("guest")
+        val controller = RemoteGuestMatchController(advertisement = advertisement(), localPlayerId = localPlayerId)
+        val hostNow = System.currentTimeMillis() + 3_000L
+
+        controller.handleEvent(
+            HostEventDto.SnapshotPublished(
+                GameStateMapper.toDto(
+                    activeGuestState(localPlayerId),
+                    hostTimeEpochMillis = hostNow,
+                ),
+            ),
+        )
+
+        assertTrue(controller.currentSharedTimeMillis in (hostNow - 250L)..(hostNow + 250L))
     }
 
     private fun advertisement(): SessionAdvertisementDto {

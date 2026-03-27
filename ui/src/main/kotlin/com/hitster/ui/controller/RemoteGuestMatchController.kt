@@ -25,6 +25,8 @@ class RemoteGuestMatchController(
     override val localPlayerId: PlayerId,
 ) : MatchController {
     private lateinit var client: GuestSessionClient
+    @Volatile
+    private var sharedTimeOffsetMillis: Long = 0L
 
     override var state: GameState = GameState(
         sessionId = SessionId(advertisement.sessionId),
@@ -47,6 +49,8 @@ class RemoteGuestMatchController(
         private set
 
     override val isLocalHost: Boolean = false
+    override val currentSharedTimeMillis: Long
+        get() = System.currentTimeMillis() + sharedTimeOffsetMillis
 
     override val localPlayer: PlayerState?
         get() = state.requirePlayer(localPlayerId)
@@ -158,6 +162,7 @@ class RemoteGuestMatchController(
 
             is HostEventDto.SnapshotPublished -> {
                 lastError = null
+                sharedTimeOffsetMillis = event.state.hostTimeEpochMillis - System.currentTimeMillis()
                 state = GameStateMapper.fromDto(event.state)
                 connectionStatus = when {
                     state.requirePlayer(localPlayerId) != null ->
