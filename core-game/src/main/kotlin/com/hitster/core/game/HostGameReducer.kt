@@ -281,7 +281,6 @@ class HostGameReducer(
 
         return accept(
             nextState,
-            GameEffect.PausePlayback,
             GameEffect.PlayTrack(draw.card.playbackReference),
         )
     }
@@ -524,10 +523,7 @@ class HostGameReducer(
             lastResolution = resolution,
         )
 
-        return accept(
-            nextState,
-            GameEffect.PausePlayback,
-        )
+        return accept(nextState)
     }
 
     private fun resolveDoubt(
@@ -657,7 +653,6 @@ class HostGameReducer(
                 doubt = null,
                 lastResolution = resolution,
             ),
-            GameEffect.PausePlayback,
         )
     }
 

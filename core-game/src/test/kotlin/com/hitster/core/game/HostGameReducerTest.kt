@@ -195,7 +195,7 @@ class HostGameReducerTest {
         assertEquals(MatchStatus.ACTIVE, accepted.state.status)
         assertEquals(guestId, accepted.state.turn?.activePlayerId)
         assertEquals(2, accepted.state.players.first().timeline.cards.size)
-        assertTrue(accepted.effects.any { it is GameEffect.PausePlayback })
+        assertTrue(accepted.effects.none { it is GameEffect.PausePlayback })
         assertTrue(accepted.effects.any { it is GameEffect.PublishSnapshot })
     }
 
@@ -245,7 +245,7 @@ class HostGameReducerTest {
         assertEquals(listOf("first-draw"), accepted.state.discardPile.map { it.id })
         assertEquals(1, accepted.state.deck.size)
         assertEquals(TurnPhase.CARD_POSITIONED, accepted.state.turn?.phase)
-        assertTrue(accepted.effects.any { it is GameEffect.PausePlayback })
+        assertTrue(accepted.effects.none { it is GameEffect.PausePlayback })
         assertTrue(
             accepted.effects.any {
                 it is GameEffect.PlayTrack && it.reference.spotifyUri == "spotify:track:replacement"
@@ -368,7 +368,7 @@ class HostGameReducerTest {
 
         val placedDoubt = acceptedState(reducer.reduce(enterDoubt.state, GameCommand.MoveDoubtCard(guestId, 0)))
         val resolveDoubt = assertIs<ReducerResult.Accepted>(reducer.reduce(placedDoubt, GameCommand.EndTurn(guestId)))
-        assertTrue(resolveDoubt.effects.any { it is GameEffect.PausePlayback })
+        assertTrue(resolveDoubt.effects.none { it is GameEffect.PausePlayback })
     }
 
     @Test
