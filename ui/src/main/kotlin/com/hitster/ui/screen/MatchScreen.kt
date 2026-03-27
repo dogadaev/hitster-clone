@@ -2515,7 +2515,7 @@ class MatchScreen(
     private fun doubtWindowCountdownSecondsRemaining(): Int? {
         val deadline = presenter.state.turn?.doubtWindowEndsAtEpochMillis ?: return null
         val remainingMillis = max(0L, deadline - System.currentTimeMillis())
-        return max(1, ((remainingMillis + 999L) / 1_000L).toInt())
+        return countdownSecondsRemaining(remainingMillis)
     }
 
     private fun canDraw(): Boolean = isLocalPlayersTurn() && presenter.state.turn?.phase == TurnPhase.WAITING_FOR_DRAW
@@ -3179,6 +3179,11 @@ class MatchScreen(
             0xFFE98DD4FF,
         )
     }
+}
+
+internal fun countdownSecondsRemaining(remainingMillis: Long): Int {
+    val clampedRemainingMillis = max(0L, remainingMillis)
+    return ((clampedRemainingMillis + 999L) / 1_000L).toInt()
 }
 
 private fun List<PlayerState>.moveLobbyPlayer(
