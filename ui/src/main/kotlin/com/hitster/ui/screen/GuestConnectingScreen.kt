@@ -1,7 +1,7 @@
 package com.hitster.ui.screen
 
 /**
- * Transient screen shown while a guest waits for the authoritative host snapshot that confirms the join.
+ * Guest entry screen that discovers a local host, opens the guest transport automatically, and waits for the authoritative join snapshot.
  */
 
 import com.badlogic.gdx.Gdx
@@ -17,14 +17,17 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.viewport.ExtendViewport
+import com.hitster.networking.SessionAdvertisementDto
+import com.hitster.ui.controller.HostDiscoveryService
 import com.hitster.ui.controller.MatchController
 import com.hitster.ui.render.AtmosphericBackdrop
 import com.hitster.ui.theme.createUiFont
 
 class GuestConnectingScreen(
-    private val controller: MatchController,
-    private val hostDisplayName: String,
-    private val onConnected: () -> Unit,
+    private val discoveryService: HostDiscoveryService,
+    private val createController: (SessionAdvertisementDto) -> MatchController,
+    private val showBackButton: Boolean,
+    private val onConnected: (MatchController) -> Unit,
     private val onCancel: () -> Unit,
 ) : ScreenAdapter() {
     private val camera = OrthographicCamera()
@@ -38,25 +41,45 @@ class GuestConnectingScreen(
     private lateinit var detailFont: BitmapFont
     private val titleLayout = GlyphLayout()
     private val detailLayout = GlyphLayout()
+    private val backLayout = GlyphLayout()
     private val titleRect = Rectangle()
     private val buttonRect = Rectangle()
     private var transitionDispatched = false
     private var animationSeconds = 0f
+    @Volatile
+    private var controller: MatchController? = null
+    @Volatile
+    private var discoveredHostDisplayName: String? = null
+    private var autoSelectedSessionId: String? = null
 
     override fun show() {
         titleFont = createUiFont(72)
         bodyFont = createUiFont(36)
         detailFont = createUiFont(26)
         backdrop.load()
+        discoveryService.start { hosts ->
+            if (controller != null) {
+                return@start
+            }
+            val selectedHost = hosts.firstOrNull() ?: return@start
+            if (autoSelectedSessionId == selectedHost.sessionId) {
+                return@start
+            }
+            autoSelectedSessionId = selectedHost.sessionId
+            discoveredHostDisplayName = selectedHost.hostDisplayName
+            controller = createController(selectedHost)
+            discoveryService.stop()
+        }
         Gdx.input.inputProcessor = ConnectingInput()
         updateLayout()
     }
 
     override fun render(delta: Float) {
         animationSeconds += delta
-        if (!transitionDispatched && controller.localPlayer != null) {
+        val activeController = controller
+        if (!transitionDispatched && activeController?.localPlayer != null) {
             transitionDispatched = true
-            onConnected()
+            onConnected(activeController)
             return
         }
 
@@ -71,7 +94,7 @@ class GuestConnectingScreen(
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
         backdrop.drawShapes(shapeRenderer, viewport.worldWidth, viewport.worldHeight, 34f)
         fillPanel(titleRect, 0x223868FF, 0x15284BFF, 0x9EC3FF2A)
-        if (controller.lastError != null) {
+        if (showBackButton || activeController?.lastError != null) {
             fillPanel(buttonRect, 0x2F4E87FF, 0x1B3158FF, 0xC7D8FF42)
         }
         shapeRenderer.end()
@@ -79,16 +102,29 @@ class GuestConnectingScreen(
         batch.begin()
         backdrop.drawTextures(batch, viewport.worldWidth, viewport.worldHeight, animationSeconds, 1.02f)
         backdrop.drawPanelTexture(batch, titleRect, Color(0.78f, 0.86f, 1f, 0.08f), animationSeconds)
-        if (controller.lastError != null) {
+        if (showBackButton || activeController?.lastError != null) {
             backdrop.drawPanelTexture(batch, buttonRect, Color(0.84f, 0.92f, 1f, 0.08f), animationSeconds)
         }
         titleLayout.setText(titleFont, "Joining Host")
         titleFont.draw(batch, titleLayout, (viewport.worldWidth - titleLayout.width) / 2f, titleRect.y + (titleRect.height + titleLayout.height) / 2f)
-        drawText(bodyFont, hostDisplayName, 0f, viewport.worldHeight * 0.55f, viewport.worldWidth, true)
+        val hostDisplayName = discoveredHostDisplayName
+        drawText(
+            bodyFont,
+            hostDisplayName ?: "Searching local network...",
+            0f,
+            viewport.worldHeight * 0.55f,
+            viewport.worldWidth,
+            true,
+        )
 
-        val message = controller.lastError ?: "Connecting to the host..."
+        val message = when {
+            activeController?.lastError != null -> activeController.lastError!!
+            activeController != null -> "Connecting to the host..."
+            else -> "Looking for an available host..."
+        }
         drawText(bodyFont, message, 0f, viewport.worldHeight * 0.44f, viewport.worldWidth, true)
-        controller.connectionStatus?.let { status ->
+        val detailStatus = activeController?.connectionStatus ?: "Waiting for a host on the same local network."
+        detailStatus.let { status ->
             drawWrappedText(
                 detailFont,
                 status,
@@ -98,8 +134,9 @@ class GuestConnectingScreen(
             )
         }
 
-        if (controller.lastError != null) {
-            drawText(bodyFont, "BACK TO HOSTS", buttonRect.x, buttonRect.y + buttonRect.height * 0.66f, buttonRect.width, true)
+        if (showBackButton || activeController?.lastError != null) {
+            val buttonLabel = if (showBackButton) "BACK" else "RETRY"
+            drawText(bodyFont, buttonLabel, buttonRect.x, buttonRect.y + buttonRect.height * 0.66f, buttonRect.width, true)
         }
         batch.end()
     }
@@ -107,6 +144,10 @@ class GuestConnectingScreen(
     override fun resize(width: Int, height: Int) {
         viewport.update(width, height, true)
         updateLayout()
+    }
+
+    override fun hide() {
+        discoveryService.stop()
     }
 
     override fun dispose() {
@@ -224,7 +265,7 @@ class GuestConnectingScreen(
 
     private inner class ConnectingInput : InputAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-            if (controller.lastError == null) {
+            if (!showBackButton && controller?.lastError == null) {
                 return false
             }
             viewport.unproject(touchPoint.set(screenX.toFloat(), screenY.toFloat(), 0f))

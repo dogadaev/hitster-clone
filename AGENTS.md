@@ -336,6 +336,7 @@ Should have:
 - a lobby player-list presentation where each player can edit only their own displayed name in place, and the host can reorder players before the match starts
 - the host lobby should only expose the start action once at least one non-host player is connected
 - guest join flow should stay in an explicit connecting state until the authoritative host snapshot confirms that guest; do not transition guests into a fake empty lobby with `0 PLAYERS`
+- once a user chooses the guest role, the app should auto-discover and connect instead of stopping on a manual server-list selection screen
 - if the guest does not receive an authoritative host snapshot within a short join window, surface a concrete connection error instead of hanging indefinitely on a connecting screen
 - basic error feedback for networking and playback failures
 
@@ -460,6 +461,7 @@ The MVP is successful when:
 - available Android hosts are discoverable over the local network through a real networking layer rather than a simulated local flow
 - the guest-only web build can discover and join an Android-hosted local session while rendering the same libGDX gameplay client
 - the Android host can serve that guest-only web build itself over the local network, and that browser entry should join the single hosted session without requiring a separate host-selection tap
+- the guest role should move directly into auto-discovery / connecting flow instead of presenting a separate manual host-list screen
 - each player sees the current turn player's timeline in the main gameplay area on their own device
 - each player starts with one revealed random card already on their own timeline
 - the deck is visible and interactive

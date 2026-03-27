@@ -12,7 +12,6 @@ import com.hitster.ui.controller.AppPlatformServices
 import com.hitster.ui.controller.MatchController
 import com.hitster.ui.controller.UiBootstrapper
 import com.hitster.ui.screen.GuestConnectingScreen
-import com.hitster.ui.screen.GuestDiscoveryScreen
 import com.hitster.ui.screen.MatchScreen
 import com.hitster.ui.screen.RoleSelectionScreen
 
@@ -31,7 +30,7 @@ class HitsterGameApp(
         if (platformServices.supportsHosting) {
             openRoleSelection()
         } else {
-            openGuestDiscovery(canGoBack = false)
+            openGuestConnect(canGoBack = false)
         }
     }
 
@@ -61,44 +60,44 @@ class HitsterGameApp(
                     )
                 },
                 onGuestSelected = {
-                    openGuestDiscovery(canGoBack = true)
+                    openGuestConnect(canGoBack = true)
                 },
             ),
         )
     }
 
-    private fun openGuestDiscovery(canGoBack: Boolean) {
+    private fun openGuestConnect(canGoBack: Boolean) {
         activeMatchController?.dispose()
         activeMatchController = null
         setScreen(
-            GuestDiscoveryScreen(
+            GuestConnectingScreen(
                 discoveryService = platformServices.createGuestDiscoveryService(),
                 showBackButton = canGoBack,
-                autoJoinSingleHost = !platformServices.supportsHosting,
-                onBack = ::openRoleSelection,
-                onHostSelected = { advertisement ->
-                    val controller = platformServices.createRemoteGuestController(
+                createController = { advertisement ->
+                    platformServices.createRemoteGuestController(
                         advertisement = advertisement,
                         displayName = resolvedDisplayName(),
-                    )
+                    ).also { controller ->
+                        activeMatchController = controller
+                    }
+                },
+                onConnected = { controller ->
                     activeMatchController = controller
                     setScreen(
-                        GuestConnectingScreen(
-                            controller = controller,
-                            hostDisplayName = advertisement.hostDisplayName,
-                            onConnected = {
-                                setScreen(
-                                    MatchScreen(
-                                        presenter = controller,
-                                        animationCatalog = animationCatalog,
-                                        requestDisplayNameInput = platformServices::requestDisplayNameInput,
-                                        onLocalDisplayNameEdited = ::updateEnteredDisplayName,
-                                    ),
-                                )
-                            },
-                            onCancel = { openGuestDiscovery(canGoBack = canGoBack) },
+                        MatchScreen(
+                            presenter = controller,
+                            animationCatalog = animationCatalog,
+                            requestDisplayNameInput = platformServices::requestDisplayNameInput,
+                            onLocalDisplayNameEdited = ::updateEnteredDisplayName,
                         ),
                     )
+                },
+                onCancel = {
+                    if (canGoBack) {
+                        openRoleSelection()
+                    } else {
+                        openGuestConnect(canGoBack = false)
+                    }
                 },
             ),
         )
