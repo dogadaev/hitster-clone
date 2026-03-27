@@ -33,6 +33,8 @@ class AndroidPlaybackController(
 
     override fun pause(): PlaybackCommandResult = spotifyBridge.pause()
 
+    override fun resume(): PlaybackCommandResult = spotifyBridge.resume()
+
     override fun currentState(): PlaybackSessionState = spotifyBridge.currentState()
 
     override fun setListener(listener: PlaybackEventListener?) {
@@ -46,6 +48,8 @@ interface AndroidSpotifyBridge {
     fun play(spotifyUri: String): PlaybackCommandResult
 
     fun pause(): PlaybackCommandResult
+
+    fun resume(): PlaybackCommandResult
 
     fun currentState(): PlaybackSessionState
 
@@ -85,6 +89,8 @@ class StubAndroidSpotifyBridge(
     }
 
     override fun pause(): PlaybackCommandResult = PlaybackCommandResult.Success
+
+    override fun resume(): PlaybackCommandResult = PlaybackCommandResult.Success
 
     override fun currentState(): PlaybackSessionState = PlaybackSessionState.Disconnected
 

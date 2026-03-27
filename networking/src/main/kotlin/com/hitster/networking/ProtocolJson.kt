@@ -56,6 +56,11 @@ fun encodeClientCommandPayload(command: ClientCommandDto): String {
             put("actorId", command.actorId)
         }
 
+        is ClientCommandDto.TogglePlayback -> buildJsonObject {
+            put("type", "toggle_playback")
+            put("actorId", command.actorId)
+        }
+
         is ClientCommandDto.ToggleDoubt -> buildJsonObject {
             put("type", "toggle_doubt")
             put("actorId", command.actorId)
@@ -112,6 +117,15 @@ fun decodeHostEventPayload(payload: String): HostEventDto? {
                 reason = reason,
                 revision = revision,
             )
+        }
+
+        "playback_state_changed" -> {
+            val stateElement = parsed["state"] ?: return null
+            runCatching {
+                HostEventDto.PlaybackStateChanged(
+                    state = protocolJson.decodeFromJsonElement<PlaybackStateDto>(stateElement),
+                )
+            }.getOrNull()
         }
 
         else -> null

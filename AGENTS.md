@@ -190,7 +190,7 @@ Spotify integration is a core feature.
 
 Requirements:
 - drawing a card should trigger playback for the associated track
-- ending the turn should pause playback
+- preview playback should continue through turn resolution and only stop or change when the next player draws or redraws a track, unless the active player pauses it manually
 - playback integration must be abstracted behind an interface
 - core game logic must not depend directly on Spotify SDK classes
 - the host must complete playback pairing from the lobby before starting the match
@@ -251,6 +251,7 @@ Turn flow:
 - the active player draws a card from the deck on their own device using drag and drop
 - the active player may optionally redraw while their hidden card is still pending; the discarded hidden card must go to the discard pile and must not be draw-able again later in the session
 - drawing the card starts playback for the associated track
+- the active player must be able to pause and resume the current preview track during their turn
 - the player must not see song-identifying details such as title, artist, or release year before ending the turn
 - once a card is revealed on the timeline, it should show its song title, artist, and release year
 - the player drags the card to a position on their own timeline

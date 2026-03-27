@@ -15,6 +15,7 @@ import com.hitster.core.model.TurnPhase
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.GameStateMapper
 import com.hitster.networking.HostEventDto
+import com.hitster.networking.PlaybackStatusDto
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.playback.api.PlaybackIssue
 import com.hitster.playback.api.PlaybackSessionState
@@ -42,7 +43,8 @@ class RemoteGuestMatchController(
 
     override val lastPlaybackIssue: PlaybackIssue? = null
 
-    override val playbackSessionState: PlaybackSessionState = PlaybackSessionState.Ready
+    override var playbackSessionState: PlaybackSessionState = PlaybackSessionState.Ready
+        private set
 
     override val isLocalHost: Boolean = false
 
@@ -89,6 +91,10 @@ class RemoteGuestMatchController(
 
     override fun redrawCard() {
         client.sendCommand(ClientCommandDto.RedrawCard(actorId = localPlayerId.value))
+    }
+
+    override fun togglePlayback() {
+        client.sendCommand(ClientCommandDto.TogglePlayback(actorId = localPlayerId.value))
     }
 
     override fun toggleDoubt() {
@@ -163,6 +169,11 @@ class RemoteGuestMatchController(
                         }"
                 }
             }
+
+            is HostEventDto.PlaybackStateChanged -> {
+                playbackSessionState = event.state.toPlaybackSessionState()
+                connectionStatus = "Playback state updated."
+            }
         }
     }
 
@@ -220,5 +231,15 @@ class RemoteGuestMatchController(
             turn = turn.copy(phase = TurnPhase.DOUBT_POSITIONED),
             lastResolution = null,
         )
+    }
+}
+
+private fun com.hitster.networking.PlaybackStateDto.toPlaybackSessionState(): PlaybackSessionState {
+    return when (status) {
+        PlaybackStatusDto.DISCONNECTED -> PlaybackSessionState.Disconnected
+        PlaybackStatusDto.CONNECTING -> PlaybackSessionState.Connecting
+        PlaybackStatusDto.READY -> PlaybackSessionState.Ready
+        PlaybackStatusDto.PLAYING -> PlaybackSessionState.Playing(spotifyUri.orEmpty())
+        PlaybackStatusDto.PAUSED -> PlaybackSessionState.Paused(spotifyUri.orEmpty())
     }
 }

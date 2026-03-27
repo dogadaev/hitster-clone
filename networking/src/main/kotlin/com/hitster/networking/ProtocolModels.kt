@@ -88,6 +88,12 @@ sealed class ClientCommandDto {
     ) : ClientCommandDto()
 
     @Serializable
+    @SerialName("toggle_playback")
+    data class TogglePlayback(
+        override val actorId: String,
+    ) : ClientCommandDto()
+
+    @Serializable
     @SerialName("toggle_doubt")
     data class ToggleDoubt(
         override val actorId: String,
@@ -137,6 +143,27 @@ sealed class HostEventDto {
         val reason: String,
         val revision: Long,
     ) : HostEventDto()
+
+    @Serializable
+    @SerialName("playback_state_changed")
+    data class PlaybackStateChanged(
+        val state: PlaybackStateDto,
+    ) : HostEventDto()
+}
+
+@Serializable
+data class PlaybackStateDto(
+    val status: PlaybackStatusDto,
+    val spotifyUri: String? = null,
+)
+
+@Serializable
+enum class PlaybackStatusDto {
+    DISCONNECTED,
+    CONNECTING,
+    READY,
+    PLAYING,
+    PAUSED,
 }
 
 @Serializable

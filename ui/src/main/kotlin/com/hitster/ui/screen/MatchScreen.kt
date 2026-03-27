@@ -64,6 +64,7 @@ class MatchScreen(
 
     private val headerRect = Rectangle()
     private val heroRect = Rectangle()
+    private val playbackButtonRect = Rectangle()
     private val actionButtonRect = Rectangle()
     private val redrawButtonRect = Rectangle()
     private val doubtButtonRect = Rectangle()
@@ -295,6 +296,15 @@ class MatchScreen(
             heroY,
             worldWidth - outerMargin * 2f,
             heroHeight,
+        )
+        val turnLabelReserve = 170f
+        val playbackButtonWidth = clamp(heroRect.width * 0.11f, 138f, 166f)
+        val playbackButtonHeight = clamp(heroRect.height * 0.56f, 50f, 62f)
+        playbackButtonRect.set(
+            heroRect.x + heroRect.width - panelPadding - turnLabelReserve - panelGap - playbackButtonWidth,
+            heroRect.y + (heroRect.height - playbackButtonHeight) / 2f,
+            playbackButtonWidth,
+            playbackButtonHeight,
         )
 
         val deckWidth = clamp(worldWidth * 0.135f, 208f, 246f)
@@ -1276,6 +1286,13 @@ class MatchScreen(
 
     private fun drawMatch(includeOverlay: Boolean) {
         fillHero(heroRect)
+        if (showPlaybackToggleButton()) {
+            if (isPlaybackPaused()) {
+                fillButton(playbackButtonRect, 0xF2C662FF, 0xD78622FF, 0xFFF3C07D)
+            } else {
+                fillButton(playbackButtonRect, 0xAFC7F8FF, 0x6786C0FF, 0xDDE8FF7A)
+            }
+        }
         fillPanel(timelinePanelRect, 0x14264DFF, 0x0D1B37FF, 0x556EABFF, 0x41598FFF, 0xB4C7F144)
         if (showActionWell()) {
             fillActionWell()
@@ -1301,6 +1318,12 @@ class MatchScreen(
 
     private fun drawMatchTextures() {
         drawPanelTexture(heroRect, color(0xCFE1FF10))
+        if (showPlaybackToggleButton()) {
+            drawPanelTexture(
+                playbackButtonRect,
+                if (isPlaybackPaused()) color(0xFFF0D31A) else color(0xD6E6FF18),
+            )
+        }
         drawPanelTexture(timelinePanelRect, color(0xC9DBFF12))
         if (showActionWell()) {
             drawActionWellTexture()
@@ -1380,7 +1403,11 @@ class MatchScreen(
         )
         toolbarStatus?.let { text ->
             val messageX = heroRect.x + panelPadding + playerWidth + panelGap
-            val messageRight = turnX - panelGap
+            val messageRight = if (showPlaybackToggleButton()) {
+                playbackButtonRect.x - panelGap
+            } else {
+                turnX - panelGap
+            }
             val messageWidth = max(1f, messageRight - messageX)
             val fittedStatus = fitSingleLineText(
                 text = text,
@@ -1401,6 +1428,20 @@ class MatchScreen(
                 verticalAlign = VerticalTextAlign.Center,
                 shadowColor = color(0x02060C8A),
                 enforceMinimumScale = false,
+            )
+        }
+        if (showPlaybackToggleButton()) {
+            drawTextBlock(
+                text = playbackToggleLabel(),
+                x = playbackButtonRect.x,
+                y = playbackButtonRect.y,
+                width = playbackButtonRect.width,
+                height = playbackButtonRect.height,
+                scale = 0.64f,
+                color = if (isPlaybackPaused()) color(0x261708FF) else color(0x0D1628FF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = if (isPlaybackPaused()) color(0xFFF7E2A640) else color(0xF2FBFF40),
             )
         }
 
@@ -2349,6 +2390,16 @@ class MatchScreen(
 
     private fun showActionButton(): Boolean = canEndTurn()
 
+    private fun showPlaybackToggleButton(): Boolean =
+        presenter.state.status == MatchStatus.ACTIVE &&
+            isLocalPlayersTurn() &&
+            (presenter.playbackSessionState is PlaybackSessionState.Playing ||
+                presenter.playbackSessionState is PlaybackSessionState.Paused)
+
+    private fun isPlaybackPaused(): Boolean = presenter.playbackSessionState is PlaybackSessionState.Paused
+
+    private fun playbackToggleLabel(): String = if (isPlaybackPaused()) "RESUME" else "PAUSE"
+
     private fun showRedrawButton(): Boolean = canRedraw() && !isLocalDoubtPlacementPhase()
 
     private fun showHostCoinsButton(): Boolean = presenter.isLocalHost && presenter.state.status == MatchStatus.ACTIVE
@@ -2945,6 +2996,11 @@ class MatchScreen(
 
             if (showRedrawButton() && redrawButtonRect.contains(world.x, world.y)) {
                 presenter.redrawCard()
+                return true
+            }
+
+            if (showPlaybackToggleButton() && playbackButtonRect.contains(world.x, world.y)) {
+                presenter.togglePlayback()
                 return true
             }
 

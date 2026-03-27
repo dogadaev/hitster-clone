@@ -60,6 +60,7 @@ class MatchPresenter(
 
     var snapshotListener: ((GameStateDto) -> Unit)? = null
     var rejectionListener: ((String, String, Long) -> Unit)? = null
+    var playbackStateListener: ((PlaybackSessionState) -> Unit)? = null
 
     override val localPlayer: com.hitster.core.model.PlayerState?
         get() = state.requirePlayer(localPlayerId)
@@ -69,6 +70,7 @@ class MatchPresenter(
             object : PlaybackEventListener {
                 override fun onSessionStateChanged(sessionState: PlaybackSessionState) {
                     playbackSessionState = sessionState
+                    playbackStateListener?.invoke(sessionState)
                 }
 
                 override fun onIssue(issue: PlaybackIssue?) {
@@ -141,6 +143,11 @@ class MatchPresenter(
         toggleDoubtAs(localPlayerId)
     }
 
+    /** Toggles local playback for the active actor without changing authoritative match state. */
+    override fun togglePlayback() {
+        togglePlaybackAs(localPlayerId)
+    }
+
     /** Moves the local actor's pending card to a requested slot. */
     override fun movePendingCard(requestedSlotIndex: Int) {
         movePendingCardAs(localPlayerId, requestedSlotIndex)
@@ -189,6 +196,59 @@ class MatchPresenter(
         dispatch(GameCommand.ToggleDoubt(actorId = actorId))
     }
 
+    /** Host-side helper used by transport handling and tests to pause or resume playback for an arbitrary actor. */
+    internal fun togglePlaybackAs(actorId: PlayerId, remoteCommand: Boolean = false) {
+        val action = synchronized(stateLock) {
+            when {
+                state.status != MatchStatus.ACTIVE -> PlaybackToggleAction.Reject("Playback controls are only available during an active match.")
+                state.turn?.activePlayerId != actorId -> PlaybackToggleAction.Reject("Only the current player can control playback.")
+                playbackSessionState is PlaybackSessionState.Playing -> PlaybackToggleAction.Pause
+                playbackSessionState is PlaybackSessionState.Paused -> PlaybackToggleAction.Resume
+                else -> PlaybackToggleAction.Reject("There is no active preview track to control.")
+            }
+        }
+
+        when (action) {
+            is PlaybackToggleAction.Reject -> {
+                if (remoteCommand) {
+                    rejectionListener?.invoke(actorId.value, action.reason, state.revision)
+                } else {
+                    lastError = action.reason
+                }
+            }
+
+            PlaybackToggleAction.Pause -> {
+                lastError = null
+                when (val playbackResult = playbackController.pause()) {
+                    is PlaybackCommandResult.Success -> lastPlaybackIssue = null
+                    is PlaybackCommandResult.Failure -> {
+                        lastPlaybackIssue = playbackResult.issue
+                        if (remoteCommand) {
+                            rejectionListener?.invoke(actorId.value, playbackResult.issue.message, state.revision)
+                        } else {
+                            lastError = playbackResult.issue.message
+                        }
+                    }
+                }
+            }
+
+            PlaybackToggleAction.Resume -> {
+                lastError = null
+                when (val playbackResult = playbackController.resume()) {
+                    is PlaybackCommandResult.Success -> lastPlaybackIssue = null
+                    is PlaybackCommandResult.Failure -> {
+                        lastPlaybackIssue = playbackResult.issue
+                        if (remoteCommand) {
+                            rejectionListener?.invoke(actorId.value, playbackResult.issue.message, state.revision)
+                        } else {
+                            lastError = playbackResult.issue.message
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /** Host-side helper used by automation and tests to move an arbitrary actor's doubt card. */
     internal fun moveDoubtCardAs(
         actorId: PlayerId,
@@ -227,8 +287,8 @@ class MatchPresenter(
         if (!isLocalHost || state.status != MatchStatus.LOBBY) {
             return false
         }
-        return playbackSessionState != PlaybackSessionState.Ready &&
-            playbackSessionState !is PlaybackSessionState.Playing
+        return playbackSessionState == PlaybackSessionState.Disconnected ||
+            playbackSessionState == PlaybackSessionState.Connecting
     }
 
     /** Returns `true` when the local host is in the lobby and at least one guest has joined. */
@@ -289,6 +349,10 @@ class MatchPresenter(
 
             is ClientCommandDto.RedrawCard -> {
                 dispatch(GameCommand.RedrawCard(actorId = PlayerId(command.actorId)))
+            }
+
+            is ClientCommandDto.TogglePlayback -> {
+                togglePlaybackAs(actorId = PlayerId(command.actorId), remoteCommand = true)
             }
 
             is ClientCommandDto.ToggleDoubt -> {
@@ -441,4 +505,14 @@ private fun GameCommand.actorId(): PlayerId {
         is GameCommand.EndTurn -> actorId
         is GameCommand.FinalizeDoubtWindow -> actorId
     }
+}
+
+private sealed interface PlaybackToggleAction {
+    data object Pause : PlaybackToggleAction
+
+    data object Resume : PlaybackToggleAction
+
+    data class Reject(
+        val reason: String,
+    ) : PlaybackToggleAction
 }

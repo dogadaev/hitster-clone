@@ -44,6 +44,9 @@ interface MatchController {
     /** Discards the current hidden card and replaces it with a new draw for the same turn. */
     fun redrawCard()
 
+    /** Pauses or resumes the current preview track for the active player. */
+    fun togglePlayback()
+
     /** Arms or clears the local player's doubt request when they are eligible to challenge the turn. */
     fun toggleDoubt()
 

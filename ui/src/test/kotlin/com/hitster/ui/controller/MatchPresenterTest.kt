@@ -166,6 +166,64 @@ class MatchPresenterTest {
     }
 
     @Test
+    fun `toggle playback pauses when the current player is previewing a track`() {
+        val playbackController = FakePlaybackController(
+            initialState = PlaybackSessionState.Playing("spotify:track:draw-host"),
+        )
+        val presenter = MatchPresenter(
+            reducer = reducer,
+            playbackController = playbackController,
+            hostId = hostId,
+            localPlayerId = hostId,
+            initialState = activeTurnState(activePlayerId = hostId),
+        )
+
+        presenter.togglePlayback()
+
+        assertEquals(1, playbackController.pauseCalls)
+        assertEquals(0, playbackController.resumeCalls)
+    }
+
+    @Test
+    fun `toggle playback resumes when the current player has paused the preview`() {
+        val playbackController = FakePlaybackController(
+            initialState = PlaybackSessionState.Paused("spotify:track:draw-host"),
+        )
+        val presenter = MatchPresenter(
+            reducer = reducer,
+            playbackController = playbackController,
+            hostId = hostId,
+            localPlayerId = hostId,
+            initialState = activeTurnState(activePlayerId = hostId),
+        )
+
+        presenter.togglePlayback()
+
+        assertEquals(0, playbackController.pauseCalls)
+        assertEquals(1, playbackController.resumeCalls)
+    }
+
+    @Test
+    fun `toggle playback rejects non active players`() {
+        val playbackController = FakePlaybackController(
+            initialState = PlaybackSessionState.Playing("spotify:track:draw-host"),
+        )
+        val presenter = MatchPresenter(
+            reducer = reducer,
+            playbackController = playbackController,
+            hostId = hostId,
+            localPlayerId = guestId,
+            initialState = activeTurnState(activePlayerId = hostId),
+        )
+
+        presenter.togglePlayback()
+
+        assertEquals("Only the current player can control playback.", presenter.lastError)
+        assertEquals(0, playbackController.pauseCalls)
+        assertEquals(0, playbackController.resumeCalls)
+    }
+
+    @Test
     fun `remote joins publish snapshots even when handled off the render thread`() {
         val presenter = MatchPresenter(
             reducer = reducer,
@@ -247,6 +305,45 @@ class MatchPresenterTest {
             ),
         )
 
+    private fun activeTurnState(activePlayerId: PlayerId): com.hitster.core.model.GameState {
+        val activeEntry = entry("draw-host", 1990)
+        val waitingEntry = entry("draw-guest", 2010)
+        return com.hitster.core.model.GameState(
+            sessionId = SessionId("session"),
+            hostId = hostId,
+            status = com.hitster.core.model.MatchStatus.ACTIVE,
+            players = listOf(
+                com.hitster.core.model.PlayerState(
+                    id = hostId,
+                    displayName = "Host",
+                    timeline = com.hitster.core.model.PlayerTimeline(listOf(entry("seed-host", 1980))),
+                    pendingCard = if (activePlayerId == hostId) {
+                        com.hitster.core.model.PendingCard(activeEntry, proposedSlotIndex = 1)
+                    } else {
+                        null
+                    },
+                ),
+                com.hitster.core.model.PlayerState(
+                    id = guestId,
+                    displayName = "Guest",
+                    timeline = com.hitster.core.model.PlayerTimeline(listOf(entry("seed-guest", 2000))),
+                    pendingCard = if (activePlayerId == guestId) {
+                        com.hitster.core.model.PendingCard(waitingEntry, proposedSlotIndex = 1)
+                    } else {
+                        null
+                    },
+                ),
+            ),
+            activePlayerIndex = if (activePlayerId == hostId) 0 else 1,
+            deck = com.hitster.core.model.DeckState(emptyList()),
+            turn = com.hitster.core.model.TurnState(
+                number = 2,
+                activePlayerId = activePlayerId,
+                phase = com.hitster.core.model.TurnPhase.CARD_POSITIONED,
+            ),
+        )
+    }
+
     private fun acceptedState(result: ReducerResult) = (result as ReducerResult.Accepted).state
 
     private fun deckEntries() = listOf(
@@ -271,6 +368,10 @@ class MatchPresenterTest {
         private var state: PlaybackSessionState = initialState
         var prepareCalls: Int = 0
             private set
+        var pauseCalls: Int = 0
+            private set
+        var resumeCalls: Int = 0
+            private set
 
         override fun prepareSession(): PlaybackCommandResult {
             prepareCalls += 1
@@ -279,7 +380,15 @@ class MatchPresenterTest {
 
         override fun playTrack(reference: PlaybackReference): PlaybackCommandResult = PlaybackCommandResult.Success
 
-        override fun pause(): PlaybackCommandResult = PlaybackCommandResult.Success
+        override fun pause(): PlaybackCommandResult {
+            pauseCalls += 1
+            return PlaybackCommandResult.Success
+        }
+
+        override fun resume(): PlaybackCommandResult {
+            resumeCalls += 1
+            return PlaybackCommandResult.Success
+        }
 
         override fun currentState(): PlaybackSessionState = state
 

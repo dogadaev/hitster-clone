@@ -259,6 +259,9 @@ class BrowserGuestSessionClient(
 
                         is HostEventDto.CommandRejected ->
                             onStatusChanged("Host rejected guest command: ${event.reason}")
+
+                        is HostEventDto.PlaybackStateChanged ->
+                            onStatusChanged("Playback state updated.")
                     }
                     onEvent(event)
                 }

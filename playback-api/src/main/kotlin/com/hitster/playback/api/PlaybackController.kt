@@ -16,6 +16,9 @@ interface PlaybackController {
     /** Pauses the current preview track when a turn resolves or playback must stop. */
     fun pause(): PlaybackCommandResult
 
+    /** Resumes the current preview track after a local player temporarily paused it. */
+    fun resume(): PlaybackCommandResult
+
     /** Returns the latest known platform playback state for UI and lobby gating. */
     fun currentState(): PlaybackSessionState
 
@@ -39,6 +42,10 @@ sealed interface PlaybackSessionState {
     data object Ready : PlaybackSessionState
 
     data class Playing(
+        val spotifyUri: String,
+    ) : PlaybackSessionState
+
+    data class Paused(
         val spotifyUri: String,
     ) : PlaybackSessionState
 }
@@ -88,7 +95,25 @@ class NoOpPlaybackController : PlaybackController {
 
     /** Returns the mock session to the ready state after a preview is finished. */
     override fun pause(): PlaybackCommandResult {
-        state = PlaybackSessionState.Ready
+        val spotifyUri = when (val currentState = state) {
+            is PlaybackSessionState.Playing -> currentState.spotifyUri
+            is PlaybackSessionState.Paused -> currentState.spotifyUri
+            else -> null
+        }
+        state = spotifyUri?.let(PlaybackSessionState::Paused) ?: PlaybackSessionState.Ready
+        listener?.onIssue(null)
+        listener?.onSessionStateChanged(state)
+        return PlaybackCommandResult.Success
+    }
+
+    /** Resumes the mock preview so pause/resume UI flows can be exercised without a real backend. */
+    override fun resume(): PlaybackCommandResult {
+        val spotifyUri = when (val currentState = state) {
+            is PlaybackSessionState.Paused -> currentState.spotifyUri
+            is PlaybackSessionState.Playing -> currentState.spotifyUri
+            else -> null
+        }
+        state = spotifyUri?.let(PlaybackSessionState::Playing) ?: PlaybackSessionState.Ready
         listener?.onIssue(null)
         listener?.onSessionStateChanged(state)
         return PlaybackCommandResult.Success

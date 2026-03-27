@@ -129,6 +129,7 @@ class LanSessionClient(
                     when (event) {
                         is HostEventDto.SnapshotPublished -> "Host snapshot received."
                         is HostEventDto.CommandRejected -> "Host rejected guest command."
+                        is HostEventDto.PlaybackStateChanged -> "Playback state updated."
                     },
                 )
                 clientEventListener.onEvent(event)

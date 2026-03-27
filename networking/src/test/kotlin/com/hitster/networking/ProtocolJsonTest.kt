@@ -76,6 +76,16 @@ class ProtocolJsonTest {
     }
 
     @Test
+    fun `encodeClientCommandPayload emits playback toggle payloads`() {
+        val payload = encodeClientCommandPayload(
+            ClientCommandDto.TogglePlayback(actorId = "guest-1"),
+        )
+
+        assertTrue(payload.contains("\"type\":\"toggle_playback\""))
+        assertTrue(payload.contains("\"actorId\":\"guest-1\""))
+    }
+
+    @Test
     fun `decodeHostEventPayload parses snapshot payloads`() {
         val payload = """
             {
@@ -140,6 +150,25 @@ class ProtocolJsonTest {
         assertEquals("guest-1", rejected.actorId)
         assertEquals("Nope", rejected.reason)
         assertEquals(4L, rejected.revision)
+    }
+
+    @Test
+    fun `decodeHostEventPayload parses playback state payloads`() {
+        val payload = """
+            {
+              "type": "playback_state_changed",
+              "state": {
+                "status": "PAUSED",
+                "spotifyUri": "spotify:track:demo"
+              }
+            }
+        """.trimIndent()
+
+        val event = decodeHostEventPayload(payload)
+        val playback = assertIs<HostEventDto.PlaybackStateChanged>(event)
+
+        assertEquals(PlaybackStatusDto.PAUSED, playback.state.status)
+        assertEquals("spotify:track:demo", playback.state.spotifyUri)
     }
 
     @Test

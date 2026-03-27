@@ -21,7 +21,10 @@ import com.hitster.core.model.TurnState
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.GameStateMapper
 import com.hitster.networking.HostEventDto
+import com.hitster.networking.PlaybackStateDto
+import com.hitster.networking.PlaybackStatusDto
 import com.hitster.networking.SessionAdvertisementDto
+import com.hitster.playback.api.PlaybackSessionState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -55,6 +58,30 @@ class RemoteGuestMatchControllerTest {
 
         assertEquals("pending", controller.localPlayer?.pendingCard?.entry?.id)
         assertIs<ClientCommandDto.RedrawCard>(client.commands.single())
+    }
+
+    @Test
+    fun `toggle playback sends playback command and updates from host events`() {
+        val localPlayerId = PlayerId("guest")
+        val client = RecordingGuestSessionClient()
+        val controller = RemoteGuestMatchController(advertisement = advertisement(), localPlayerId = localPlayerId)
+        controller.attachClient(client)
+        controller.handleEvent(
+            HostEventDto.PlaybackStateChanged(
+                PlaybackStateDto(
+                    status = PlaybackStatusDto.PLAYING,
+                    spotifyUri = "spotify:track:pending",
+                ),
+            ),
+        )
+
+        controller.togglePlayback()
+
+        assertIs<ClientCommandDto.TogglePlayback>(client.commands.single())
+        assertEquals(
+            PlaybackSessionState.Playing("spotify:track:pending"),
+            controller.playbackSessionState,
+        )
     }
 
     @Test

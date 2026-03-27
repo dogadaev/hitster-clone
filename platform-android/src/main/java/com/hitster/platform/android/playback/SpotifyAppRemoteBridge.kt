@@ -125,7 +125,12 @@ class SpotifyAppRemoteBridge(
             if (connectedRemote == null) {
                 pendingCommand = null
                 clearIssue()
-                updateState(PlaybackSessionState.Ready)
+                val spotifyUri = when (val currentState = sessionState) {
+                    is PlaybackSessionState.Playing -> currentState.spotifyUri
+                    is PlaybackSessionState.Paused -> currentState.spotifyUri
+                    else -> null
+                }
+                updateState(spotifyUri?.let(PlaybackSessionState::Paused) ?: PlaybackSessionState.Ready)
                 return@onMainThread
             }
 
@@ -133,9 +138,23 @@ class SpotifyAppRemoteBridge(
                 .setResultCallback {
                     pendingCommand = null
                     clearIssue()
-                    updateState(PlaybackSessionState.Ready)
+                    val spotifyUri = when (val currentState = sessionState) {
+                        is PlaybackSessionState.Playing -> currentState.spotifyUri
+                        is PlaybackSessionState.Paused -> currentState.spotifyUri
+                        else -> null
+                    }
+                    updateState(spotifyUri?.let(PlaybackSessionState::Paused) ?: PlaybackSessionState.Ready)
                 }
                 .setErrorCallback(::handleAsyncError)
+        }
+        return PlaybackCommandResult.Success
+    }
+
+    override fun resume(): PlaybackCommandResult {
+        pendingCommand = PendingCommand.Resume
+        onMainThread {
+            clearIssue()
+            connectIfNeeded()
         }
         return PlaybackCommandResult.Success
     }
@@ -315,7 +334,29 @@ class SpotifyAppRemoteBridge(
                         Log.d(tag, "Spotify pause command accepted.")
                         pendingCommand = null
                         clearIssue()
-                        updateState(PlaybackSessionState.Ready)
+                        val spotifyUri = when (val currentState = sessionState) {
+                            is PlaybackSessionState.Playing -> currentState.spotifyUri
+                            is PlaybackSessionState.Paused -> currentState.spotifyUri
+                            else -> null
+                        }
+                        updateState(spotifyUri?.let(PlaybackSessionState::Paused) ?: PlaybackSessionState.Ready)
+                    }
+                    .setErrorCallback(::handleAsyncError)
+            }
+
+            PendingCommand.Resume -> {
+                Log.d(tag, "Executing resume command.")
+                spotifyAppRemote.playerApi.resume()
+                    .setResultCallback {
+                        Log.d(tag, "Spotify resume command accepted.")
+                        pendingCommand = null
+                        clearIssue()
+                        val spotifyUri = when (val currentState = sessionState) {
+                            is PlaybackSessionState.Playing -> currentState.spotifyUri
+                            is PlaybackSessionState.Paused -> currentState.spotifyUri
+                            else -> null
+                        }
+                        updateState(spotifyUri?.let(PlaybackSessionState::Playing) ?: PlaybackSessionState.Ready)
                     }
                     .setErrorCallback(::handleAsyncError)
             }
@@ -347,6 +388,8 @@ class SpotifyAppRemoteBridge(
         val spotifyUri = track?.uri.orEmpty()
         return if (!isPaused && spotifyUri.isNotBlank()) {
             PlaybackSessionState.Playing(spotifyUri)
+        } else if (isPaused && spotifyUri.isNotBlank()) {
+            PlaybackSessionState.Paused(spotifyUri)
         } else if (spotifyAppRemote?.isConnected == true) {
             PlaybackSessionState.Ready
         } else {
@@ -498,5 +541,7 @@ class SpotifyAppRemoteBridge(
         ) : PendingCommand
 
         data object Pause : PendingCommand
+
+        data object Resume : PendingCommand
     }
 }
