@@ -30,6 +30,8 @@ class HostGameReducer(
     ): ReducerResult {
         return when (command) {
             is GameCommand.JoinSession -> joinSession(state, command)
+            is GameCommand.UpdatePlayerName -> updatePlayerName(state, command.actorId, command.displayName)
+            is GameCommand.ReorderLobbyPlayers -> reorderLobbyPlayers(state, command.actorId, command.playerId, command.targetIndex)
             is GameCommand.LeaveSession -> leaveSession(state, command.playerId)
             is GameCommand.StartGame -> startGame(state, command.actorId)
             is GameCommand.DrawCard -> drawCard(state, command.actorId)
@@ -46,10 +48,14 @@ class HostGameReducer(
         state: GameState,
         command: GameCommand.JoinSession,
     ): ReducerResult {
+        val sanitizedDisplayName = sanitizeDisplayName(command.displayName)
+        if (sanitizedDisplayName.isBlank()) {
+            return reject(state, "Display name cannot be blank.")
+        }
         val existingPlayer = state.players.firstOrNull { it.id == command.playerId }
         if (existingPlayer != null) {
             val reattachedPlayer = existingPlayer.copy(
-                displayName = command.displayName,
+                displayName = sanitizedDisplayName,
                 connected = true,
             )
             val nextState = state.copy(
@@ -66,11 +72,70 @@ class HostGameReducer(
             revision = state.revision + 1,
             players = state.players + PlayerState(
                 id = command.playerId,
-                displayName = command.displayName,
+                displayName = sanitizedDisplayName,
             ),
         )
 
         return accept(nextState)
+    }
+
+    private fun updatePlayerName(
+        state: GameState,
+        actorId: PlayerId,
+        displayName: String,
+    ): ReducerResult {
+        if (state.status != MatchStatus.LOBBY) {
+            return reject(state, "Player names can only be changed in the lobby.")
+        }
+        val player = state.requirePlayer(actorId) ?: return reject(state, "Unknown player.")
+        val sanitizedDisplayName = sanitizeDisplayName(displayName)
+        if (sanitizedDisplayName.isBlank()) {
+            return reject(state, "Display name cannot be blank.")
+        }
+        if (player.displayName == sanitizedDisplayName) {
+            return accept(state)
+        }
+
+        return accept(
+            state.copy(
+                revision = state.revision + 1,
+                players = state.players.replacePlayer(player.copy(displayName = sanitizedDisplayName)),
+            ),
+        )
+    }
+
+    private fun reorderLobbyPlayers(
+        state: GameState,
+        actorId: PlayerId,
+        playerId: PlayerId,
+        targetIndex: Int,
+    ): ReducerResult {
+        if (actorId != state.hostId) {
+            return reject(state, "Only the host can reorder players.")
+        }
+        if (state.status != MatchStatus.LOBBY) {
+            return reject(state, "Players can only be reordered in the lobby.")
+        }
+        if (state.players.none { it.id == playerId }) {
+            return reject(state, "Unknown player.")
+        }
+        if (state.players.size <= 1) {
+            return reject(state, "Not enough players to reorder.")
+        }
+
+        val normalizedTargetIndex = targetIndex.coerceIn(0, state.players.lastIndex)
+        val currentIndex = state.players.indexOfFirst { it.id == playerId }
+        if (currentIndex == normalizedTargetIndex) {
+            return accept(state)
+        }
+
+        return accept(
+            state.copy(
+                revision = state.revision + 1,
+                players = state.players.movePlayer(playerId, normalizedTargetIndex),
+                activePlayerIndex = 0,
+            ),
+        )
     }
 
     private fun leaveSession(
@@ -657,3 +722,28 @@ private fun List<PlayerState>.replacePlayer(updatedPlayer: PlayerState): List<Pl
         if (existing.id == updatedPlayer.id) updatedPlayer else existing
     }
 }
+
+private fun List<PlayerState>.movePlayer(
+    playerId: PlayerId,
+    targetIndex: Int,
+): List<PlayerState> {
+    val currentIndex = indexOfFirst { it.id == playerId }
+    if (currentIndex < 0) {
+        return this
+    }
+    val reordered = toMutableList()
+    val player = reordered.removeAt(currentIndex)
+    reordered.add(targetIndex.coerceIn(0, reordered.size), player)
+    return reordered.toList()
+}
+
+private fun sanitizeDisplayName(raw: String): String {
+    return raw
+        .trim()
+        .split(Regex("\\s+"))
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
+        .take(MAX_DISPLAY_NAME_LENGTH)
+}
+
+private const val MAX_DISPLAY_NAME_LENGTH = 24

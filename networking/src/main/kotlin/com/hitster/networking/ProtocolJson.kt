@@ -28,6 +28,19 @@ fun encodeClientCommandPayload(command: ClientCommandDto): String {
             put("displayName", command.displayName)
         }
 
+        is ClientCommandDto.UpdatePlayerName -> buildJsonObject {
+            put("type", "update_player_name")
+            put("actorId", command.actorId)
+            put("displayName", command.displayName)
+        }
+
+        is ClientCommandDto.ReorderLobbyPlayers -> buildJsonObject {
+            put("type", "reorder_lobby_players")
+            put("actorId", command.actorId)
+            put("playerId", command.playerId)
+            put("targetIndex", command.targetIndex)
+        }
+
         is ClientCommandDto.StartGame -> buildJsonObject {
             put("type", "start_game")
             put("actorId", command.actorId)

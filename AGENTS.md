@@ -331,7 +331,7 @@ Should have:
 - loading and reconnect states
 - clear playback-state feedback
 - a clean lobby and room-join flow
-- a required display-name entry step before a player creates or joins a lobby
+- a lobby player-list presentation where each player can edit only their own displayed name in place, and the host can reorder players before the match starts
 - the host lobby should only expose the start action once at least one non-host player is connected
 - guest join flow should stay in an explicit connecting state until the authoritative host snapshot confirms that guest; do not transition guests into a fake empty lobby with `0 PLAYERS`
 - if the guest does not receive an authoritative host snapshot within a short join window, surface a concrete connection error instead of hanging indefinitely on a connecting screen

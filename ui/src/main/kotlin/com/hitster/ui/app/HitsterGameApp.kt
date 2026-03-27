@@ -14,7 +14,6 @@ import com.hitster.ui.controller.UiBootstrapper
 import com.hitster.ui.screen.GuestConnectingScreen
 import com.hitster.ui.screen.GuestDiscoveryScreen
 import com.hitster.ui.screen.MatchScreen
-import com.hitster.ui.screen.NameEntryScreen
 import com.hitster.ui.screen.RoleSelectionScreen
 
 class HitsterGameApp(
@@ -26,18 +25,13 @@ class HitsterGameApp(
     private val playbackController = playbackController
     private val suggestedDisplayName = UiBootstrapper.randomFunnyDisplayName()
     private var activeMatchController: MatchController? = null
-    private var enteredDisplayName: String? = null
+    private var enteredDisplayName: String = UiBootstrapper.sanitizeDisplayName(suggestedDisplayName)
 
     override fun create() {
         if (platformServices.supportsHosting) {
             openRoleSelection()
         } else {
-            openNameEntry(
-                showBackButton = false,
-                onBack = {},
-            ) {
-                openGuestDiscovery(canGoBack = false)
-            }
+            openGuestDiscovery(canGoBack = false)
         }
     }
 
@@ -52,25 +46,22 @@ class HitsterGameApp(
         setScreen(
             RoleSelectionScreen(
                 onHostSelected = {
-                    openNameEntry(
-                        showBackButton = true,
-                        onBack = ::openRoleSelection,
-                    ) {
-                        val controller = platformServices.createHostedMatchController(
-                            playbackController,
-                            resolvedDisplayName(),
-                        )
-                        activeMatchController = controller
-                        setScreen(MatchScreen(controller, animationCatalog))
-                    }
+                    val controller = platformServices.createHostedMatchController(
+                        playbackController,
+                        resolvedDisplayName(),
+                    )
+                    activeMatchController = controller
+                    setScreen(
+                        MatchScreen(
+                            presenter = controller,
+                            animationCatalog = animationCatalog,
+                            requestDisplayNameInput = platformServices::requestDisplayNameInput,
+                            onLocalDisplayNameEdited = ::updateEnteredDisplayName,
+                        ),
+                    )
                 },
                 onGuestSelected = {
-                    openNameEntry(
-                        showBackButton = true,
-                        onBack = ::openRoleSelection,
-                    ) {
-                        openGuestDiscovery(canGoBack = true)
-                    }
+                    openGuestDiscovery(canGoBack = true)
                 },
             ),
         )
@@ -95,7 +86,16 @@ class HitsterGameApp(
                         GuestConnectingScreen(
                             controller = controller,
                             hostDisplayName = advertisement.hostDisplayName,
-                            onConnected = { setScreen(MatchScreen(controller, animationCatalog)) },
+                            onConnected = {
+                                setScreen(
+                                    MatchScreen(
+                                        presenter = controller,
+                                        animationCatalog = animationCatalog,
+                                        requestDisplayNameInput = platformServices::requestDisplayNameInput,
+                                        onLocalDisplayNameEdited = ::updateEnteredDisplayName,
+                                    ),
+                                )
+                            },
                             onCancel = { openGuestDiscovery(canGoBack = canGoBack) },
                         ),
                     )
@@ -104,27 +104,12 @@ class HitsterGameApp(
         )
     }
 
-    private fun openNameEntry(
-        showBackButton: Boolean,
-        onBack: () -> Unit,
-        onConfirmed: () -> Unit,
-    ) {
-        setScreen(
-            NameEntryScreen(
-                initialName = enteredDisplayName ?: suggestedDisplayName,
-                showBackButton = showBackButton,
-                requestDisplayNameInput = platformServices::requestDisplayNameInput,
-                onBack = onBack,
-                onConfirmed = { displayName ->
-                    enteredDisplayName = UiBootstrapper.sanitizeDisplayName(displayName)
-                    onConfirmed()
-                },
-            ),
-        )
+    private fun resolvedDisplayName(): String {
+        return enteredDisplayName.takeIf { it.isNotBlank() }
+            ?: UiBootstrapper.sanitizeDisplayName(localDisplayName).ifBlank { suggestedDisplayName }
     }
 
-    private fun resolvedDisplayName(): String {
-        return enteredDisplayName?.takeIf { it.isNotBlank() }
-            ?: UiBootstrapper.sanitizeDisplayName(localDisplayName).ifBlank { "Player" }
+    private fun updateEnteredDisplayName(displayName: String) {
+        enteredDisplayName = UiBootstrapper.sanitizeDisplayName(displayName).ifBlank { suggestedDisplayName }
     }
 }

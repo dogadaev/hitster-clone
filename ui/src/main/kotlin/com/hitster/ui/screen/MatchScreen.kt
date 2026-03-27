@@ -26,11 +26,13 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.animations.AnimationCatalog
 import com.hitster.core.model.DoubtPhase
 import com.hitster.core.model.MatchStatus
+import com.hitster.core.model.PlayerId
 import com.hitster.core.model.PlayerState
 import com.hitster.core.model.PlaylistEntry
 import com.hitster.core.model.TurnPhase
 import com.hitster.playback.api.PlaybackSessionState
 import com.hitster.ui.controller.MatchController
+import com.hitster.ui.controller.UiBootstrapper
 import com.hitster.ui.layout.TimelineLayoutCalculator
 import com.hitster.ui.theme.DecadeCardPalettes
 import com.hitster.ui.theme.createUiFont
@@ -45,6 +47,8 @@ import kotlin.math.sin
 class MatchScreen(
     private val presenter: MatchController,
     private val animationCatalog: AnimationCatalog,
+    private val requestDisplayNameInput: (String, (String?) -> Unit) -> Unit,
+    private val onLocalDisplayNameEdited: (String) -> Unit = {},
 ) : ScreenAdapter() {
     private val camera = OrthographicCamera()
     private val viewport = ExtendViewport(BASE_WORLD_WIDTH, BASE_WORLD_HEIGHT, camera)
@@ -111,6 +115,10 @@ class MatchScreen(
     private var inactiveTurnFilterAlpha = 0f
     private var overlayAnimationSeconds = 0f
     private var coinPanelOpen = false
+    private var draggingLobbyPlayerId: PlayerId? = null
+    private var lobbyReorderTargetIndex: Int? = null
+    private val lobbyDragPosition = Vector2()
+    private val lobbyDragOffset = Vector2()
 
     private var draggingDeckGhost = false
     private var draggingPendingCard = false
@@ -936,25 +944,6 @@ class MatchScreen(
             }
         }
 
-        val cardWidth = clamp(lobbyMainRect.width * 0.12f, 142f, 176f)
-        val cardHeight = clamp(lobbyMainRect.height * 0.42f, 194f, 238f)
-        val cardCenterX = lobbyMainRect.x + lobbyMainRect.width / 2f
-        val cardBottom = lobbyMainRect.y + lobbyMainRect.height * 0.42f
-
-        repeat(3) { index ->
-            val depth = abs(index - 1)
-            val offset = (index - 1) * (cardWidth * 0.33f)
-            drawCardSurface(
-                left = cardCenterX - cardWidth / 2f + offset,
-                bottom = cardBottom - depth * 16f,
-                width = cardWidth,
-                height = cardHeight,
-                topColor = if (index == 1) 0xF2D081FF else 0xDFB768FF,
-                bottomColor = if (index == 1) 0xD8A34BFF else 0xC18B43FF,
-                edgeColor = 0xFFF5D4AA,
-            )
-        }
-
         if (showLobbyJoinPanel()) {
             fillPanel(lobbyJoinPanelRect, 0x132850FF, 0x0C1D38FF, 0x2C4788FF, 0x20396DFF, 0xBCD0F04C)
             drawDropShadow(lobbyQrRect, 12f, 0x01050B38)
@@ -978,10 +967,8 @@ class MatchScreen(
             )
         }
 
-        lobbyPlayerBadgeRects().forEach { rect ->
-            drawDropShadow(rect, 12f, 0x01050B38)
-            fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x1323418A, 0x10203D8A, 0x20386A9D, 0x182D5596)
-        }
+        lobbyBadgeVisuals().forEach(::drawLobbyBadgeShape)
+        lobbyDraggedBadgeVisual()?.let(::drawLobbyBadgeShape)
     }
 
     private fun drawLobbyTextures() {
@@ -1048,41 +1035,17 @@ class MatchScreen(
                 drawTexture(qrTexture, lobbyQrRect.x, lobbyQrRect.y, lobbyQrRect.width, lobbyQrRect.height, Color.WHITE)
             }
         }
-        lobbyPlayerBadgeRects().forEach { rect ->
-            drawPanelTexture(rect, color(0xC7DAFF10))
-        }
+        lobbyBadgeVisuals().forEach(::drawLobbyBadgeTexture)
+        lobbyDraggedBadgeVisual()?.let(::drawLobbyBadgeTexture)
     }
 
     private fun drawLobbyText() {
-        drawTextBlock(
-            text = "Hitster Clone",
-            x = headerRect.x,
-            y = headerRect.y,
-            width = headerRect.width,
-            height = headerRect.height,
-            scale = 1.40f,
-            color = Color.WHITE,
-            align = Align.center,
-            verticalAlign = VerticalTextAlign.Center,
-        )
-
-        presenter.state.players.zip(lobbyPlayerBadgeRects()).forEach { (player, rect) ->
-            drawTextBlock(
-                text = player.displayName,
-                x = rect.x,
-                y = rect.y,
-                width = rect.width,
-                height = rect.height,
-                scale = 0.90f,
-                color = Color.WHITE,
-                align = Align.center,
-                verticalAlign = VerticalTextAlign.Center,
-            )
-        }
+        val badges = lobbyBadgeVisuals()
+        val badgeTop = badges.maxOfOrNull { it.rect.y + it.rect.height } ?: (lobbyMainRect.y + lobbyMainRect.height * 0.52f)
         drawTextBlock(
             text = "${presenter.state.players.size} PLAYERS",
             x = lobbyMainRect.x,
-            y = lobbyMainRect.y + lobbyMainRect.height * 0.18f,
+            y = min(lobbyMainRect.y + lobbyMainRect.height - 54f, badgeTop + 28f),
             width = lobbyMainRect.width,
             height = 42f,
             scale = 0.74f,
@@ -1090,6 +1053,8 @@ class MatchScreen(
             align = Align.center,
             verticalAlign = VerticalTextAlign.Center,
         )
+        badges.forEach(::drawLobbyBadgeText)
+        lobbyDraggedBadgeVisual()?.let(::drawLobbyBadgeText)
         if (showLobbyJoinPanel()) {
             drawTextBlock(
                 text = "SCAN TO JOIN",
@@ -1150,38 +1115,235 @@ class MatchScreen(
         }
     }
 
-    private fun lobbyPlayerBadgeRects(): List<Rectangle> {
-        val playerCount = presenter.state.players.size
-        if (playerCount == 0) {
+    private fun drawLobbyBadgeShape(visual: LobbyBadgeVisual) {
+        drawDropShadow(visual.rect, if (visual.isDragged) 16f else 12f, if (visual.isDragged) 0x184F83A8 else 0x01050B38)
+        fillGradientRect(
+            visual.rect.x,
+            visual.rect.y,
+            visual.rect.width,
+            visual.rect.height,
+            if (visual.isDragged) 0x18335FDE else 0x1323418A,
+            if (visual.isDragged) 0x14305AD8 else 0x10203D8A,
+            if (visual.isDragged) 0x295490F2 else 0x20386A9D,
+            if (visual.isDragged) 0x214C88EB else 0x182D5596,
+        )
+        visual.editRect?.let(::drawLobbyEditIcon)
+    }
+
+    private fun drawLobbyBadgeTexture(visual: LobbyBadgeVisual) {
+        drawPanelTexture(visual.rect, color(if (visual.isDragged) 0xDBEEFF18 else 0xC7DAFF10))
+    }
+
+    private fun drawLobbyBadgeText(visual: LobbyBadgeVisual) {
+        val leftInset = 22f
+        val rightInset = 22f + (visual.editRect?.width ?: 0f) + if (visual.editRect != null) 14f else 0f
+        drawTextBlock(
+            text = visual.player.displayName,
+            x = visual.rect.x + leftInset,
+            y = visual.rect.y,
+            width = visual.rect.width - leftInset - rightInset,
+            height = visual.rect.height,
+            scale = visual.textScale,
+            color = Color.WHITE,
+            align = Align.left,
+            verticalAlign = VerticalTextAlign.Center,
+            shadowColor = color(0x02060CA0),
+            enforceMinimumScale = false,
+        )
+    }
+
+    private fun drawLobbyEditIcon(rect: Rectangle) {
+        val startX = rect.x + rect.width * 0.20f
+        val startY = rect.y + rect.height * 0.22f
+        val endX = rect.x + rect.width * 0.80f
+        val endY = rect.y + rect.height * 0.78f
+        shapeRenderer.color = color(0x3B1E067A)
+        shapeRenderer.rectLine(startX + 1.5f, startY - 1.5f, endX + 1.5f, endY - 1.5f, 4.8f)
+        shapeRenderer.color = color(0xFFEAB7FF)
+        shapeRenderer.rectLine(startX, startY, endX, endY, 4.2f)
+        shapeRenderer.color = color(0x7E460FFF)
+        shapeRenderer.triangle(
+            endX - 2f,
+            endY + 2f,
+            endX + 5f,
+            endY - 5f,
+            endX + 1f,
+            endY - 1f,
+        )
+        shapeRenderer.color = color(0xFFF5DE9AFF)
+        shapeRenderer.rectLine(startX - 1f, startY - 1f, startX + 7f, startY + 7f, 2.2f)
+    }
+
+    private fun lobbyBadgeVisuals(): List<LobbyBadgeVisual> {
+        val orderedPlayers = lobbyDisplayedPlayers(includeDraggedPlayer = false)
+        if (orderedPlayers.isEmpty()) {
             return emptyList()
         }
+        return buildLobbyBadgeVisuals(orderedPlayers)
+    }
 
-        val badgeWidth = clamp(lobbyMainRect.width * 0.18f, 220f, 310f)
-        val badgeHeight = clamp(lobbyMainRect.height * 0.12f, 56f, 70f)
-        val columnGap = clamp(panelGap * 1.05f, 18f, 30f)
-        val rowGap = clamp(panelGap * 0.76f, 16f, 22f)
-        val columns = max(1, min(3, playerCount))
-        val rows = (playerCount + columns - 1) / columns
-        val baseY = lobbyMainRect.y + clamp(lobbyMainRect.height * 0.08f, 18f, 30f)
-        val rects = ArrayList<Rectangle>(playerCount)
+    private fun lobbyDraggedBadgeVisual(): LobbyBadgeVisual? {
+        val draggedPlayerId = draggingLobbyPlayerId ?: return null
+        val player = presenter.state.requirePlayer(draggedPlayerId) ?: return null
+        val baseVisual = buildLobbyBadgeVisuals(listOf(player)).firstOrNull() ?: return null
+        val rect = Rectangle(
+            clamp(
+                lobbyDragPosition.x - lobbyDragOffset.x,
+                lobbyMainRect.x,
+                lobbyMainRect.x + lobbyMainRect.width - baseVisual.rect.width,
+            ),
+            clamp(
+                lobbyDragPosition.y - lobbyDragOffset.y,
+                lobbyMainRect.y + 10f,
+                lobbyMainRect.y + lobbyMainRect.height - baseVisual.rect.height - 10f,
+            ),
+            baseVisual.rect.width,
+            baseVisual.rect.height,
+        )
+        val editRect = if (player.id == presenter.localPlayerId) {
+            Rectangle(
+                rect.x + rect.width - 38f,
+                rect.y + (rect.height - 24f) / 2f,
+                24f,
+                24f,
+            )
+        } else {
+            null
+        }
+        return baseVisual.copy(rect = rect, editRect = editRect, isDragged = true)
+    }
 
-        repeat(rows) { row ->
-            val firstIndex = row * columns
-            val rowSize = min(columns, playerCount - firstIndex)
-            val rowWidth = rowSize * badgeWidth + (rowSize - 1) * columnGap
-            val startX = lobbyMainRect.x + (lobbyMainRect.width - rowWidth) / 2f
-            val y = baseY + (rows - 1 - row) * (badgeHeight + rowGap)
-            repeat(rowSize) { column ->
-                rects += Rectangle(
-                    startX + column * (badgeWidth + columnGap),
-                    y,
-                    badgeWidth,
-                    badgeHeight,
-                )
+    private fun buildLobbyBadgeVisuals(players: List<PlayerState>): List<LobbyBadgeVisual> {
+        if (players.isEmpty()) {
+            return emptyList()
+        }
+        val badgeHeight = clamp(lobbyMainRect.height * 0.115f, 58f, 72f)
+        val rowGap = clamp(panelGap * 0.72f, 14f, 20f)
+        val columnGap = clamp(panelGap * 0.82f, 16f, 24f)
+        val maxBadgeWidth = max(220f, lobbyMainRect.width * if (showLobbyJoinPanel()) 0.48f else 0.66f)
+        val contentWidth = max(320f, lobbyMainRect.width - 40f)
+
+        data class LobbyBadgeSpec(
+            val player: PlayerState,
+            val width: Float,
+            val textScale: Float,
+        )
+
+        val specs = players.map { player ->
+            val textScale = when {
+                player.displayName.length >= 22 -> 0.66f
+                player.displayName.length >= 18 -> 0.72f
+                else -> 0.80f
             }
+            val editReserve = if (player.id == presenter.localPlayerId) 42f else 0f
+            val measuredWidth = measureTextWidth(player.displayName, textScale)
+            val width = clamp(measuredWidth + 54f + editReserve, 164f, maxBadgeWidth)
+            LobbyBadgeSpec(player = player, width = width, textScale = textScale)
         }
 
-        return rects
+        val rows = mutableListOf<MutableList<LobbyBadgeSpec>>()
+        var currentRow = mutableListOf<LobbyBadgeSpec>()
+        var currentRowWidth = 0f
+        specs.forEach { spec ->
+            val nextWidth = if (currentRow.isEmpty()) spec.width else currentRowWidth + columnGap + spec.width
+            if (currentRow.isNotEmpty() && nextWidth > contentWidth) {
+                rows += currentRow
+                currentRow = mutableListOf()
+                currentRowWidth = 0f
+            }
+            currentRow += spec
+            currentRowWidth = if (currentRow.size == 1) spec.width else currentRowWidth + columnGap + spec.width
+        }
+        if (currentRow.isNotEmpty()) {
+            rows += currentRow
+        }
+
+        val totalHeight = rows.size * badgeHeight + (rows.size - 1) * rowGap
+        val baseY = lobbyMainRect.y + max(24f, (lobbyMainRect.height - totalHeight) / 2f - 18f)
+        val visuals = ArrayList<LobbyBadgeVisual>(players.size)
+        rows.forEachIndexed { rowIndex, row ->
+            val rowWidth = row.sumOf { it.width.toDouble() }.toFloat() + columnGap * (row.size - 1)
+            var x = lobbyMainRect.x + (lobbyMainRect.width - rowWidth) / 2f
+            val y = baseY + (rows.size - 1 - rowIndex) * (badgeHeight + rowGap)
+            row.forEach { spec ->
+                val rect = Rectangle(x, y, spec.width, badgeHeight)
+                val editRect = if (spec.player.id == presenter.localPlayerId) {
+                    Rectangle(
+                        rect.x + rect.width - 38f,
+                        rect.y + (rect.height - 24f) / 2f,
+                        24f,
+                        24f,
+                    )
+                } else {
+                    null
+                }
+                visuals += LobbyBadgeVisual(
+                    player = spec.player,
+                    rect = rect,
+                    editRect = editRect,
+                    textScale = spec.textScale,
+                    isDragged = false,
+                )
+                x += spec.width + columnGap
+            }
+        }
+        return visuals
+    }
+
+    private fun lobbyDisplayedPlayers(includeDraggedPlayer: Boolean): List<PlayerState> {
+        val draggedPlayerId = draggingLobbyPlayerId
+        val targetIndex = lobbyReorderTargetIndex
+        val previewPlayers = if (presenter.isLocalHost && draggedPlayerId != null && targetIndex != null) {
+            presenter.state.players.moveLobbyPlayer(draggedPlayerId, targetIndex)
+        } else {
+            presenter.state.players
+        }
+        return if (includeDraggedPlayer) previewPlayers else previewPlayers.filterNot { it.id == draggedPlayerId }
+    }
+
+    private fun requestLobbyDisplayNameEdit() {
+        val currentName = presenter.localPlayer?.displayName ?: return
+        requestDisplayNameInput(currentName) { submittedName ->
+            val sanitized = submittedName?.let(UiBootstrapper::sanitizeDisplayName).orEmpty()
+            if (sanitized.isBlank() || sanitized == currentName) {
+                return@requestDisplayNameInput
+            }
+            presenter.updateLocalDisplayName(sanitized)
+            onLocalDisplayNameEdited(sanitized)
+        }
+    }
+
+    private fun measureTextWidth(text: String, scale: Float): Float {
+        font.data.setScale(scale * fontScaleMultiplier)
+        textLayout.setText(font, text)
+        return textLayout.width
+    }
+
+    private fun lobbyReorderIndexFor(x: Float, y: Float): Int {
+        val draggedPlayerId = draggingLobbyPlayerId ?: return 0
+        val currentPlayers = presenter.state.players
+        if (currentPlayers.size <= 1) {
+            return 0
+        }
+        val visuals = buildLobbyBadgeVisuals(currentPlayers)
+            .filterNot { it.player.id == draggedPlayerId }
+        if (visuals.isEmpty()) {
+            return 0
+        }
+        val nearestVisual = visuals.minByOrNull { visual ->
+            val centerX = visual.rect.x + visual.rect.width / 2f
+            val centerY = visual.rect.y + visual.rect.height / 2f
+            val dx = centerX - x
+            val dy = centerY - y
+            dx * dx + dy * dy
+        } ?: return 0
+        val nearestIndex = currentPlayers.indexOfFirst { it.id == nearestVisual.player.id }.coerceAtLeast(0)
+        val centerX = nearestVisual.rect.x + nearestVisual.rect.width / 2f
+        return if (x > centerX) {
+            min(nearestIndex + 1, currentPlayers.lastIndex)
+        } else {
+            nearestIndex
+        }
     }
 
     private fun drawMatch(includeOverlay: Boolean) {
@@ -2792,15 +2954,32 @@ class MatchScreen(
                 return true
             }
 
-            if (presenter.state.status == MatchStatus.LOBBY && showLobbyPrimaryButton() && startButtonRect.contains(world.x, world.y)) {
-                if (showLobbyPairingGate()) {
-                    if (presenter.playbackSessionState != PlaybackSessionState.Connecting) {
-                        presenter.prepareHostPlayback()
-                    }
-                } else {
-                    presenter.startMatch()
+            if (presenter.state.status == MatchStatus.LOBBY) {
+                lobbyBadgeVisuals().firstOrNull { it.editRect?.contains(world.x, world.y) == true }?.let {
+                    requestLobbyDisplayNameEdit()
+                    return true
                 }
-                return true
+
+                if (presenter.isLocalHost) {
+                    lobbyBadgeVisuals().firstOrNull { it.rect.contains(world.x, world.y) }?.let { visual ->
+                        draggingLobbyPlayerId = visual.player.id
+                        lobbyReorderTargetIndex = presenter.state.players.indexOfFirst { it.id == visual.player.id }.coerceAtLeast(0)
+                        lobbyDragPosition.set(world.x, world.y)
+                        lobbyDragOffset.set(world.x - visual.rect.x, world.y - visual.rect.y)
+                        return true
+                    }
+                }
+
+                if (showLobbyPrimaryButton() && startButtonRect.contains(world.x, world.y)) {
+                    if (showLobbyPairingGate()) {
+                        if (presenter.playbackSessionState != PlaybackSessionState.Connecting) {
+                            presenter.prepareHostPlayback()
+                        }
+                    } else {
+                        presenter.startMatch()
+                    }
+                    return true
+                }
             }
 
             if (showDoubtPlacementPopup()) {
@@ -2863,6 +3042,13 @@ class MatchScreen(
 
         override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
             updateLayout()
+            if (draggingLobbyPlayerId != null) {
+                viewport.unproject(worldTouch.set(screenX.toFloat(), screenY.toFloat()))
+                lobbyDragPosition.set(worldTouch.x, worldTouch.y)
+                lobbyReorderTargetIndex = lobbyReorderIndexFor(worldTouch.x, worldTouch.y)
+                return true
+            }
+
             if (!draggingDeckGhost && !draggingPendingCard && !draggingDoubtCard) {
                 return false
             }
@@ -2880,6 +3066,19 @@ class MatchScreen(
 
         override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             updateLayout()
+            if (draggingLobbyPlayerId != null) {
+                val draggedPlayerId = draggingLobbyPlayerId
+                val targetIndex = lobbyReorderTargetIndex
+                draggingLobbyPlayerId = null
+                lobbyReorderTargetIndex = null
+                lobbyDragOffset.setZero()
+                lobbyDragPosition.setZero()
+                if (draggedPlayerId != null && targetIndex != null) {
+                    presenter.reorderLobbyPlayer(draggedPlayerId, targetIndex)
+                }
+                return true
+            }
+
             if (!draggingDeckGhost && !draggingPendingCard && !draggingDoubtCard) {
                 return false
             }
@@ -2921,6 +3120,14 @@ class MatchScreen(
     private data class FittedTextLine(
         val text: String,
         val scale: Float,
+    )
+
+    private data class LobbyBadgeVisual(
+        val player: PlayerState,
+        val rect: Rectangle,
+        val editRect: Rectangle?,
+        val textScale: Float,
+        val isDragged: Boolean,
     )
 
     private data class ConfettiParticle(
@@ -2972,4 +3179,18 @@ class MatchScreen(
             0xFFE98DD4FF,
         )
     }
+}
+
+private fun List<PlayerState>.moveLobbyPlayer(
+    playerId: PlayerId,
+    targetIndex: Int,
+): List<PlayerState> {
+    val currentIndex = indexOfFirst { it.id == playerId }
+    if (currentIndex < 0) {
+        return this
+    }
+    val reordered = toMutableList()
+    val player = reordered.removeAt(currentIndex)
+    reordered.add(targetIndex.coerceIn(0, reordered.size), player)
+    return reordered.toList()
 }

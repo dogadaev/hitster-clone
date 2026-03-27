@@ -26,6 +26,36 @@ class ProtocolJsonTest {
     }
 
     @Test
+    fun `encodeClientCommandPayload emits rename payloads`() {
+        val payload = encodeClientCommandPayload(
+            ClientCommandDto.UpdatePlayerName(
+                actorId = "guest-1",
+                displayName = "Moon Raccoon",
+            ),
+        )
+
+        assertTrue(payload.contains("\"type\":\"update_player_name\""))
+        assertTrue(payload.contains("\"actorId\":\"guest-1\""))
+        assertTrue(payload.contains("\"displayName\":\"Moon Raccoon\""))
+    }
+
+    @Test
+    fun `encodeClientCommandPayload emits lobby reorder payloads`() {
+        val payload = encodeClientCommandPayload(
+            ClientCommandDto.ReorderLobbyPlayers(
+                actorId = "host",
+                playerId = "guest-1",
+                targetIndex = 0,
+            ),
+        )
+
+        assertTrue(payload.contains("\"type\":\"reorder_lobby_players\""))
+        assertTrue(payload.contains("\"actorId\":\"host\""))
+        assertTrue(payload.contains("\"playerId\":\"guest-1\""))
+        assertTrue(payload.contains("\"targetIndex\":0"))
+    }
+
+    @Test
     fun `encodeClientCommandPayload emits doubt command payloads`() {
         val payload = encodeClientCommandPayload(
             ClientCommandDto.ToggleDoubt(actorId = "guest-1"),

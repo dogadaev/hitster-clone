@@ -55,6 +55,21 @@ sealed class ClientCommandDto {
     ) : ClientCommandDto()
 
     @Serializable
+    @SerialName("update_player_name")
+    data class UpdatePlayerName(
+        override val actorId: String,
+        val displayName: String,
+    ) : ClientCommandDto()
+
+    @Serializable
+    @SerialName("reorder_lobby_players")
+    data class ReorderLobbyPlayers(
+        override val actorId: String,
+        val playerId: String,
+        val targetIndex: Int,
+    ) : ClientCommandDto()
+
+    @Serializable
     @SerialName("start_game")
     data class StartGame(
         override val actorId: String,

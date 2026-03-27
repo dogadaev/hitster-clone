@@ -71,6 +71,62 @@ class HostGameReducerTest {
     }
 
     @Test
+    fun `players can rename themselves in the lobby`() {
+        val state = lobbyWithGuest(
+            listOf(
+                entry("seed-host", 1980),
+                entry("seed-guest", 2000),
+                entry("draw-host", 1990),
+            ),
+        )
+
+        val accepted = assertIs<ReducerResult.Accepted>(
+            reducer.reduce(
+                state,
+                GameCommand.UpdatePlayerName(
+                    actorId = guestId,
+                    displayName = "Moon Raccoon",
+                ),
+            ),
+        )
+
+        assertEquals("Moon Raccoon", accepted.state.requirePlayer(guestId)?.displayName)
+        assertTrue(accepted.effects.any { it is GameEffect.PublishSnapshot })
+    }
+
+    @Test
+    fun `host can reorder players in the lobby`() {
+        val state = acceptedState(
+            reducer.reduce(
+                lobbyWithGuest(
+                    listOf(
+                        entry("seed-host", 1980),
+                        entry("seed-guest", 2000),
+                        entry("draw-host", 1990),
+                    ),
+                ),
+                GameCommand.JoinSession(
+                    playerId = PlayerId("guest-2"),
+                    displayName = "Guest Two",
+                ),
+            ),
+        )
+
+        val accepted = assertIs<ReducerResult.Accepted>(
+            reducer.reduce(
+                state,
+                GameCommand.ReorderLobbyPlayers(
+                    actorId = hostId,
+                    playerId = PlayerId("guest-2"),
+                    targetIndex = 1,
+                ),
+            ),
+        )
+
+        assertEquals(listOf(hostId.value, "guest-2", guestId.value), accepted.state.players.map { it.id.value })
+    }
+
+    @Test
     fun `leave session is rejected after the match starts`() {
         var state = lobbyWithGuest(
             listOf(

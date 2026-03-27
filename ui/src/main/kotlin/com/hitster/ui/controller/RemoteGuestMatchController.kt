@@ -65,6 +65,24 @@ class RemoteGuestMatchController(
 
     override fun prepareHostPlayback() = Unit
 
+    override fun updateLocalDisplayName(displayName: String) {
+        state.requirePlayer(localPlayerId)?.let { player ->
+            state = state.copy(
+                players = state.players.map { candidate ->
+                    if (candidate.id == localPlayerId) candidate.copy(displayName = displayName) else candidate
+                },
+            )
+        }
+        client.sendCommand(
+            ClientCommandDto.UpdatePlayerName(
+                actorId = localPlayerId.value,
+                displayName = displayName,
+            ),
+        )
+    }
+
+    override fun reorderLobbyPlayer(playerId: PlayerId, targetIndex: Int) = Unit
+
     override fun drawCard() {
         client.sendCommand(ClientCommandDto.DrawCard(actorId = localPlayerId.value))
     }

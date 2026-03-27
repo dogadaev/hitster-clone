@@ -14,6 +14,17 @@ sealed interface GameCommand {
         val displayName: String,
     ) : GameCommand
 
+    data class UpdatePlayerName(
+        val actorId: PlayerId,
+        val displayName: String,
+    ) : GameCommand
+
+    data class ReorderLobbyPlayers(
+        val actorId: PlayerId,
+        val playerId: PlayerId,
+        val targetIndex: Int,
+    ) : GameCommand
+
     data class LeaveSession(
         val playerId: PlayerId,
     ) : GameCommand

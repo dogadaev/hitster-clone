@@ -32,6 +32,12 @@ interface MatchController {
     /** Triggers the host-only playback pairing/preparation flow from the lobby. */
     fun prepareHostPlayback()
 
+    /** Updates the local player's display name while the match is still in the lobby. */
+    fun updateLocalDisplayName(displayName: String)
+
+    /** Lets the host reorder the lobby roster, which also defines the eventual turn order. */
+    fun reorderLobbyPlayer(playerId: PlayerId, targetIndex: Int)
+
     /** Draws the next hidden card for the local player. */
     fun drawCard()
 

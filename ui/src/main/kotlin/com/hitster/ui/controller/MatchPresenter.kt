@@ -98,6 +98,27 @@ class MatchPresenter(
         }
     }
 
+    /** Updates the local player's lobby display name. */
+    override fun updateLocalDisplayName(displayName: String) {
+        dispatch(
+            GameCommand.UpdatePlayerName(
+                actorId = localPlayerId,
+                displayName = displayName,
+            ),
+        )
+    }
+
+    /** Reorders the lobby roster on behalf of the local host. */
+    override fun reorderLobbyPlayer(playerId: PlayerId, targetIndex: Int) {
+        dispatch(
+            GameCommand.ReorderLobbyPlayers(
+                actorId = localPlayerId,
+                playerId = playerId,
+                targetIndex = targetIndex,
+            ),
+        )
+    }
+
     /** Draws a card as the local actor. */
     override fun drawCard() {
         drawCardAs(localPlayerId)
@@ -222,6 +243,25 @@ class MatchPresenter(
                 )
             }
 
+            is ClientCommandDto.UpdatePlayerName -> {
+                dispatch(
+                    GameCommand.UpdatePlayerName(
+                        actorId = PlayerId(command.actorId),
+                        displayName = command.displayName,
+                    ),
+                )
+            }
+
+            is ClientCommandDto.ReorderLobbyPlayers -> {
+                dispatch(
+                    GameCommand.ReorderLobbyPlayers(
+                        actorId = PlayerId(command.actorId),
+                        playerId = PlayerId(command.playerId),
+                        targetIndex = command.targetIndex,
+                    ),
+                )
+            }
+
             is ClientCommandDto.StartGame -> {
                 dispatch(GameCommand.StartGame(actorId = PlayerId(command.actorId)))
             }
@@ -335,6 +375,8 @@ class MatchPresenter(
 private fun GameCommand.actorId(): PlayerId {
     return when (this) {
         is GameCommand.JoinSession -> playerId
+        is GameCommand.UpdatePlayerName -> actorId
+        is GameCommand.ReorderLobbyPlayers -> actorId
         is GameCommand.LeaveSession -> playerId
         is GameCommand.StartGame -> actorId
         is GameCommand.DrawCard -> actorId
