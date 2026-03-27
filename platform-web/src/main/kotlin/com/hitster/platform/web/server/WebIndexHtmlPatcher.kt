@@ -185,9 +185,9 @@ internal object WebIndexHtmlPatcher {
                   return pixelRatio;
                 }
                 if (isIosBrowser()) {
-                  return Math.min(pixelRatio, 1.5);
+                  return Math.min(pixelRatio, 1);
                 }
-                return Math.min(pixelRatio, 2);
+                return Math.min(pixelRatio, 1.5);
               }
 
               function canvasContainsTouch(touch) {
