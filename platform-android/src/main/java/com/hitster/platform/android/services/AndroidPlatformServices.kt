@@ -5,6 +5,7 @@ package com.hitster.platform.android.services
  */
 
 import android.content.Context
+import com.badlogic.gdx.graphics.Texture
 import com.hitster.networking.ClientCommandDto
 import com.hitster.networking.HostEventDto
 import com.hitster.networking.SessionAdvertisementDto
@@ -12,7 +13,6 @@ import com.hitster.core.model.PlayerId
 import com.hitster.playback.api.PlaybackController
 import com.hitster.platform.android.host.AndroidGuestWebServer
 import com.hitster.platform.android.host.HostingForegroundService
-import com.hitster.platform.android.ui.AndroidLobbyQrCodeFactory
 import com.hitster.transport.jvm.DEFAULT_SESSION_SERVER_PORT
 import com.hitster.transport.jvm.LanHostDiscoveryAnnouncer
 import com.hitster.transport.jvm.LanHostDiscoveryListener
@@ -25,6 +25,7 @@ import com.hitster.ui.controller.HostDiscoveryService
 import com.hitster.ui.controller.HostedSessionTransport
 import com.hitster.ui.controller.MatchController
 import com.hitster.ui.controller.UiBootstrapper
+import com.hitster.ui.render.LobbyQrCodeTextureFactory
 import java.util.UUID
 
 class AndroidPlatformServices(
@@ -51,6 +52,7 @@ class AndroidPlatformServices(
                             hostAddress = hostAddressProvider(),
                             serverPort = serverPort,
                             playerCount = presenter.state.players.size,
+                            guestJoinUrl = "http://${hostAddressProvider()}:${AndroidGuestWebServer.port}",
                         )
                     },
                 )
@@ -59,7 +61,7 @@ class AndroidPlatformServices(
                         hostAddressProvider()
                     }
                     private val guestJoinQrTextureDelegate = lazy(LazyThreadSafetyMode.NONE) {
-                        AndroidLobbyQrCodeFactory.createTexture(guestJoinUrl)
+                        LobbyQrCodeTextureFactory.createTexture(guestJoinUrl)
                     }
                     override val guestJoinUrl: String
                         get() = "http://${resolvedHostAddress()}:${AndroidGuestWebServer.port}"
@@ -75,6 +77,7 @@ class AndroidPlatformServices(
                                 hostAddress = resolvedHostAddress(),
                                 serverPort = serverPort,
                                 playerCount = presenter.state.players.size,
+                                guestJoinUrl = guestJoinUrl,
                             ),
                         )
                     }
@@ -141,6 +144,7 @@ class AndroidPlatformServices(
             playerIdFactory = {
                 PlayerId(resolveGuestPlayerId(advertisement.sessionId))
             },
+            guestJoinQrTextureFactory = ::createLobbyQrTexture,
             clientFactory = { sessionAdvertisement, actorId, playerDisplayName, onEvent, onDisconnected, onStatusChanged ->
                 object : GuestSessionClient {
                     private val client = LanSessionClient(
@@ -168,6 +172,10 @@ class AndroidPlatformServices(
                 }
             },
         )
+    }
+
+    override fun createLobbyQrTexture(joinUrl: String): Texture {
+        return LobbyQrCodeTextureFactory.createTexture(joinUrl)
     }
 
     private fun resolveGuestPlayerId(sessionId: String): String {

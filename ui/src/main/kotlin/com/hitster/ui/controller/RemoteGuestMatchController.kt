@@ -19,10 +19,13 @@ import com.hitster.networking.PlaybackStatusDto
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.playback.api.PlaybackIssue
 import com.hitster.playback.api.PlaybackSessionState
+import com.badlogic.gdx.graphics.Texture
 
 class RemoteGuestMatchController(
     private val advertisement: SessionAdvertisementDto,
     override val localPlayerId: PlayerId,
+    override val guestJoinUrl: String? = advertisement.guestJoinUrl,
+    override val guestJoinQrTexture: Texture? = null,
 ) : MatchController {
     private lateinit var client: GuestSessionClient
     @Volatile
@@ -148,6 +151,7 @@ class RemoteGuestMatchController(
         if (this::client.isInitialized) {
             client.close()
         }
+        guestJoinQrTexture?.dispose()
     }
 
     /** Applies authoritative host events and clears optimistic state when real snapshots arrive. */

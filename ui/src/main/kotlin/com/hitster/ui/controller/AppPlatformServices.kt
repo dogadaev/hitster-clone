@@ -30,6 +30,9 @@ interface AppPlatformServices {
         displayName: String,
     ): MatchController
 
+    /** Optionally builds a QR texture for the shared lobby join panel on platforms that support it. */
+    fun createLobbyQrTexture(joinUrl: String): Texture? = null
+
     /** Requests a player name using the platform's preferred input mechanism before entering the lobby flow. */
     fun requestDisplayNameInput(
         currentName: String,

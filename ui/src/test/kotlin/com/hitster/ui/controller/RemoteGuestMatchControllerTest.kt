@@ -120,6 +120,13 @@ class RemoteGuestMatchControllerTest {
         assertTrue(controller.currentSharedTimeMillis in (hostNow - 250L)..(hostNow + 250L))
     }
 
+    @Test
+    fun `guest controller exposes advertised join url`() {
+        val controller = RemoteGuestMatchController(advertisement = advertisement(), localPlayerId = PlayerId("guest"))
+
+        assertEquals("http://192.168.1.15:8080", controller.guestJoinUrl)
+    }
+
     private fun advertisement(): SessionAdvertisementDto {
         return SessionAdvertisementDto(
             sessionId = "session-1",
@@ -128,6 +135,7 @@ class RemoteGuestMatchControllerTest {
             hostAddress = "127.0.0.1",
             serverPort = 28761,
             playerCount = 2,
+            guestJoinUrl = "http://192.168.1.15:8080",
         )
     }
 

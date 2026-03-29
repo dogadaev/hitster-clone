@@ -17,6 +17,7 @@ import com.hitster.ui.controller.GuestSessionClient
 import com.hitster.ui.controller.HostDiscoveryService
 import com.hitster.ui.controller.MatchController
 import com.hitster.ui.controller.UiBootstrapper
+import com.hitster.ui.render.LobbyQrCodeTextureFactory
 
 class WebPlatformServices : AppPlatformServices {
     override val supportsHosting: Boolean = false
@@ -39,6 +40,7 @@ class WebPlatformServices : AppPlatformServices {
         return UiBootstrapper.createRemoteGuestController(
             advertisement = advertisement,
             displayName = displayName,
+            guestJoinQrTextureFactory = ::createLobbyQrTexture,
             playerIdFactory = {
                 resolveBrowserGuestPlayerId(advertisement.sessionId)
             },
@@ -68,4 +70,6 @@ class WebPlatformServices : AppPlatformServices {
         }
         onSubmitted(promptResult)
     }
+
+    override fun createLobbyQrTexture(joinUrl: String) = LobbyQrCodeTextureFactory.createTexture(joinUrl)
 }

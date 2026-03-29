@@ -303,7 +303,7 @@ class MatchScreen(
         layoutGuestJoinUrl = guestJoinUrl
 
         outerMargin = clamp(min(worldWidth, worldHeight) * 0.03f, 24f, 36f)
-        panelGap = outerMargin * 0.76f
+        panelGap = clamp(outerMargin * 1.22f, 36f, 52f)
         panelPadding = clamp(worldHeight * 0.034f, 22f, 34f)
         panelHeaderHeight = clamp(worldHeight * 0.115f, 76f, 96f)
 
@@ -349,11 +349,12 @@ class MatchScreen(
             playbackButtonHeight,
         )
 
+        val timelineInsetX = clamp(outerMargin * 0.22f, 6f, 10f)
         val mainHeight = heroRect.y - outerMargin - panelGap
         timelinePanelRect.set(
+            outerMargin + timelineInsetX,
             outerMargin,
-            outerMargin,
-            worldWidth - outerMargin * 2f,
+            worldWidth - (outerMargin + timelineInsetX) * 2f,
             mainHeight,
         )
 
@@ -468,6 +469,7 @@ class MatchScreen(
             val joinPanelHeight = clamp(lobbyCardRect.height * 0.80f, 348f, 448f)
             val joinPanelBottomInset = startButtonRect.y
             val joinPanelRightInset = joinPanelBottomInset
+            val hasJoinQr = presenter.guestJoinQrTexture != null
             lobbyJoinPanelRect.set(
                 worldWidth - joinPanelRightInset - joinPanelWidth,
                 joinPanelBottomInset,
@@ -486,11 +488,19 @@ class MatchScreen(
             val joinContentGap = clamp(panelPadding * 0.55f, 14f, 18f)
             val joinTitleHeight = clamp(panelHeaderHeight * 0.38f, 30f, 38f)
             val joinUrlHeight = clamp(panelHeaderHeight * 0.34f, 28f, 34f)
-            val qrSize = min(
-                lobbyJoinPanelRect.width - joinContentInsetX * 2f,
-                lobbyJoinPanelRect.height - joinOuterPadding * 2f - joinTitleHeight - joinUrlHeight - joinContentGap * 2f,
-            )
-            val joinStackHeight = joinTitleHeight + joinContentGap + qrSize + joinContentGap + joinUrlHeight
+            val qrSize = if (hasJoinQr) {
+                min(
+                    lobbyJoinPanelRect.width - joinContentInsetX * 2f,
+                    lobbyJoinPanelRect.height - joinOuterPadding * 2f - joinTitleHeight - joinUrlHeight - joinContentGap * 2f,
+                )
+            } else {
+                0f
+            }
+            val joinStackHeight = if (hasJoinQr) {
+                joinTitleHeight + joinContentGap + qrSize + joinContentGap + joinUrlHeight
+            } else {
+                joinTitleHeight + joinContentGap + joinUrlHeight
+            }
             val joinStackBottom = lobbyJoinPanelRect.y + (lobbyJoinPanelRect.height - joinStackHeight) / 2f
             lobbyJoinUrlRect.set(
                 lobbyJoinPanelRect.x + joinContentInsetX,
@@ -498,15 +508,19 @@ class MatchScreen(
                 lobbyJoinPanelRect.width - joinContentInsetX * 2f,
                 joinUrlHeight,
             )
-            lobbyQrRect.set(
-                lobbyJoinPanelRect.x + (lobbyJoinPanelRect.width - qrSize) / 2f,
-                lobbyJoinUrlRect.y + lobbyJoinUrlRect.height + joinContentGap,
-                qrSize,
-                qrSize,
-            )
+            if (hasJoinQr) {
+                lobbyQrRect.set(
+                    lobbyJoinPanelRect.x + (lobbyJoinPanelRect.width - qrSize) / 2f,
+                    lobbyJoinUrlRect.y + lobbyJoinUrlRect.height + joinContentGap,
+                    qrSize,
+                    qrSize,
+                )
+            } else {
+                lobbyQrRect.set(0f, 0f, 0f, 0f)
+            }
             lobbyJoinTitleRect.set(
                 lobbyJoinPanelRect.x + joinContentInsetX,
-                lobbyQrRect.y + lobbyQrRect.height + joinContentGap,
+                if (hasJoinQr) lobbyQrRect.y + lobbyQrRect.height + joinContentGap else lobbyJoinUrlRect.y + lobbyJoinUrlRect.height + joinContentGap,
                 lobbyJoinPanelRect.width - joinContentInsetX * 2f,
                 joinTitleHeight,
             )
@@ -893,25 +907,27 @@ class MatchScreen(
 
         if (showLobbyJoinPanel()) {
             fillPanel(lobbyJoinPanelRect, 0x3B201FFF, 0x1B1117FF, 0x6E311FFF, 0x52241DFF, 0xFFD4A461)
-            drawDropShadow(lobbyQrRect, 12f, 0x01050B38)
-            fillGradientRect(
-                lobbyQrRect.x - 10f,
-                lobbyQrRect.y - 10f,
-                lobbyQrRect.width + 20f,
-                lobbyQrRect.height + 20f,
-                0xE9EEF7FF,
-                0xF1F5FCFF,
-                0xFFFFFFFF,
-                0xF6FAFFFF,
-            )
-            drawFrame(
-                lobbyQrRect.x - 10f,
-                lobbyQrRect.y - 10f,
-                lobbyQrRect.width + 20f,
-                lobbyQrRect.height + 20f,
-                0xFFF2C85A,
-                2f,
-            )
+            if (presenter.guestJoinQrTexture != null) {
+                drawDropShadow(lobbyQrRect, 12f, 0x01050B38)
+                fillGradientRect(
+                    lobbyQrRect.x - 10f,
+                    lobbyQrRect.y - 10f,
+                    lobbyQrRect.width + 20f,
+                    lobbyQrRect.height + 20f,
+                    0xE9EEF7FF,
+                    0xF1F5FCFF,
+                    0xFFFFFFFF,
+                    0xF6FAFFFF,
+                )
+                drawFrame(
+                    lobbyQrRect.x - 10f,
+                    lobbyQrRect.y - 10f,
+                    lobbyQrRect.width + 20f,
+                    lobbyQrRect.height + 20f,
+                    0xFFF2C85A,
+                    2f,
+                )
+            }
         }
 
         lobbyBadgeVisuals().forEach(::drawLobbyBadgeShape)
@@ -1422,21 +1438,11 @@ class MatchScreen(
             )
             drawPanelTexture(redrawButtonRect, color(0xFFF2D017))
         }
-        glassRenderer.draw(batch, timelinePanelRect, 40f, TIMELINE_GLASS_STYLE, overlayAnimationSeconds)
-        drawPanelTexture(timelinePanelRect, color(0xFFD8B80D))
+        glassRenderer.draw(batch, timelinePanelRect, 56f, TIMELINE_GLASS_STYLE, overlayAnimationSeconds)
+        drawTimelinePanelTexture(timelinePanelRect, color(0xFFE3BE12))
         if (showActionWell()) {
             drawActionWellTexture()
         }
-        drawRepeatedTexture(
-            grainTexture,
-            timelinePanelRect.x + 2f,
-            timelinePanelRect.y + 2f,
-            timelinePanelRect.width - 4f,
-            timelinePanelRect.height - panelHeaderHeight - 4f,
-            color(0xFFE4C30A),
-            timelinePanelRect.width / 116f,
-            max(1f, (timelinePanelRect.height - panelHeaderHeight) / 116f),
-        )
     }
 
     private fun drawActionButtonGlow(rect: Rectangle, enabled: Boolean) {
@@ -2146,6 +2152,23 @@ class MatchScreen(
         )
     }
 
+    private fun drawTimelinePanelTexture(rect: Rectangle, tint: Color) {
+        drawGlow(
+            rect.x + rect.width * 0.18f,
+            rect.y + rect.height * 0.60f,
+            rect.width * 0.34f,
+            rect.height * 0.12f,
+            colorWithAlpha(0xFFF8F0E6FF, 0.05f),
+        )
+        drawGlow(
+            rect.x + rect.width * 0.20f,
+            rect.y + rect.height * 0.18f,
+            rect.width * 0.36f,
+            rect.height * 0.22f,
+            colorWithAlpha(tint.toRgba(), 0.03f),
+        )
+    }
+
     private fun drawTimelineCards(includeOverlay: Boolean) {
         timelineCardVisuals.forEach { visual ->
             if (isOverlayVisual(visual) == includeOverlay) {
@@ -2508,8 +2531,7 @@ class MatchScreen(
         (showLobbyPairingGate() || presenter.canStartLobbyMatch())
 
     private fun showLobbyJoinPanel(): Boolean =
-        presenter.isLocalHost &&
-            presenter.state.status == MatchStatus.LOBBY &&
+        presenter.state.status == MatchStatus.LOBBY &&
             !presenter.guestJoinUrl.isNullOrBlank()
 
     private fun lobbyPrimaryActionText(): String {
@@ -3233,12 +3255,12 @@ class MatchScreen(
             frost = 0.15f,
         )
         val TIMELINE_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x5E37358A,
-            edgeTint = 0xFFF0DCC5FF,
+            bodyTint = 0x6E3E3A96,
+            edgeTint = 0xFFF1DDC9FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFE7A15FFF,
-            distortion = 0.012f,
-            frost = 0.18f,
+            glowTint = 0xFFF1B76BFF,
+            distortion = 0.010f,
+            frost = 0.15f,
         )
         val LOBBY_PANEL_GLASS_STYLE = LiquidGlassStyle(
             bodyTint = 0x5C37348E,

@@ -40,6 +40,7 @@ data class SessionAdvertisementDto(
     val hostAddress: String,
     val serverPort: Int,
     val playerCount: Int,
+    val guestJoinUrl: String? = null,
     val transportMode: TransportModeDto = TransportModeDto.LOCAL_NETWORK,
 )
 

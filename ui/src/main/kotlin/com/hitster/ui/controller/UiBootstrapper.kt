@@ -16,6 +16,7 @@ import com.hitster.playback.api.PlaybackController
 import com.hitster.playlist.data.PlaylistParseResult
 import com.hitster.playlist.data.PlaylistParser
 import com.hitster.ui.threading.runOnGameThread
+import com.badlogic.gdx.graphics.Texture
 import kotlin.random.Random
 
 object UiBootstrapper {
@@ -96,6 +97,7 @@ object UiBootstrapper {
         advertisement: SessionAdvertisementDto,
         displayName: String = "Guest Player",
         playerIdFactory: () -> PlayerId = { PlayerId("guest-${randomIdSuffix()}") },
+        guestJoinQrTextureFactory: ((String) -> Texture?)? = null,
         clientFactory: (
             advertisement: SessionAdvertisementDto,
             actorId: PlayerId,
@@ -110,6 +112,10 @@ object UiBootstrapper {
         val controller = RemoteGuestMatchController(
             advertisement = advertisement,
             localPlayerId = playerId,
+            guestJoinUrl = advertisement.guestJoinUrl,
+            guestJoinQrTexture = advertisement.guestJoinUrl?.let { joinUrl ->
+                guestJoinQrTextureFactory?.invoke(joinUrl)
+            },
         )
         controller.attachClient(
             clientFactory(
