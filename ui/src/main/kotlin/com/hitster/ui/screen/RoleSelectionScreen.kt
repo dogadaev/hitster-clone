@@ -238,20 +238,20 @@ class RoleSelectionScreen(
             frost = 0.16f,
         )
         val HOST_BUTTON_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x6F3244DA,
-            edgeTint = 0xFFF6D7B3FF,
+            bodyTint = 0x905749C0,
+            edgeTint = 0xFFFFE8B9FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFE8A05CFF,
-            distortion = 0.010f,
-            frost = 0.14f,
+            glowTint = 0xFFFFCD78FF,
+            distortion = 0.015f,
+            frost = 0.20f,
         )
         val GUEST_BUTTON_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x533562DA,
-            edgeTint = 0xFFF4D5C8FF,
+            bodyTint = 0x78445AB8,
+            edgeTint = 0xFFF9DDD2FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFDA8AA0FF,
-            distortion = 0.010f,
-            frost = 0.14f,
+            glowTint = 0xFFF0A88DFF,
+            distortion = 0.014f,
+            frost = 0.19f,
         )
     }
 }
