@@ -65,8 +65,6 @@ class RoleSelectionScreen(
         batch.end()
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        fillGradientRect(0f, 0f, viewport.worldWidth, viewport.worldHeight, 0x07090DB0, 0x07090DB0, 0x09111C72, 0x09111C72)
-        fillGradientRect(0f, viewport.worldHeight * 0.52f, viewport.worldWidth, viewport.worldHeight * 0.48f, 0x00000000, 0x00000000, 0x121A28A0, 0x121A28A0)
         fillPanel(titleRect, 0x223868FF, 0x15284BFF, 0x9EC3FF2A)
         drawButton(hostButtonRect, 0xF6BF55FF, 0xD98B1FFF, 0xFFF3C68C)
         drawButton(guestButtonRect, 0x8FC9FFFF, 0x347EB5FF, 0xE4F6FFFF)

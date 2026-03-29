@@ -827,9 +827,6 @@ class MatchScreen(
 
     private fun drawBackground() {
         if (presenter.state.status == MatchStatus.LOBBY) {
-            fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x040507B8, 0x040507B8, 0x0E14218A, 0x0E14218A)
-            fillGradientRect(0f, layoutWorldHeight * 0.60f, layoutWorldWidth, layoutWorldHeight * 0.40f, 0x00000000, 0x00000000, 0x111A2CAA, 0x111A2CAA)
-            fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight * 0.34f, 0x080A0E9A, 0x080A0E9A, 0x00000018, 0x00000018)
             return
         }
         fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x040B14FF, 0x091521FF, 0x214D7CFF, 0x13314FFF)
@@ -841,9 +838,9 @@ class MatchScreen(
 
     private fun drawAtmosphereTextures() {
         if (presenter.state.status == MatchStatus.LOBBY) {
-            drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xF8D2A20E))
-            drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x0000008C))
-            drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x1D2F4A20))
+            drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xF8D2A208))
+            drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x00000042))
+            drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x1D2F4A12))
             return
         }
         val time = overlayAnimationSeconds

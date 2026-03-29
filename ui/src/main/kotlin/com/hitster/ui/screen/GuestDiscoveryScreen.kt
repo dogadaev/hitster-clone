@@ -82,8 +82,6 @@ class GuestDiscoveryScreen(
         batch.end()
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        fillGradientRect(0f, 0f, viewport.worldWidth, viewport.worldHeight, 0x07090DAA, 0x07090DAA, 0x09111C68, 0x09111C68)
-        fillGradientRect(0f, viewport.worldHeight * 0.52f, viewport.worldWidth, viewport.worldHeight * 0.48f, 0x00000000, 0x00000000, 0x121A2898, 0x121A2898)
         fillPanel(titleRect, 0x223868FF, 0x15284BFF, 0x9EC3FF2A)
         if (showBackButton) {
             fillPanel(backRect, 0x294A86FF, 0x18345DFF, 0xC7D8FF4A)

@@ -21,6 +21,7 @@ import kotlin.random.Random
 object UiBootstrapper {
     private const val samplePlaylistResourcePath = "sample-playlist.json"
     private val hostId = PlayerId("host")
+    private val bundledEntries: List<PlaylistEntry> by lazy { loadBundledEntries() }
     private const val idAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
     private const val maxDisplayNameLength = 24
     private val funnyNamePrefixes = listOf(
@@ -69,7 +70,7 @@ object UiBootstrapper {
             sessionId = SessionId("local-session-${randomIdSuffix()}"),
             hostId = hostId,
             hostName = resolvedHostName,
-            deckEntries = loadEntries(),
+            deckEntries = bundledEntries,
             shuffleSeed = shuffleSeed,
         )
         val presenter = MatchPresenter(
@@ -153,7 +154,7 @@ object UiBootstrapper {
     }
 
     /** Loads the bundled playlist, falling back to a tiny curated deck if the resource is unavailable or malformed. */
-    private fun loadEntries(): List<PlaylistEntry> {
+    private fun loadBundledEntries(): List<PlaylistEntry> {
         val sampleJson = UiBootstrapper::class.java.classLoader
             ?.getResourceAsStream(samplePlaylistResourcePath)
             ?.bufferedReader()
