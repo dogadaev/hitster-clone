@@ -836,10 +836,8 @@ class MatchScreen(
         if (presenter.state.status == MatchStatus.LOBBY) {
             return
         }
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x100606D8, 0x120908DA, 0x2D0F0CB2, 0x32120FB6)
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x00000036, 0x09030444, 0x7E311014, 0x8C3B151C)
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x26120B46, 0x14080A36, 0x00000000, 0x00000000)
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0xE5964A12, 0xF4AE5010, 0xFFDE9A06, 0xFFD48A08)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x04020312, 0x04020312, 0x14060524, 0x14060524)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x00000000, 0x00000000, 0x2A0E0714, 0x2A0E0714)
     }
 
     private fun drawAtmosphereTextures() {
@@ -860,43 +858,15 @@ class MatchScreen(
         val topBloomY = layoutWorldHeight * 0.66f + sin(time * 0.06f) * 30f
         val emberX = layoutWorldWidth * 0.72f + cos(time * 0.06f) * 84f
         val emberY = -layoutWorldHeight * 0.08f + sin(time * 0.08f) * 44f
-        val sweepX = -layoutWorldWidth * 0.28f + sin(time * 0.05f) * 84f
-        val sweepY = layoutWorldHeight * 0.16f + cos(time * 0.04f) * 28f
 
-        drawGlow(leftBloomX, leftBloomY, layoutWorldWidth * 0.62f, layoutWorldHeight * 0.54f, color(0xB84D2140))
-        drawGlow(centerBloomX, centerBloomY, layoutWorldWidth * 0.82f, layoutWorldHeight * 0.62f, color(0x7E281E36))
-        drawGlow(rightBloomX, rightBloomY, layoutWorldWidth * 0.64f, layoutWorldHeight * 0.48f, color(0xF49B4330))
-        drawGlow(topBloomX, topBloomY, layoutWorldWidth * 0.78f, layoutWorldHeight * 0.34f, color(0xFFDA8F16))
-        drawGlow(emberX, emberY, layoutWorldWidth * 0.58f, layoutWorldWidth * 0.58f, color(0xFFB3611F))
-        drawGlow(sweepX, sweepY, layoutWorldWidth * 1.34f, layoutWorldHeight * 0.26f, color(0xFFE2BF10))
-        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xFFF2DA0B))
-
-        drawRepeatedTexture(
-            grainTexture,
-            0f,
-            0f,
-            layoutWorldWidth,
-            layoutWorldHeight,
-            color(0xFFF1DE12),
-            layoutWorldWidth / 126f,
-            layoutWorldHeight / 126f,
-            time * 0.010f,
-            time * 0.008f,
-        )
-        drawRepeatedTexture(
-            grainTexture,
-            0f,
-            0f,
-            layoutWorldWidth,
-            layoutWorldHeight,
-            color(0xE9A86F0A),
-            layoutWorldWidth / 82f,
-            layoutWorldHeight / 82f,
-            -time * 0.006f,
-            time * 0.004f,
-        )
-        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x0000007E))
-        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x4B130F1A))
+        drawGlow(leftBloomX, leftBloomY, layoutWorldWidth * 0.52f, layoutWorldHeight * 0.44f, color(0xD05A2718))
+        drawGlow(centerBloomX, centerBloomY, layoutWorldWidth * 0.62f, layoutWorldHeight * 0.52f, color(0x78322414))
+        drawGlow(rightBloomX, rightBloomY, layoutWorldWidth * 0.52f, layoutWorldHeight * 0.40f, color(0xF79A4018))
+        drawGlow(topBloomX, topBloomY, layoutWorldWidth * 0.66f, layoutWorldHeight * 0.26f, color(0xFFD78D10))
+        drawGlow(emberX, emberY, layoutWorldWidth * 0.40f, layoutWorldWidth * 0.40f, color(0xFFB05C0C))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xFFF0D706))
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x00000054))
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x34120D16))
     }
 
     private fun drawLobby() {
@@ -1849,12 +1819,12 @@ class MatchScreen(
 
     private fun fillHero(rect: Rectangle) {
         drawDropShadow(rect, 18f, 0x0C05072E)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x2C1419A8, 0x241116A4, 0x4B211EA8, 0x3B1A1CA8)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x25111842, 0x1F10153E, 0x45201E50, 0x35181C4C)
     }
 
     private fun fillTrack(rect: Rectangle) {
         drawDropShadow(rect, 18f, 0x0B06082A)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x2C171D82, 0x2412187C, 0x46201E86, 0x39191A84)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x26141A24, 0x21111722, 0x3B1B1D2E, 0x3216182A)
     }
 
     private fun fillButton(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
@@ -2005,23 +1975,22 @@ class MatchScreen(
             rect.y,
             rect.width,
             rect.height,
-            withAlpha(bodyBottom, 0x92),
-            withAlpha(bodyBottom, 0x92),
-            withAlpha(bodyTop, 0xA8),
-            withAlpha(bodyTop, 0xA8),
+            withAlpha(bodyBottom, 0x22),
+            withAlpha(bodyBottom, 0x22),
+            withAlpha(bodyTop, 0x34),
+            withAlpha(bodyTop, 0x34),
         )
         fillGradientRect(
             rect.x,
             rect.y + rect.height - panelHeaderHeight,
             rect.width,
             panelHeaderHeight,
-            withAlpha(headerBottom, 0xA2),
-            withAlpha(headerBottom, 0xA2),
-            withAlpha(headerTop, 0xB8),
-            withAlpha(headerTop, 0xB8),
+            withAlpha(headerBottom, 0x44),
+            withAlpha(headerBottom, 0x44),
+            withAlpha(headerTop, 0x58),
+            withAlpha(headerTop, 0x58),
         )
-        drawFrame(rect.x, rect.y, rect.width, rect.height, 0xFFD3A15C, 1.6f)
-        drawFrame(rect.x + 4f, rect.y + 4f, rect.width - 8f, rect.height - 8f, 0xFFEED3A4, 0.9f)
+        drawFrame(rect.x, rect.y, rect.width, rect.height, 0xFFD3A15C, 1.2f)
     }
 
     private fun fillActionWell() {
@@ -2032,10 +2001,10 @@ class MatchScreen(
             rect.y,
             rect.width,
             rect.height,
-            0x30161A64,
-            0x28121866,
-            0x51211C74,
-            0x441C1C72,
+            0x24111516,
+            0x1F0F1318,
+            0x38181620,
+            0x3115141E,
         )
     }
 
