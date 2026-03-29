@@ -88,6 +88,7 @@ class MatchScreen(
     private val lobbyCardRect = Rectangle()
     private val lobbyMainRect = Rectangle()
     private val lobbyJoinPanelRect = Rectangle()
+    private val lobbyJoinTitleRect = Rectangle()
     private val lobbyQrRect = Rectangle()
     private val lobbyJoinUrlRect = Rectangle()
     private val startButtonRect = Rectangle()
@@ -469,28 +470,39 @@ class MatchScreen(
                 lobbyCardRect.height,
             )
 
-            val qrInset = clamp(panelPadding * 0.90f, 24f, 34f)
-            val joinTextInsetX = qrInset + 12f
-            val joinTextInsetY = qrInset + 14f
+            val joinContentInsetX = clamp(panelPadding * 0.95f, 26f, 34f)
+            val joinOuterPadding = clamp(panelPadding * 0.95f, 24f, 30f)
+            val joinContentGap = clamp(panelPadding * 0.55f, 14f, 18f)
+            val joinTitleHeight = clamp(panelHeaderHeight * 0.38f, 30f, 38f)
+            val joinUrlHeight = clamp(panelHeaderHeight * 0.34f, 28f, 34f)
             val qrSize = min(
-                lobbyJoinPanelRect.width - qrInset * 2f,
-                lobbyJoinPanelRect.height - panelHeaderHeight - qrInset * 2f - 122f,
+                lobbyJoinPanelRect.width - joinContentInsetX * 2f,
+                lobbyJoinPanelRect.height - joinOuterPadding * 2f - joinTitleHeight - joinUrlHeight - joinContentGap * 2f,
+            )
+            val joinStackHeight = joinTitleHeight + joinContentGap + qrSize + joinContentGap + joinUrlHeight
+            val joinStackBottom = lobbyJoinPanelRect.y + (lobbyJoinPanelRect.height - joinStackHeight) / 2f
+            lobbyJoinUrlRect.set(
+                lobbyJoinPanelRect.x + joinContentInsetX,
+                joinStackBottom,
+                lobbyJoinPanelRect.width - joinContentInsetX * 2f,
+                joinUrlHeight,
             )
             lobbyQrRect.set(
                 lobbyJoinPanelRect.x + (lobbyJoinPanelRect.width - qrSize) / 2f,
-                lobbyJoinPanelRect.y + panelPadding + 86f,
+                lobbyJoinUrlRect.y + lobbyJoinUrlRect.height + joinContentGap,
                 qrSize,
                 qrSize,
             )
-            lobbyJoinUrlRect.set(
-                lobbyJoinPanelRect.x + joinTextInsetX,
-                lobbyJoinPanelRect.y + joinTextInsetY,
-                lobbyJoinPanelRect.width - joinTextInsetX * 2f,
-                max(1f, lobbyQrRect.y - lobbyJoinPanelRect.y - joinTextInsetY - 18f),
+            lobbyJoinTitleRect.set(
+                lobbyJoinPanelRect.x + joinContentInsetX,
+                lobbyQrRect.y + lobbyQrRect.height + joinContentGap,
+                lobbyJoinPanelRect.width - joinContentInsetX * 2f,
+                joinTitleHeight,
             )
         } else {
             lobbyMainRect.set(lobbyCardRect)
             lobbyJoinPanelRect.set(0f, 0f, 0f, 0f)
+            lobbyJoinTitleRect.set(0f, 0f, 0f, 0f)
             lobbyQrRect.set(0f, 0f, 0f, 0f)
             lobbyJoinUrlRect.set(0f, 0f, 0f, 0f)
         }
@@ -961,37 +973,37 @@ class MatchScreen(
             width = badgeColumn.width,
             height = 42f,
             scale = 0.74f,
-            color = color(0xFFDFA15B),
+            color = color(0xFFF6D79B),
             align = Align.left,
             verticalAlign = VerticalTextAlign.Center,
         )
         badges.forEach(::drawLobbyBadgeText)
         lobbyDraggedBadgeVisual()?.let(::drawLobbyBadgeText)
         if (showLobbyJoinPanel()) {
-            val joinTitleInsetX = 36f
-            val joinTitleHeight = 34f
-            val joinTitleY = min(
-                lobbyQrRect.y + lobbyQrRect.height + 22f,
-                lobbyJoinPanelRect.y + lobbyJoinPanelRect.height - joinTitleHeight - 24f,
-            )
             val joinTitleScale = fittedSingleLineTextScale(
                 "SCAN TO JOIN",
-                preferredScale = 0.42f,
-                availableWidth = lobbyJoinPanelRect.width - joinTitleInsetX * 2f,
-                minimumScale = 0.34f,
+                preferredScale = 0.50f,
+                availableWidth = lobbyJoinTitleRect.width,
+                minimumScale = 0.38f,
             )
             val joinUrl = displayLobbyJoinUrl()
-            val joinUrlScale = fittedSingleLineTextScale(joinUrl, preferredScale = 0.50f, availableWidth = lobbyJoinUrlRect.width)
+            val joinUrlScale = fittedSingleLineTextScale(
+                joinUrl,
+                preferredScale = 0.44f,
+                availableWidth = lobbyJoinUrlRect.width,
+                minimumScale = 0.28f,
+            )
             drawTextBlock(
                 text = "SCAN TO JOIN",
-                x = lobbyJoinPanelRect.x + joinTitleInsetX,
-                y = joinTitleY,
-                width = lobbyJoinPanelRect.width - joinTitleInsetX * 2f,
-                height = joinTitleHeight,
+                x = lobbyJoinTitleRect.x,
+                y = lobbyJoinTitleRect.y,
+                width = lobbyJoinTitleRect.width,
+                height = lobbyJoinTitleRect.height,
                 scale = joinTitleScale,
                 color = color(0xFFDFA15B),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
+                enforceMinimumScale = false,
             )
             drawTextBlock(
                 text = joinUrl,
