@@ -199,6 +199,17 @@ class MatchScreen(
         }
         batch.end()
 
+        if (presenter.state.status != MatchStatus.LOBBY) {
+            beginFilledShapes()
+            drawTimelineCards(includeOverlay = false)
+            drawTargetDoubtArrow()
+            endFilledShapes()
+
+            batch.begin()
+            drawTimelineCardText(includeOverlay = false)
+            batch.end()
+        }
+
         if (hasOverlayTimelineVisuals()) {
             beginFilledShapes()
             drawTimelineCards(includeOverlay = true)
@@ -1372,8 +1383,6 @@ class MatchScreen(
             fillActionWell()
         }
 
-        drawTimelineCards(includeOverlay)
-        drawTargetDoubtArrow()
     }
 
     private fun drawMatchTextures() {
@@ -1577,8 +1586,6 @@ class MatchScreen(
                 verticalAlign = VerticalTextAlign.Center,
             )
         }
-
-        drawTimelineCardText(includeOverlay)
     }
 
     private fun drawModalShapes() {
