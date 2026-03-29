@@ -18,6 +18,7 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.ui.render.AtmosphericBackdrop
+import com.hitster.ui.render.LiquidGlassChrome
 import com.hitster.ui.render.VerticalCropAnchor
 import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.createUiFont
@@ -64,18 +65,15 @@ class RoleSelectionScreen(
         backgroundImage.draw(batch, viewport.worldWidth, viewport.worldHeight)
         batch.end()
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+        LiquidGlassChrome.beginFilled(shapeRenderer)
         fillPanel(titleRect, 0x522620FF, 0x29151AFF, 0xFFD5A55C)
         drawButton(hostButtonRect, 0xF5C067FF, 0xD07B28FF, 0xFFF2C78E)
         drawButton(guestButtonRect, 0xC26A5AFF, 0x853228FF, 0xF3C1AF)
-        shapeRenderer.end()
+        LiquidGlassChrome.endFilled(shapeRenderer)
 
         batch.begin()
-        backdrop.drawPanelTexture(batch, titleRect, Color(1f, 0.87f, 0.68f, 0.10f), animationSeconds)
-        backdrop.drawPanelTexture(batch, hostButtonRect, Color(1f, 0.92f, 0.72f, 0.13f), animationSeconds)
-        backdrop.drawPanelTexture(batch, guestButtonRect, Color(1f, 0.80f, 0.72f, 0.11f), animationSeconds)
         titleLayout.setText(titleFont, "Choose Your Role")
-        titleFont.color = color(0xFFF4E6D7)
+        titleFont.color = color(0xFFF7F0E5)
         titleFont.draw(
             batch,
             titleLayout,
@@ -126,18 +124,69 @@ class RoleSelectionScreen(
     }
 
     private fun drawButton(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
-        drawDropShadow(rect, 16f, 0x1508054A)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, bottomColor, bottomColor, topColor, topColor)
-        fillRect(rect.x + 10f, rect.y + rect.height - 12f, rect.width - 20f, 3f, 0xFFF8DD2A)
-        drawFrame(rect, edgeColor, 2f)
-        drawFrame(rect.x + 4f, rect.y + 4f, rect.width - 8f, rect.height - 8f, 0xFFF0D8A0, 1.2f)
+        val radius = minOf(rect.height * 0.44f, 42f)
+        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 26f, 0x14090B90)
+        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, LiquidGlassChrome.withAlpha(bottomColor, 0x92))
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 5f,
+            rect.y + 5f,
+            rect.width - 10f,
+            rect.height - 10f,
+            maxOf(12f, radius - 5f),
+            LiquidGlassChrome.withAlpha(topColor, 0x56),
+        )
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 14f,
+            rect.y + rect.height * 0.48f,
+            rect.width - 28f,
+            rect.height * 0.32f,
+            maxOf(10f, radius - 10f),
+            0xFFF9F2E42A,
+        )
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + rect.width * 0.05f,
+            rect.y + rect.height * 0.18f,
+            rect.width * 0.34f,
+            rect.height * 0.24f,
+            maxOf(10f, radius - 12f),
+            LiquidGlassChrome.withAlpha(edgeColor, 0x16),
+        )
     }
 
     private fun fillPanel(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
-        drawDropShadow(rect, 18f, 0x09050634)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, withAlpha(bottomColor, 0xA2), withAlpha(bottomColor, 0xA2), withAlpha(topColor, 0xB0), withAlpha(topColor, 0xB0))
-        drawFrame(rect, edgeColor, 1.6f)
-        drawFrame(rect.x + 4f, rect.y + 4f, rect.width - 8f, rect.height - 8f, 0xFFF0D3A2, 0.9f)
+        val radius = 34f
+        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 28f, 0x09050664)
+        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, LiquidGlassChrome.withAlpha(bottomColor, 0x6E))
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 5f,
+            rect.y + 5f,
+            rect.width - 10f,
+            rect.height - 10f,
+            radius - 4f,
+            LiquidGlassChrome.withAlpha(topColor, 0x34),
+        )
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 12f,
+            rect.y + rect.height * 0.54f,
+            rect.width - 24f,
+            rect.height * 0.24f,
+            radius - 10f,
+            0xFFF8F0E622,
+        )
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + rect.width * 0.04f,
+            rect.y + rect.height * 0.18f,
+            rect.width * 0.26f,
+            rect.height * 0.20f,
+            radius - 14f,
+            LiquidGlassChrome.withAlpha(edgeColor, 0x12),
+        )
     }
 
     private fun drawCenteredText(font: BitmapFont, text: String, rect: Rectangle, color: Color) {

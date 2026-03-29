@@ -34,6 +34,7 @@ import com.hitster.playback.api.PlaybackSessionState
 import com.hitster.ui.controller.MatchController
 import com.hitster.ui.controller.UiBootstrapper
 import com.hitster.ui.layout.TimelineLayoutCalculator
+import com.hitster.ui.render.LiquidGlassChrome
 import com.hitster.ui.render.VerticalCropAnchor
 import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.DecadeCardPalettes
@@ -845,14 +846,11 @@ class MatchScreen(
      * semi-transparent washes so the art-directed backgrounds remain visible behind the gameplay UI.
      */
     private fun beginFilledShapes() {
-        Gdx.gl.glEnable(GL20.GL_BLEND)
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+        LiquidGlassChrome.beginFilled(shapeRenderer)
     }
 
     private fun endFilledShapes() {
-        shapeRenderer.end()
-        Gdx.gl.glDisable(GL20.GL_BLEND)
+        LiquidGlassChrome.endFilled(shapeRenderer)
     }
 
     private fun drawAtmosphereTextures() {
@@ -1040,16 +1038,33 @@ class MatchScreen(
     }
 
     private fun drawLobbyBadgeShape(visual: LobbyBadgeVisual) {
-        drawDropShadow(visual.rect, if (visual.isDragged) 16f else 12f, if (visual.isDragged) 0x184F83A8 else 0x01050B38)
-        fillGradientRect(
-            visual.rect.x,
-            visual.rect.y,
-            visual.rect.width,
-            visual.rect.height,
-            if (visual.isDragged) 0x5A2C2BDE else 0x3B21218A,
-            if (visual.isDragged) 0x4E2527D8 else 0x321B1F8A,
-            if (visual.isDragged) 0x9D522DF2 else 0x6B35299D,
-            if (visual.isDragged) 0x8D4A2AEB else 0x5C2D2496,
+        val radius = min(visual.rect.height * 0.48f, 34f)
+        val baseTint = if (visual.isDragged) 0x8A4A3CFF else 0x653733FF
+        LiquidGlassChrome.drawRoundedShadow(
+            shapeRenderer,
+            visual.rect,
+            radius,
+            if (visual.isDragged) 18f else 14f,
+            if (visual.isDragged) 0x1A321E8C else 0x0B060854,
+        )
+        LiquidGlassChrome.fillRoundedRect(shapeRenderer, visual.rect, radius, LiquidGlassChrome.withAlpha(baseTint, if (visual.isDragged) 0x88 else 0x6C))
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            visual.rect.x + 4f,
+            visual.rect.y + 4f,
+            visual.rect.width - 8f,
+            visual.rect.height - 8f,
+            max(12f, radius - 4f),
+            LiquidGlassChrome.withAlpha(0xFFF2E4D5, if (visual.isDragged) 0x18 else 0x10),
+        )
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            visual.rect.x + 14f,
+            visual.rect.y + visual.rect.height * 0.54f,
+            visual.rect.width * 0.58f,
+            visual.rect.height * 0.20f,
+            max(10f, radius - 12f),
+            0xFFF9F2E61C,
         )
         visual.editRect?.let(::drawLobbyEditIcon)
     }
@@ -1833,21 +1848,75 @@ class MatchScreen(
     }
 
     private fun fillHero(rect: Rectangle) {
-        drawDropShadow(rect, 18f, 0x0C05072E)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x25111842, 0x1F10153E, 0x45201E50, 0x35181C4C)
+        val radius = min(rect.height * 0.46f, 38f)
+        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 24f, 0x0C050768)
+        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, 0x26141A66)
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 6f,
+            rect.y + 6f,
+            rect.width - 12f,
+            rect.height - 12f,
+            max(12f, radius - 6f),
+            0xFFF7EDEB16,
+        )
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 16f,
+            rect.y + rect.height * 0.55f,
+            rect.width * 0.42f,
+            rect.height * 0.20f,
+            max(10f, radius - 14f),
+            0xFFFDF6EC1E,
+        )
     }
 
     private fun fillTrack(rect: Rectangle) {
-        drawDropShadow(rect, 18f, 0x0B06082A)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x26141A24, 0x21111722, 0x3B1B1D2E, 0x3216182A)
+        val radius = 40f
+        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 24f, 0x0B06084E)
+        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, 0x2111172E)
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 8f,
+            rect.y + 8f,
+            rect.width - 16f,
+            rect.height - 16f,
+            radius - 8f,
+            0xFFF8EFEA10,
+        )
     }
 
     private fun fillButton(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
-        drawDropShadow(rect, 16f, 0x18090550)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, bottomColor, bottomColor, topColor, topColor)
-        fillRect(rect.x + 8f, rect.y + rect.height - 12f, rect.width - 16f, 3f, 0xFFF8E02C)
-        drawFrame(rect, edgeColor, 2f)
-        drawFrame(rect.x + 3f, rect.y + 3f, rect.width - 6f, rect.height - 6f, 0xFFF2D285, 1.2f)
+        val radius = min(rect.height * 0.44f, 40f)
+        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 24f, 0x14080B96)
+        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, LiquidGlassChrome.withAlpha(bottomColor, 0x90))
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 5f,
+            rect.y + 5f,
+            rect.width - 10f,
+            rect.height - 10f,
+            max(12f, radius - 5f),
+            LiquidGlassChrome.withAlpha(topColor, 0x54),
+        )
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 12f,
+            rect.y + rect.height * 0.52f,
+            rect.width - 24f,
+            rect.height * 0.22f,
+            max(10f, radius - 12f),
+            0xFFF9F2E822,
+        )
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + rect.width * 0.05f,
+            rect.y + rect.height * 0.18f,
+            rect.width * 0.30f,
+            rect.height * 0.18f,
+            max(10f, radius - 16f),
+            LiquidGlassChrome.withAlpha(edgeColor, 0x10),
+        )
     }
 
     private fun fillDoubtToggleButton(isActive: Boolean) {
@@ -1859,32 +1928,35 @@ class MatchScreen(
         val outerEdge = if (isActive) 0xFFF0D6FF else 0xFFF4D0FF
         val innerEdge = if (isActive) 0xFFDDB694 else 0xFFF1BF96
 
-        drawDropShadow(doubtButtonRect, 14f, shadowColor)
-        fillGradientRect(
-            doubtButtonRect.x,
-            doubtButtonRect.y,
-            doubtButtonRect.width,
-            doubtButtonRect.height,
-            bottomLeft,
-            bottomRight,
-            topRight,
-            topLeft,
+        val radius = min(doubtButtonRect.height * 0.44f, 38f)
+        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, doubtButtonRect, radius, 22f, shadowColor)
+        LiquidGlassChrome.fillRoundedRect(shapeRenderer, doubtButtonRect, radius, LiquidGlassChrome.withAlpha(bottomLeft, 0x92))
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            doubtButtonRect.x + 5f,
+            doubtButtonRect.y + 5f,
+            doubtButtonRect.width - 10f,
+            doubtButtonRect.height - 10f,
+            max(12f, radius - 5f),
+            LiquidGlassChrome.withAlpha(topRight, 0x56),
         )
-        fillRect(
-            doubtButtonRect.x + 8f,
-            doubtButtonRect.y + doubtButtonRect.height - 11f,
-            doubtButtonRect.width - 16f,
-            3f,
-            if (isActive) 0xFFF8E92A else 0xFFF7D01F,
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            doubtButtonRect.x + 12f,
+            doubtButtonRect.y + doubtButtonRect.height * 0.52f,
+            doubtButtonRect.width - 24f,
+            doubtButtonRect.height * 0.22f,
+            max(10f, radius - 12f),
+            if (isActive) 0xFFF8EAF424 else 0xFFF8E8D622,
         )
-        drawFrame(doubtButtonRect, outerEdge, 2f)
-        drawFrame(
-            doubtButtonRect.x + 3f,
-            doubtButtonRect.y + 3f,
-            doubtButtonRect.width - 6f,
-            doubtButtonRect.height - 6f,
-            innerEdge,
-            1.5f,
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            doubtButtonRect.x + doubtButtonRect.width * 0.06f,
+            doubtButtonRect.y + doubtButtonRect.height * 0.18f,
+            doubtButtonRect.width * 0.30f,
+            doubtButtonRect.height * 0.18f,
+            max(10f, radius - 16f),
+            LiquidGlassChrome.withAlpha(if (isActive) outerEdge else innerEdge, 0x12),
         )
     }
 
@@ -1904,15 +1976,12 @@ class MatchScreen(
         val radius = min(rect.width, rect.height) / 2f
         val centerX = rect.x + rect.width / 2f
         val centerY = rect.y + rect.height / 2f
-        val outerShadow = if (enabled) 0x170801FFL else 0x1C0E03FFL
-        val outerRing = if (enabled) 0x5A220FFF else 0x573915FFL
-        val rimColor = if (enabled) 0xFFF0BA6DFF else 0xE1C28CFFL
-        val innerRim = if (enabled) 0xFFF7DCA6FF else 0xF0DDB3FFL
-        val bodyLower = if (enabled) 0xC66522FF else 0xBA8E43FFL
-        val bodyUpper = if (enabled) 0xF0AF4FFF else 0xD8B36AFFL
-        val coreColor = if (enabled) 0xE09038FF else 0xC59A58FFL
-        val highlightColor = if (enabled) 0xFFF2C4FF else 0xFFF0D0FFL
-        val lowerShade = if (enabled) 0x8F5310FFL else 0x7E6130FFL
+        val outerShadow = if (enabled) 0x1D090A8CL else 0x180A086AL
+        val bodyLower = if (enabled) 0xC66C32B4 else 0xA9854A90L
+        val bodyUpper = if (enabled) 0xF2C06A64 else 0xD9B06C56L
+        val coreColor = if (enabled) 0xF7B45C80 else 0xD5B37A6CL
+        val highlightColor = if (enabled) 0xFFF8F0FF else 0xFFF5E8FFL
+        val lowerShade = if (enabled) 0x3A140A30L else 0x28190D28L
 
         repeat(5) { layer ->
             val expansion = 5f + layer * 4.6f
@@ -1921,28 +1990,19 @@ class MatchScreen(
             shapeRenderer.circle(centerX, centerY - radius * 0.16f + layer * 1.4f, radius + expansion, 72)
         }
 
-        shapeRenderer.color = color(outerRing)
-        shapeRenderer.circle(centerX, centerY - radius * 0.02f, radius * 1.05f, 72)
-
-        shapeRenderer.color = color(rimColor)
-        shapeRenderer.circle(centerX, centerY, radius, 72)
-
-        shapeRenderer.color = color(innerRim)
-        shapeRenderer.circle(centerX, centerY + radius * 0.02f, radius * 0.93f, 72)
-
         shapeRenderer.color = color(bodyLower)
-        shapeRenderer.circle(centerX, centerY - radius * 0.03f, radius * 0.86f, 72)
+        shapeRenderer.circle(centerX, centerY - radius * 0.02f, radius * 0.96f, 72)
 
         shapeRenderer.color = color(bodyUpper)
-        shapeRenderer.circle(centerX, centerY + radius * 0.17f, radius * 0.72f, 72)
+        shapeRenderer.circle(centerX, centerY + radius * 0.16f, radius * 0.76f, 72)
 
         shapeRenderer.color = color(coreColor)
-        shapeRenderer.circle(centerX, centerY - radius * 0.11f, radius * 0.56f, 72)
+        shapeRenderer.circle(centerX, centerY - radius * 0.12f, radius * 0.62f, 72)
 
-        shapeRenderer.color = colorWithAlpha(highlightColor, if (enabled) 0.52f else 0.28f)
-        shapeRenderer.circle(centerX - radius * 0.08f, centerY + radius * 0.34f, radius * 0.38f, 54)
+        shapeRenderer.color = colorWithAlpha(highlightColor, if (enabled) 0.26f else 0.18f)
+        shapeRenderer.circle(centerX - radius * 0.06f, centerY + radius * 0.30f, radius * 0.46f, 54)
 
-        shapeRenderer.color = colorWithAlpha(highlightColor, if (enabled) 0.22f else 0.12f)
+        shapeRenderer.color = colorWithAlpha(highlightColor, if (enabled) 0.12f else 0.08f)
         shapeRenderer.circle(centerX + radius * 0.18f, centerY + radius * 0.12f, radius * 0.18f, 42)
 
         shapeRenderer.color = colorWithAlpha(lowerShade, if (enabled) 0.22f else 0.16f)
@@ -1984,42 +2044,51 @@ class MatchScreen(
     }
 
     private fun fillPanel(rect: Rectangle, bodyTop: Long, bodyBottom: Long, headerTop: Long, headerBottom: Long, _edgeColor: Long) {
-        drawDropShadow(rect, 18f, 0x09050632)
-        fillGradientRect(
-            rect.x,
-            rect.y,
-            rect.width,
-            rect.height,
-            withAlpha(bodyBottom, 0x22),
-            withAlpha(bodyBottom, 0x22),
-            withAlpha(bodyTop, 0x34),
-            withAlpha(bodyTop, 0x34),
+        val radius = 40f
+        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 26f, 0x09050658)
+        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, withAlpha(bodyBottom, 0x30))
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 6f,
+            rect.y + 6f,
+            rect.width - 12f,
+            rect.height - 12f,
+            radius - 6f,
+            withAlpha(bodyTop, 0x18),
         )
-        fillGradientRect(
-            rect.x,
-            rect.y + rect.height - panelHeaderHeight,
-            rect.width,
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 12f,
+            rect.y + rect.height - panelHeaderHeight - 8f,
+            rect.width - 24f,
             panelHeaderHeight,
-            withAlpha(headerBottom, 0x44),
-            withAlpha(headerBottom, 0x44),
-            withAlpha(headerTop, 0x58),
-            withAlpha(headerTop, 0x58),
+            panelHeaderHeight * 0.48f,
+            withAlpha(headerTop, 0x34),
         )
-        drawFrame(rect.x, rect.y, rect.width, rect.height, 0xFFD3A15C, 1.2f)
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 22f,
+            rect.y + rect.height - panelHeaderHeight * 0.58f,
+            rect.width * 0.34f,
+            panelHeaderHeight * 0.18f,
+            panelHeaderHeight * 0.14f,
+            0xFFF9F0E61A,
+        )
     }
 
     private fun fillActionWell() {
         val rect = actionWellRect()
-        drawDropShadow(rect, 16f, 0x09050722)
-        fillGradientRect(
-            rect.x,
-            rect.y,
-            rect.width,
-            rect.height,
-            0x24111516,
-            0x1F0F1318,
-            0x38181620,
-            0x3115141E,
+        val radius = min(rect.height * 0.48f, 38f)
+        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 18f, 0x08040644)
+        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, 0x23131726)
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 6f,
+            rect.y + 6f,
+            rect.width - 12f,
+            rect.height - 12f,
+            max(10f, radius - 6f),
+            0xFFF8EEE80E,
         )
     }
 
@@ -2073,15 +2142,19 @@ class MatchScreen(
     }
 
     private fun drawPanelTexture(rect: Rectangle, tint: Color) {
-        drawRepeatedTexture(
-            grainTexture,
-            rect.x + 2f,
-            rect.y + 2f,
-            rect.width - 4f,
-            rect.height - 4f,
-            tint,
-            max(1f, rect.width / 90f),
-            max(1f, rect.height / 90f),
+        drawGlow(
+            rect.x - rect.width * 0.10f,
+            rect.y - rect.height * 0.08f,
+            rect.width * 0.78f,
+            rect.height * 0.64f,
+            colorWithAlpha(tint.toRgba(), 0.06f),
+        )
+        drawGlow(
+            rect.x + rect.width * 0.18f,
+            rect.y + rect.height * 0.48f,
+            rect.width * 0.42f,
+            rect.height * 0.18f,
+            colorWithAlpha(0xFFF8F0E6FF, 0.08f),
         )
     }
 

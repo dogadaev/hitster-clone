@@ -18,6 +18,7 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.ui.controller.HostedMatchController
 import com.hitster.ui.render.AtmosphericBackdrop
+import com.hitster.ui.render.LiquidGlassChrome
 import com.hitster.ui.render.VerticalCropAnchor
 import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.createUiFont
@@ -83,14 +84,13 @@ class HostPreparingScreen(
         backgroundImage.draw(batch, viewport.worldWidth, viewport.worldHeight)
         batch.end()
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+        LiquidGlassChrome.beginFilled(shapeRenderer)
         fillPanel(titleRect)
-        shapeRenderer.end()
+        LiquidGlassChrome.endFilled(shapeRenderer)
 
         batch.begin()
-        backdrop.drawPanelTexture(batch, titleRect, Color(1f, 0.87f, 0.68f, 0.10f), animationSeconds)
         titleLayout.setText(titleFont, "Preparing Host")
-        titleFont.color = color(0xFFF4E6D7)
+        titleFont.color = color(0xFFF7F0E5)
         titleFont.draw(
             batch,
             titleLayout,
@@ -130,10 +130,27 @@ class HostPreparingScreen(
     }
 
     private fun fillPanel(rect: Rectangle) {
-        drawDropShadow(rect, 18f, 0x09050634)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x29151AA2, 0x29151AA2, 0x522620B0, 0x522620B0)
-        drawFrame(rect.x, rect.y, rect.width, rect.height, 0xFFD5A55C, 1.6f)
-        drawFrame(rect.x + 4f, rect.y + 4f, rect.width - 8f, rect.height - 8f, 0xFFF0D3A2, 0.9f)
+        val radius = 34f
+        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 28f, 0x09050664)
+        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, 0x29151A72)
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 5f,
+            rect.y + 5f,
+            rect.width - 10f,
+            rect.height - 10f,
+            radius - 4f,
+            0x52262034,
+        )
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 12f,
+            rect.y + rect.height * 0.54f,
+            rect.width - 24f,
+            rect.height * 0.24f,
+            radius - 10f,
+            0xFFF8F0E622,
+        )
     }
 
     private fun fillGradientRect(x: Float, y: Float, width: Float, height: Float, bottomLeft: Long, bottomRight: Long, topRight: Long, topLeft: Long) {

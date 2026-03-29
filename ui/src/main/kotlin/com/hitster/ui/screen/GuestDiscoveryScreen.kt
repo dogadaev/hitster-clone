@@ -20,6 +20,7 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.ui.controller.HostDiscoveryService
 import com.hitster.ui.render.AtmosphericBackdrop
+import com.hitster.ui.render.LiquidGlassChrome
 import com.hitster.ui.render.VerticalCropAnchor
 import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.createUiFont
@@ -81,7 +82,7 @@ class GuestDiscoveryScreen(
         backgroundImage.draw(batch, viewport.worldWidth, viewport.worldHeight)
         batch.end()
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+        LiquidGlassChrome.beginFilled(shapeRenderer)
         fillPanel(titleRect, 0x522620FF, 0x29151AFF, 0xFFD5A55C)
         if (showBackButton) {
             fillPanel(backRect, 0xC26A5AFF, 0x853228FF, 0xF3C1AF)
@@ -93,18 +94,11 @@ class GuestDiscoveryScreen(
                 fillPanel(rect, 0x3A1C1EFF, 0x1F1319FF, 0xFFD2A163)
             }
         }
-        shapeRenderer.end()
+        LiquidGlassChrome.endFilled(shapeRenderer)
 
         batch.begin()
-        backdrop.drawPanelTexture(batch, titleRect, Color(1f, 0.87f, 0.68f, 0.10f), animationSeconds)
-        if (showBackButton) {
-            backdrop.drawPanelTexture(batch, backRect, Color(1f, 0.82f, 0.72f, 0.10f), animationSeconds)
-        }
-        hostRects.forEach { (rect, _) ->
-            backdrop.drawPanelTexture(batch, rect, Color(1f, 0.84f, 0.72f, 0.08f), animationSeconds)
-        }
         titleLayout.setText(titleFont, "Available Hosts")
-        titleFont.color = color(0xFFF4E6D7)
+        titleFont.color = color(0xFFF7F0E5)
         titleFont.draw(batch, titleLayout, (viewport.worldWidth - titleLayout.width) / 2f, titleRect.y + (titleRect.height + titleLayout.height) / 2f)
         if (showBackButton) {
             drawText(itemFont, "BACK", backRect.x + 22f, backRect.y + backRect.height * 0.68f)
@@ -177,10 +171,36 @@ class GuestDiscoveryScreen(
     }
 
     private fun fillPanel(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
-        drawDropShadow(rect, 18f, 0x09050634)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, withAlpha(bottomColor, 0xA2), withAlpha(bottomColor, 0xA2), withAlpha(topColor, 0xB0), withAlpha(topColor, 0xB0))
-        drawFrame(rect, edgeColor, 1.6f)
-        drawFrame(rect.x + 4f, rect.y + 4f, rect.width - 8f, rect.height - 8f, 0xFFF0D3A2, 0.9f)
+        val radius = minOf(rect.height * 0.38f, 38f)
+        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 26f, 0x09050664)
+        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, LiquidGlassChrome.withAlpha(bottomColor, 0x72))
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 5f,
+            rect.y + 5f,
+            rect.width - 10f,
+            rect.height - 10f,
+            maxOf(10f, radius - 5f),
+            LiquidGlassChrome.withAlpha(topColor, 0x32),
+        )
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + 12f,
+            rect.y + rect.height * 0.56f,
+            rect.width - 24f,
+            rect.height * 0.22f,
+            maxOf(10f, radius - 10f),
+            0xFFF8F0E620,
+        )
+        LiquidGlassChrome.fillRoundedRect(
+            shapeRenderer,
+            rect.x + rect.width * 0.04f,
+            rect.y + rect.height * 0.16f,
+            rect.width * 0.28f,
+            rect.height * 0.20f,
+            maxOf(10f, radius - 14f),
+            LiquidGlassChrome.withAlpha(edgeColor, 0x10),
+        )
     }
 
     private fun fillGradientRect(x: Float, y: Float, width: Float, height: Float, bottomLeft: Long, bottomRight: Long, topRight: Long, topLeft: Long) {
