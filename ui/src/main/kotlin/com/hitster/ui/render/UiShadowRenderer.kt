@@ -1,10 +1,10 @@
 package com.hitster.ui.render
 
 /**
- * Shared soft-edged glass primitives used by the UI to avoid rigid framed boxes and sharp corners.
+ * Lightweight shadow helper for the shader-backed liquid-glass UI surfaces.
  *
- * The intent is not photo-real glass, but a lightweight rounded translucent treatment that keeps
- * background art visible while still giving panels and controls enough separation to remain legible.
+ * This is intentionally not a second glass implementation. It only draws the soft drop shadows
+ * that sit behind the actual shader-rendered surfaces.
  */
 
 import com.badlogic.gdx.Gdx
@@ -16,7 +16,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-internal object LiquidGlassChrome {
+internal object UiShadowRenderer {
     fun beginFilled(shapeRenderer: ShapeRenderer) {
         Gdx.gl.glEnable(GL20.GL_BLEND)
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
@@ -52,34 +52,25 @@ internal object LiquidGlassChrome {
             val progress = (layer + 1) / 5f
             val expansion = spread * progress
             val alpha = when (layer) {
-                0 -> 0x26
-                1 -> 0x1B
-                2 -> 0x13
-                3 -> 0x0B
-                else -> 0x06
+                0 -> 0x18
+                1 -> 0x11
+                2 -> 0x0B
+                3 -> 0x06
+                else -> 0x03
             }
             fillRoundedRect(
                 shapeRenderer,
                 x - expansion,
-                y - expansion * 0.62f,
+                y - expansion * 0.50f,
                 width + expansion * 2f,
-                height + expansion * 1.24f,
-                radius + expansion * 0.72f,
+                height + expansion,
+                radius + expansion * 0.56f,
                 withAlpha(rgba, alpha),
             )
         }
     }
 
-    fun fillRoundedRect(
-        shapeRenderer: ShapeRenderer,
-        rect: Rectangle,
-        radius: Float,
-        rgba: Long,
-    ) {
-        fillRoundedRect(shapeRenderer, rect.x, rect.y, rect.width, rect.height, radius, rgba)
-    }
-
-    fun fillRoundedRect(
+    private fun fillRoundedRect(
         shapeRenderer: ShapeRenderer,
         x: Float,
         y: Float,
@@ -114,7 +105,7 @@ internal object LiquidGlassChrome {
         shapeRenderer.circle(x + width - resolvedRadius, y + height - resolvedRadius, resolvedRadius, segments)
     }
 
-    fun color(rgba: Long): Color {
+    private fun color(rgba: Long): Color {
         return Color(
             (((rgba shr 24) and 0xFF) / 255f).toFloat(),
             (((rgba shr 16) and 0xFF) / 255f).toFloat(),
@@ -123,7 +114,7 @@ internal object LiquidGlassChrome {
         )
     }
 
-    fun withAlpha(rgba: Long, alpha: Int): Long {
+    private fun withAlpha(rgba: Long, alpha: Int): Long {
         return (rgba and 0xFFFFFF00) or (alpha.toLong() and 0xFF)
     }
 }

@@ -34,7 +34,9 @@ import com.hitster.playback.api.PlaybackSessionState
 import com.hitster.ui.controller.MatchController
 import com.hitster.ui.controller.UiBootstrapper
 import com.hitster.ui.layout.TimelineLayoutCalculator
-import com.hitster.ui.render.LiquidGlassChrome
+import com.hitster.ui.render.LiquidGlassStyle
+import com.hitster.ui.render.LiquidGlassSurfaceRenderer
+import com.hitster.ui.render.UiShadowRenderer
 import com.hitster.ui.render.VerticalCropAnchor
 import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.DecadeCardPalettes
@@ -62,6 +64,7 @@ class MatchScreen(
     private lateinit var grainTexture: Texture
     private lateinit var glowTexture: Texture
     private lateinit var vignetteTexture: Texture
+    private val glassRenderer = LiquidGlassSurfaceRenderer()
     private val lobbyBackgroundImage = WidthFittedBackgroundImage("lobby-background.png", VerticalCropAnchor.TOP)
     private val matchBackgroundImage = WidthFittedBackgroundImage("match-background.png", VerticalCropAnchor.CENTER)
     private val textLayout = GlyphLayout()
@@ -134,6 +137,7 @@ class MatchScreen(
         grainTexture = createGrainTexture()
         glowTexture = createGlowTexture()
         vignetteTexture = createVignetteTexture()
+        glassRenderer.load()
         lobbyBackgroundImage.load()
         matchBackgroundImage.load()
         Gdx.input.inputProcessor = MatchInputController()
@@ -258,6 +262,7 @@ class MatchScreen(
         if (this::vignetteTexture.isInitialized) {
             vignetteTexture.dispose()
         }
+        glassRenderer.dispose()
         lobbyBackgroundImage.dispose()
         matchBackgroundImage.dispose()
     }
@@ -425,8 +430,8 @@ class MatchScreen(
             doubtPopupRect.height - panelHeaderHeight - doubtTrackInsetBottom - doubtTrackInsetTop,
         )
 
-        val lobbyButtonWidth = clamp(worldWidth * 0.23f, 360f, 500f)
-        val lobbyButtonHeight = clamp(worldHeight * 0.11f, 94f, 118f)
+        val lobbyButtonWidth = clamp(worldWidth * 0.27f, 420f, 580f)
+        val lobbyButtonHeight = clamp(worldHeight * 0.14f, 116f, 144f)
         startButtonRect.set(
             (worldWidth - lobbyButtonWidth) / 2f,
             outerMargin + clamp(worldHeight * 0.04f, 26f, 40f),
@@ -809,11 +814,11 @@ class MatchScreen(
      * semi-transparent washes so the art-directed backgrounds remain visible behind the gameplay UI.
      */
     private fun beginFilledShapes() {
-        LiquidGlassChrome.beginFilled(shapeRenderer)
+        UiShadowRenderer.beginFilled(shapeRenderer)
     }
 
     private fun endFilledShapes() {
-        LiquidGlassChrome.endFilled(shapeRenderer)
+        UiShadowRenderer.endFilled(shapeRenderer)
     }
 
     private fun drawAtmosphereTextures() {
@@ -884,6 +889,13 @@ class MatchScreen(
 
     private fun drawLobbyTextures() {
         if (showLobbyPrimaryButton()) {
+            glassRenderer.draw(
+                batch,
+                startButtonRect,
+                min(startButtonRect.height * 0.44f, 42f),
+                START_BUTTON_GLASS_STYLE,
+                overlayAnimationSeconds,
+            )
             drawPanelTexture(startButtonRect, color(0xFFF3D21D))
             val time = overlayAnimationSeconds
             drawGlow(
@@ -896,6 +908,13 @@ class MatchScreen(
         }
         if (showLobbyJoinPanel()) {
             val time = overlayAnimationSeconds
+            glassRenderer.draw(
+                batch,
+                lobbyJoinPanelRect,
+                40f,
+                LOBBY_PANEL_GLASS_STYLE,
+                overlayAnimationSeconds,
+            )
             drawPanelTexture(lobbyJoinPanelRect, color(0xFFD8B80F))
             drawGlow(
                 lobbyJoinPanelRect.x - lobbyJoinPanelRect.width * 0.14f + cos(time * 0.13f) * 10f,
@@ -975,15 +994,11 @@ class MatchScreen(
                 y = startButtonRect.y,
                 width = startButtonRect.width,
                 height = startButtonRect.height,
-                scale = 1.16f,
-                color = if (presenter.playbackSessionState == PlaybackSessionState.Connecting) {
-                    color(0xFFF7E8DB)
-                } else {
-                    color(0x1A1308FF)
-                },
+                scale = 1.00f,
+                color = color(0xFFF7EDE2),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = if (presenter.playbackSessionState == PlaybackSessionState.Connecting) color(0x5B1C123B) else color(0xFFF8E29F33),
+                shadowColor = color(0x4A160FA4),
             )
         } else {
             drawTextBlock(
@@ -1002,38 +1017,18 @@ class MatchScreen(
     }
 
     private fun drawLobbyBadgeShape(visual: LobbyBadgeVisual) {
-        val radius = min(visual.rect.height * 0.48f, 34f)
-        val baseTint = if (visual.isDragged) 0x8A4A3CFF else 0x653733FF
-        LiquidGlassChrome.drawRoundedShadow(
-            shapeRenderer,
-            visual.rect,
-            radius,
-            if (visual.isDragged) 18f else 14f,
-            if (visual.isDragged) 0x1A321E8C else 0x0B060854,
-        )
-        LiquidGlassChrome.fillRoundedRect(shapeRenderer, visual.rect, radius, LiquidGlassChrome.withAlpha(baseTint, if (visual.isDragged) 0x88 else 0x6C))
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            visual.rect.x + 4f,
-            visual.rect.y + 4f,
-            visual.rect.width - 8f,
-            visual.rect.height - 8f,
-            max(12f, radius - 4f),
-            LiquidGlassChrome.withAlpha(0xFFF2E4D5, if (visual.isDragged) 0x18 else 0x10),
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            visual.rect.x + 14f,
-            visual.rect.y + visual.rect.height * 0.54f,
-            visual.rect.width * 0.58f,
-            visual.rect.height * 0.20f,
-            max(10f, radius - 12f),
-            0xFFF9F2E61C,
-        )
         visual.editRect?.let(::drawLobbyEditIcon)
     }
 
     private fun drawLobbyBadgeTexture(visual: LobbyBadgeVisual) {
+        glassRenderer.draw(
+            batch,
+            visual.rect,
+            min(visual.rect.height * 0.48f, 34f),
+            if (visual.isDragged) DRAGGED_BADGE_GLASS_STYLE else BADGE_GLASS_STYLE,
+            overlayAnimationSeconds,
+            pressed = if (visual.isDragged) 0.30f else 0f,
+        )
         drawPanelTexture(visual.rect, color(if (visual.isDragged) 0xFFE4C518 else 0xFFD8B50F))
     }
 
@@ -1272,19 +1267,43 @@ class MatchScreen(
     }
 
     private fun drawMatchTextures() {
+        glassRenderer.draw(batch, heroRect, min(heroRect.height * 0.46f, 38f), HERO_GLASS_STYLE, overlayAnimationSeconds)
         drawPanelTexture(heroRect, color(0xFFE3BE12))
         if (showPlaybackToggleButton()) {
+            glassRenderer.draw(
+                batch,
+                playbackButtonRect,
+                min(playbackButtonRect.height * 0.44f, 40f),
+                if (isPlaybackPaused()) PRIMARY_BUTTON_GLASS_STYLE else SECONDARY_BUTTON_GLASS_STYLE,
+                overlayAnimationSeconds,
+                pressed = if (isPlaybackPaused()) 0f else 0.18f,
+            )
             drawPanelTexture(
                 playbackButtonRect,
                 if (isPlaybackPaused()) color(0xFFF0CE18) else color(0xFFD6A21A),
             )
         }
         if (showActionButton()) {
+            glassRenderer.draw(
+                batch,
+                actionButtonRect,
+                min(actionButtonRect.height * 0.44f, 40f),
+                PRIMARY_BUTTON_GLASS_STYLE,
+                overlayAnimationSeconds,
+            )
             drawPanelTexture(actionButtonRect, color(0xFFF0CE18))
         }
         if (headerDrawButtonLabel() != null) {
+            glassRenderer.draw(
+                batch,
+                redrawButtonRect,
+                min(redrawButtonRect.height * 0.44f, 40f),
+                PRIMARY_BUTTON_GLASS_STYLE,
+                overlayAnimationSeconds,
+            )
             drawPanelTexture(redrawButtonRect, color(0xFFF2D017))
         }
+        glassRenderer.draw(batch, timelinePanelRect, 40f, TIMELINE_GLASS_STYLE, overlayAnimationSeconds)
         drawPanelTexture(timelinePanelRect, color(0xFFD8B80D))
         if (showActionWell()) {
             drawActionWellTexture()
@@ -1388,10 +1407,10 @@ class MatchScreen(
                 width = playbackButtonRect.width,
                 height = playbackButtonRect.height,
                 scale = 0.64f,
-                color = if (isPlaybackPaused()) color(0x261307FF) else color(0xFFF7E9DB),
+                color = color(0xFFF8EEE2),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = if (isPlaybackPaused()) color(0xFFF7E2A640) else color(0x5C1A113E),
+                shadowColor = color(0x45160FA2),
             )
         }
         if (showActionButton()) {
@@ -1402,10 +1421,10 @@ class MatchScreen(
                 width = actionButtonRect.width,
                 height = actionButtonRect.height,
                 scale = 0.62f,
-                color = color(0x1A1308FF),
+                color = color(0xFFF8EEE2),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0xFFF7E2A640),
+                shadowColor = color(0x45160FA2),
             )
         }
 
@@ -1417,10 +1436,10 @@ class MatchScreen(
                 width = redrawButtonRect.width,
                 height = redrawButtonRect.height,
                 scale = 0.60f,
-                color = color(0x1A1308FF),
+                color = color(0xFFF8EEE2),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0xFFF7E2A640),
+                shadowColor = color(0x45160FA2),
             )
         }
         drawTextBlock(
@@ -1483,12 +1502,27 @@ class MatchScreen(
     private fun drawFloatingControlsTextures() {
         if (showDoubtToggleButton()) {
             drawDoubtButtonGlow(isDoubtToggleActive())
+            glassRenderer.draw(
+                batch,
+                doubtButtonRect,
+                min(doubtButtonRect.height * 0.44f, 38f),
+                if (isDoubtToggleActive()) ACTIVE_DOUBT_GLASS_STYLE else IDLE_DOUBT_GLASS_STYLE,
+                overlayAnimationSeconds,
+                pressed = if (isDoubtToggleActive()) 0.28f else 0f,
+            )
             drawPanelTexture(
                 doubtButtonRect,
                 if (isDoubtToggleActive()) color(0xFFD2A61A) else color(0xFFECC47014),
             )
         }
         if (showCoinsShortcutButton()) {
+            glassRenderer.draw(
+                batch,
+                hostCoinsButtonRect,
+                min(hostCoinsButtonRect.height * 0.44f, 32f),
+                PRIMARY_BUTTON_GLASS_STYLE,
+                overlayAnimationSeconds,
+            )
             drawPanelTexture(hostCoinsButtonRect, color(0xFFE7B513))
         }
     }
@@ -1496,7 +1530,7 @@ class MatchScreen(
     private fun drawFloatingControlsText() {
         if (showDoubtToggleButton()) {
             val isActive = isDoubtToggleActive()
-            val labelColor = if (isActive) color(0x2A1109FF) else color(0x1A1308FF)
+            val resolvedLabelColor = if (isActive) color(0xFFF9F0E5) else color(0xFFF7ECDD)
             val countdown = if (presenter.state.turn?.phase == TurnPhase.AWAITING_DOUBT_WINDOW) {
                 doubtWindowCountdownSecondsRemaining()
             } else {
@@ -1508,7 +1542,7 @@ class MatchScreen(
                     countdown != null -> "DOUBT $countdown"
                     else -> "DOUBT"
                 },
-                color = labelColor,
+                color = resolvedLabelColor,
                 maxWidth = doubtButtonRect.width - 28f,
                 preferredScale = 0.92f,
                 minimumScale = 0.70f,
@@ -1520,10 +1554,10 @@ class MatchScreen(
                 width = doubtButtonRect.width - 16f,
                 height = doubtButtonRect.height * 0.84f,
                 scale = fittedLabel.scale,
-                color = labelColor,
+                color = resolvedLabelColor,
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = if (isActive) color(0x4C190F66) else color(0xFFF6E29A2C),
+                shadowColor = color(0x47160EA4),
                 enforceMinimumScale = false,
             )
         }
@@ -1535,10 +1569,10 @@ class MatchScreen(
                 width = hostCoinsButtonRect.width,
                 height = hostCoinsButtonRect.height,
                 scale = 0.64f,
-                color = color(0x1A1308FF),
+                color = color(0xFFF8EEE2),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0xFFF8E29F33),
+                shadowColor = color(0x45160FA2),
             )
         }
     }
@@ -1550,6 +1584,7 @@ class MatchScreen(
     }
 
     private fun drawDoubtPopupTextures() {
+        glassRenderer.draw(batch, doubtPopupRect, 40f, DOUBT_POPUP_GLASS_STYLE, overlayAnimationSeconds)
         drawPanelTexture(doubtPopupRect, color(0xC9EAFF12))
         drawRepeatedTexture(
             grainTexture,
@@ -1595,25 +1630,44 @@ class MatchScreen(
         fillPanel(coinPanelRect, 0x3E1F1DFF, 0x1E1116FF, 0xA55D35FF, 0x6D2E24FF, 0xFFD29F66)
         fillButton(coinPanelCloseRect, 0xE08E79FF, 0xB54C38FF, 0xFFDAB2A5)
         coinPanelRows().forEach { row ->
-            drawDropShadow(row.rowRect, 10f, 0x01050B38)
-            fillGradientRect(
-                row.rowRect.x,
-                row.rowRect.y,
-                row.rowRect.width,
-                row.rowRect.height,
-                0x3B211FFF,
-                0x28171AFF,
-                0x5B3128FF,
-                0x452521FF,
-            )
             fillButton(row.minusRect, 0xF0B25CFF, 0xC97C1DFF, 0xFFE6BF82)
             fillButton(row.plusRect, 0xE69C76FF, 0xB85636FF, 0xFFDAB9A6)
         }
     }
 
     private fun drawCoinPanelTextures() {
+        glassRenderer.draw(batch, coinPanelRect, 40f, COIN_PANEL_GLASS_STYLE, overlayAnimationSeconds)
+        glassRenderer.draw(
+            batch,
+            coinPanelCloseRect,
+            min(coinPanelCloseRect.height * 0.44f, 32f),
+            CLOSE_BUTTON_GLASS_STYLE,
+            overlayAnimationSeconds,
+            pressed = 0.1f,
+        )
         drawPanelTexture(coinPanelRect, color(0xFFD7B70E))
         coinPanelRows().forEach { row ->
+            glassRenderer.draw(
+                batch,
+                row.rowRect,
+                min(row.rowRect.height * 0.36f, 28f),
+                COIN_ROW_GLASS_STYLE,
+                overlayAnimationSeconds,
+            )
+            glassRenderer.draw(
+                batch,
+                row.minusRect,
+                min(row.minusRect.height * 0.44f, 26f),
+                PRIMARY_BUTTON_GLASS_STYLE,
+                overlayAnimationSeconds,
+            )
+            glassRenderer.draw(
+                batch,
+                row.plusRect,
+                min(row.plusRect.height * 0.44f, 26f),
+                SECONDARY_BUTTON_GLASS_STYLE,
+                overlayAnimationSeconds,
+            )
             drawPanelTexture(row.rowRect, color(0xFFD6B30A))
         }
     }
@@ -1768,116 +1822,15 @@ class MatchScreen(
     }
 
     private fun fillHero(rect: Rectangle) {
-        val radius = min(rect.height * 0.46f, 38f)
-        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 24f, 0x0C050768)
-        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, 0x26141A66)
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 6f,
-            rect.y + 6f,
-            rect.width - 12f,
-            rect.height - 12f,
-            max(12f, radius - 6f),
-            0xFFF7EDEB16,
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 16f,
-            rect.y + rect.height * 0.55f,
-            rect.width * 0.42f,
-            rect.height * 0.20f,
-            max(10f, radius - 14f),
-            0xFFFDF6EC1E,
-        )
     }
 
     private fun fillTrack(rect: Rectangle) {
-        val radius = 40f
-        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 24f, 0x0B06084E)
-        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, 0x2111172E)
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 8f,
-            rect.y + 8f,
-            rect.width - 16f,
-            rect.height - 16f,
-            radius - 8f,
-            0xFFF8EFEA10,
-        )
     }
 
     private fun fillButton(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
-        val radius = min(rect.height * 0.44f, 40f)
-        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 24f, 0x14080B96)
-        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, LiquidGlassChrome.withAlpha(bottomColor, 0x90))
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 5f,
-            rect.y + 5f,
-            rect.width - 10f,
-            rect.height - 10f,
-            max(12f, radius - 5f),
-            LiquidGlassChrome.withAlpha(topColor, 0x54),
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 12f,
-            rect.y + rect.height * 0.52f,
-            rect.width - 24f,
-            rect.height * 0.22f,
-            max(10f, radius - 12f),
-            0xFFF9F2E822,
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + rect.width * 0.05f,
-            rect.y + rect.height * 0.18f,
-            rect.width * 0.30f,
-            rect.height * 0.18f,
-            max(10f, radius - 16f),
-            LiquidGlassChrome.withAlpha(edgeColor, 0x10),
-        )
     }
 
     private fun fillDoubtToggleButton(isActive: Boolean) {
-        val shadowColor = if (isActive) 0xA24F28FF else 0xD58A22FF
-        val bottomLeft = if (isActive) 0xA4492BFF else 0xC97717FF
-        val bottomRight = if (isActive) 0xB45A31FF else 0xD4831FFF
-        val topRight = if (isActive) 0xF1A96BFF else 0xF7D16FFF
-        val topLeft = if (isActive) 0xE98D56FF else 0xF3BF56FF
-        val outerEdge = if (isActive) 0xFFF0D6FF else 0xFFF4D0FF
-        val innerEdge = if (isActive) 0xFFDDB694 else 0xFFF1BF96
-
-        val radius = min(doubtButtonRect.height * 0.44f, 38f)
-        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, doubtButtonRect, radius, 22f, shadowColor)
-        LiquidGlassChrome.fillRoundedRect(shapeRenderer, doubtButtonRect, radius, LiquidGlassChrome.withAlpha(bottomLeft, 0x92))
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            doubtButtonRect.x + 5f,
-            doubtButtonRect.y + 5f,
-            doubtButtonRect.width - 10f,
-            doubtButtonRect.height - 10f,
-            max(12f, radius - 5f),
-            LiquidGlassChrome.withAlpha(topRight, 0x56),
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            doubtButtonRect.x + 12f,
-            doubtButtonRect.y + doubtButtonRect.height * 0.52f,
-            doubtButtonRect.width - 24f,
-            doubtButtonRect.height * 0.22f,
-            max(10f, radius - 12f),
-            if (isActive) 0xFFF8EAF424 else 0xFFF8E8D622,
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            doubtButtonRect.x + doubtButtonRect.width * 0.06f,
-            doubtButtonRect.y + doubtButtonRect.height * 0.18f,
-            doubtButtonRect.width * 0.30f,
-            doubtButtonRect.height * 0.18f,
-            max(10f, radius - 16f),
-            LiquidGlassChrome.withAlpha(if (isActive) outerEdge else innerEdge, 0x12),
-        )
     }
 
     private fun drawDoubtButtonGlow(isActive: Boolean) {
@@ -1964,56 +1917,14 @@ class MatchScreen(
     }
 
     private fun fillPanel(rect: Rectangle, bodyTop: Long, bodyBottom: Long, headerTop: Long, headerBottom: Long, _edgeColor: Long) {
-        val radius = 40f
-        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 26f, 0x09050658)
-        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, withAlpha(bodyBottom, 0x30))
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 6f,
-            rect.y + 6f,
-            rect.width - 12f,
-            rect.height - 12f,
-            radius - 6f,
-            withAlpha(bodyTop, 0x18),
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 12f,
-            rect.y + rect.height - panelHeaderHeight - 8f,
-            rect.width - 24f,
-            panelHeaderHeight,
-            panelHeaderHeight * 0.48f,
-            withAlpha(headerTop, 0x34),
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 22f,
-            rect.y + rect.height - panelHeaderHeight * 0.58f,
-            rect.width * 0.34f,
-            panelHeaderHeight * 0.18f,
-            panelHeaderHeight * 0.14f,
-            0xFFF9F0E61A,
-        )
     }
 
     private fun fillActionWell() {
-        val rect = actionWellRect()
-        val radius = min(rect.height * 0.48f, 38f)
-        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 18f, 0x08040644)
-        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, 0x23131726)
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 6f,
-            rect.y + 6f,
-            rect.width - 12f,
-            rect.height - 12f,
-            max(10f, radius - 6f),
-            0xFFF8EEE80E,
-        )
     }
 
     private fun drawActionWellTexture() {
         val rect = actionWellRect()
+        glassRenderer.draw(batch, rect, min(rect.height * 0.48f, 38f), ACTION_WELL_GLASS_STYLE, overlayAnimationSeconds)
         drawPanelTexture(rect, color(0xFFDAB10A))
     }
 
@@ -3126,6 +3037,126 @@ class MatchScreen(
         const val CONFETTI_COUNT = 110
         const val CONFETTI_GRAVITY = -520f
         const val CONFETTI_FILTER_BLEND_START_PROGRESS = 0.72f
+        val HERO_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x6E3E3A96,
+            edgeTint = 0xFFF1DDC9FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF1B76BFF,
+            distortion = 0.010f,
+            frost = 0.15f,
+        )
+        val TIMELINE_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x5E37358A,
+            edgeTint = 0xFFF0DCC5FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFE7A15FFF,
+            distortion = 0.012f,
+            frost = 0.18f,
+        )
+        val LOBBY_PANEL_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x5C37348E,
+            edgeTint = 0xFFF5E3CDFF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF1AF72FF,
+            distortion = 0.012f,
+            frost = 0.18f,
+        )
+        val BADGE_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x6A433FA6,
+            edgeTint = 0xFFF7EBDDFF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF3B98CFF,
+            distortion = 0.013f,
+            frost = 0.20f,
+        )
+        val DRAGGED_BADGE_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x8B554FBA,
+            edgeTint = 0xFFFFF2E4FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFFFC39DFF,
+            distortion = 0.016f,
+            frost = 0.22f,
+        )
+        val PRIMARY_BUTTON_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x8E5647BC,
+            edgeTint = 0xFFFFE7B5FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFFFC767FF,
+            distortion = 0.014f,
+            frost = 0.19f,
+        )
+        val SECONDARY_BUTTON_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x78445AB8,
+            edgeTint = 0xFFF9DDD2FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF0A88DFF,
+            distortion = 0.014f,
+            frost = 0.19f,
+        )
+        val START_BUTTON_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x905749C0,
+            edgeTint = 0xFFFFE8B9FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFFFCD78FF,
+            distortion = 0.015f,
+            frost = 0.20f,
+        )
+        val IDLE_DOUBT_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x8F5744B8,
+            edgeTint = 0xFFFFE5B1FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFFFC979FF,
+            distortion = 0.014f,
+            frost = 0.19f,
+        )
+        val ACTIVE_DOUBT_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x92554BC2,
+            edgeTint = 0xFFFFF1D5FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFFFC7A0FF,
+            distortion = 0.016f,
+            frost = 0.22f,
+        )
+        val ACTION_WELL_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x52302E7C,
+            edgeTint = 0xFFEFD9C2FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFE9A66CFF,
+            distortion = 0.011f,
+            frost = 0.16f,
+        )
+        val COIN_PANEL_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x5D36368E,
+            edgeTint = 0xFFF6E4D0FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF0AE71FF,
+            distortion = 0.012f,
+            frost = 0.18f,
+        )
+        val COIN_ROW_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x56323384,
+            edgeTint = 0xFFF2DFC8FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFE6A069FF,
+            distortion = 0.012f,
+            frost = 0.18f,
+        )
+        val CLOSE_BUTTON_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0xC26A5A92,
+            edgeTint = 0xFFF8DED3FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF2A88EFF,
+            distortion = 0.014f,
+            frost = 0.19f,
+        )
+        val DOUBT_POPUP_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x4F6B8D7C,
+            edgeTint = 0xFFE5F2FFFF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFF97CFFFFF,
+            distortion = 0.016f,
+            frost = 0.24f,
+        )
         val CONFETTI_COLORS = longArrayOf(
             0xFF7280FF,
             0xFFD86161FF,

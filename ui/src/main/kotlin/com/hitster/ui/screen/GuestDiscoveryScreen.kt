@@ -20,7 +20,9 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.ui.controller.HostDiscoveryService
 import com.hitster.ui.render.AtmosphericBackdrop
-import com.hitster.ui.render.LiquidGlassChrome
+import com.hitster.ui.render.LiquidGlassStyle
+import com.hitster.ui.render.LiquidGlassSurfaceRenderer
+import com.hitster.ui.render.UiShadowRenderer
 import com.hitster.ui.render.VerticalCropAnchor
 import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.createUiFont
@@ -39,6 +41,7 @@ class GuestDiscoveryScreen(
     private val touchPoint = Vector3()
     private val backdrop = AtmosphericBackdrop()
     private val backgroundImage = WidthFittedBackgroundImage("welcome-background.png", VerticalCropAnchor.CENTER)
+    private val glassRenderer = LiquidGlassSurfaceRenderer()
     private lateinit var titleFont: BitmapFont
     private lateinit var itemFont: BitmapFont
     private val titleLayout = GlyphLayout()
@@ -55,6 +58,7 @@ class GuestDiscoveryScreen(
         itemFont = createUiFont(34)
         backdrop.load()
         backgroundImage.load()
+        glassRenderer.load()
         discoveryService.start { hosts ->
             discoveredHosts = hosts
         }
@@ -82,21 +86,20 @@ class GuestDiscoveryScreen(
         backgroundImage.draw(batch, viewport.worldWidth, viewport.worldHeight)
         batch.end()
 
-        LiquidGlassChrome.beginFilled(shapeRenderer)
-        fillPanel(titleRect, 0x522620FF, 0x29151AFF, 0xFFD5A55C)
+        batch.begin()
+        glassRenderer.draw(batch, titleRect, minOf(titleRect.height * 0.38f, 38f), TITLE_GLASS_STYLE, animationSeconds)
         if (showBackButton) {
-            fillPanel(backRect, 0xC26A5AFF, 0x853228FF, 0xF3C1AF)
+            glassRenderer.draw(batch, backRect, minOf(backRect.height * 0.38f, 38f), BUTTON_GLASS_STYLE, animationSeconds)
         }
         hostRects.forEachIndexed { index, (rect, _) ->
-            if (index % 2 == 0) {
-                fillPanel(rect, 0x46211EFF, 0x241419FF, 0xFFD2A163)
-            } else {
-                fillPanel(rect, 0x3A1C1EFF, 0x1F1319FF, 0xFFD2A163)
-            }
+            glassRenderer.draw(
+                batch,
+                rect,
+                minOf(rect.height * 0.38f, 38f),
+                if (index % 2 == 0) HOST_ROW_GLASS_STYLE else HOST_ROW_ALT_GLASS_STYLE,
+                animationSeconds + index * 0.13f,
+            )
         }
-        LiquidGlassChrome.endFilled(shapeRenderer)
-
-        batch.begin()
         titleLayout.setText(titleFont, "Available Hosts")
         titleFont.color = color(0xFFF7F0E5)
         titleFont.draw(batch, titleLayout, (viewport.worldWidth - titleLayout.width) / 2f, titleRect.y + (titleRect.height + titleLayout.height) / 2f)
@@ -133,6 +136,7 @@ class GuestDiscoveryScreen(
         batch.dispose()
         backdrop.dispose()
         backgroundImage.dispose()
+        glassRenderer.dispose()
         if (this::titleFont.isInitialized) {
             titleFont.dispose()
         }
@@ -171,36 +175,6 @@ class GuestDiscoveryScreen(
     }
 
     private fun fillPanel(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
-        val radius = minOf(rect.height * 0.38f, 38f)
-        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 26f, 0x09050664)
-        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, LiquidGlassChrome.withAlpha(bottomColor, 0x72))
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 5f,
-            rect.y + 5f,
-            rect.width - 10f,
-            rect.height - 10f,
-            maxOf(10f, radius - 5f),
-            LiquidGlassChrome.withAlpha(topColor, 0x32),
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 12f,
-            rect.y + rect.height * 0.56f,
-            rect.width - 24f,
-            rect.height * 0.22f,
-            maxOf(10f, radius - 10f),
-            0xFFF8F0E620,
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + rect.width * 0.04f,
-            rect.y + rect.height * 0.16f,
-            rect.width * 0.28f,
-            rect.height * 0.20f,
-            maxOf(10f, radius - 14f),
-            LiquidGlassChrome.withAlpha(edgeColor, 0x10),
-        )
     }
 
     private fun fillGradientRect(x: Float, y: Float, width: Float, height: Float, bottomLeft: Long, bottomRight: Long, topRight: Long, topLeft: Long) {
@@ -281,5 +255,40 @@ class GuestDiscoveryScreen(
 
             return false
         }
+    }
+
+    private companion object {
+        val TITLE_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x6C40378E,
+            edgeTint = 0xFFF8E9D3FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF2C887FF,
+            distortion = 0.010f,
+            frost = 0.16f,
+        )
+        val BUTTON_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x774560BC,
+            edgeTint = 0xFFF3D4CBFF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF2A493FF,
+            distortion = 0.014f,
+            frost = 0.20f,
+        )
+        val HOST_ROW_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x7A4943B2,
+            edgeTint = 0xFFF6E1C6FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF0B36FFF,
+            distortion = 0.012f,
+            frost = 0.18f,
+        )
+        val HOST_ROW_ALT_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x6E423EA8,
+            edgeTint = 0xFFF2D8BEFF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFEAA86CFF,
+            distortion = 0.012f,
+            frost = 0.18f,
+        )
     }
 }

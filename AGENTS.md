@@ -328,6 +328,7 @@ Must have:
 - large touch-friendly targets
 - landscape-first ergonomics
 - prevention of screen sleep while a match is active where supported
+- liquid-glass-style UI chrome that favors soft rounded translucent surfaces over rigid framed boxes, using real shader-backed treatment where practical rather than only flat shape fills
 - soft rounded liquid-glass style chrome for panels and controls instead of rigid framed boxes and sharp rectangular UI shells
 
 Should have:

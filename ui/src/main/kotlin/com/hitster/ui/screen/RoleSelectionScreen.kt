@@ -18,7 +18,9 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.ui.render.AtmosphericBackdrop
-import com.hitster.ui.render.LiquidGlassChrome
+import com.hitster.ui.render.LiquidGlassStyle
+import com.hitster.ui.render.LiquidGlassSurfaceRenderer
+import com.hitster.ui.render.UiShadowRenderer
 import com.hitster.ui.render.VerticalCropAnchor
 import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.createUiFont
@@ -34,6 +36,7 @@ class RoleSelectionScreen(
     private val touchPoint = Vector3()
     private val backdrop = AtmosphericBackdrop()
     private val backgroundImage = WidthFittedBackgroundImage("welcome-background.png", VerticalCropAnchor.CENTER)
+    private val glassRenderer = LiquidGlassSurfaceRenderer()
     private lateinit var titleFont: BitmapFont
     private lateinit var buttonFont: BitmapFont
     private val titleLayout = GlyphLayout()
@@ -44,9 +47,10 @@ class RoleSelectionScreen(
 
     override fun show() {
         titleFont = createUiFont(82)
-        buttonFont = createUiFont(54)
+        buttonFont = createUiFont(42)
         backdrop.load()
         backgroundImage.load()
+        glassRenderer.load()
         Gdx.input.inputProcessor = RoleSelectionInput()
         updateLayout()
     }
@@ -65,13 +69,10 @@ class RoleSelectionScreen(
         backgroundImage.draw(batch, viewport.worldWidth, viewport.worldHeight)
         batch.end()
 
-        LiquidGlassChrome.beginFilled(shapeRenderer)
-        fillPanel(titleRect, 0x522620FF, 0x29151AFF, 0xFFD5A55C)
-        drawButton(hostButtonRect, 0xF5C067FF, 0xD07B28FF, 0xFFF2C78E)
-        drawButton(guestButtonRect, 0xC26A5AFF, 0x853228FF, 0xF3C1AF)
-        LiquidGlassChrome.endFilled(shapeRenderer)
-
         batch.begin()
+        glassRenderer.draw(batch, titleRect, 34f, TITLE_GLASS_STYLE, animationSeconds)
+        glassRenderer.draw(batch, hostButtonRect, pillRadius(hostButtonRect), HOST_BUTTON_GLASS_STYLE, animationSeconds)
+        glassRenderer.draw(batch, guestButtonRect, pillRadius(guestButtonRect), GUEST_BUTTON_GLASS_STYLE, animationSeconds)
         titleLayout.setText(titleFont, "Choose Your Role")
         titleFont.color = color(0xFFF7F0E5)
         titleFont.draw(
@@ -80,8 +81,8 @@ class RoleSelectionScreen(
             (viewport.worldWidth - titleLayout.width) / 2f,
             titleRect.y + (titleRect.height + titleLayout.height) / 2f,
         )
-        drawCenteredText(buttonFont, "HOST", hostButtonRect, Color(0.12f, 0.08f, 0.03f, 1f))
-        drawCenteredText(buttonFont, "GUEST", guestButtonRect, color(0xFFF5E7D9))
+        drawCenteredText(buttonFont, "HOST", hostButtonRect, color(0xFFF8F0E7))
+        drawCenteredText(buttonFont, "GUEST", guestButtonRect, color(0xFFF8F0E7))
         batch.end()
     }
 
@@ -95,6 +96,7 @@ class RoleSelectionScreen(
         batch.dispose()
         backdrop.dispose()
         backgroundImage.dispose()
+        glassRenderer.dispose()
         if (this::titleFont.isInitialized) {
             titleFont.dispose()
         }
@@ -106,87 +108,31 @@ class RoleSelectionScreen(
     private fun updateLayout() {
         val worldWidth = viewport.worldWidth
         val worldHeight = viewport.worldHeight
-        titleRect.set(44f, worldHeight - 132f, worldWidth - 88f, 90f)
-        val buttonWidth = worldWidth * 0.34f
+        titleRect.set(44f, worldHeight - 144f, worldWidth - 88f, 102f)
+        val buttonWidth = (worldWidth * 0.21f).coerceIn(312f, 352f)
         val buttonHeight = 118f
+        val buttonGap = 44f
+        val buttonY = 96f
         hostButtonRect.set(
-            (worldWidth - buttonWidth) / 2f,
-            worldHeight * 0.46f,
+            worldWidth * 0.5f - buttonGap * 0.5f - buttonWidth,
+            buttonY,
             buttonWidth,
             buttonHeight,
         )
         guestButtonRect.set(
-            (worldWidth - buttonWidth) / 2f,
-            worldHeight * 0.26f,
+            worldWidth * 0.5f + buttonGap * 0.5f,
+            buttonY,
             buttonWidth,
             buttonHeight,
         )
     }
 
+    private fun pillRadius(rect: Rectangle): Float = minOf(rect.width, rect.height) * 0.5f
+
     private fun drawButton(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
-        val radius = minOf(rect.height * 0.44f, 42f)
-        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 26f, 0x14090B90)
-        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, LiquidGlassChrome.withAlpha(bottomColor, 0x92))
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 5f,
-            rect.y + 5f,
-            rect.width - 10f,
-            rect.height - 10f,
-            maxOf(12f, radius - 5f),
-            LiquidGlassChrome.withAlpha(topColor, 0x56),
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 14f,
-            rect.y + rect.height * 0.48f,
-            rect.width - 28f,
-            rect.height * 0.32f,
-            maxOf(10f, radius - 10f),
-            0xFFF9F2E42A,
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + rect.width * 0.05f,
-            rect.y + rect.height * 0.18f,
-            rect.width * 0.34f,
-            rect.height * 0.24f,
-            maxOf(10f, radius - 12f),
-            LiquidGlassChrome.withAlpha(edgeColor, 0x16),
-        )
     }
 
     private fun fillPanel(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
-        val radius = 34f
-        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 28f, 0x09050664)
-        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, LiquidGlassChrome.withAlpha(bottomColor, 0x6E))
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 5f,
-            rect.y + 5f,
-            rect.width - 10f,
-            rect.height - 10f,
-            radius - 4f,
-            LiquidGlassChrome.withAlpha(topColor, 0x34),
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 12f,
-            rect.y + rect.height * 0.54f,
-            rect.width - 24f,
-            rect.height * 0.24f,
-            radius - 10f,
-            0xFFF8F0E622,
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + rect.width * 0.04f,
-            rect.y + rect.height * 0.18f,
-            rect.width * 0.26f,
-            rect.height * 0.20f,
-            radius - 14f,
-            LiquidGlassChrome.withAlpha(edgeColor, 0x12),
-        )
     }
 
     private fun drawCenteredText(font: BitmapFont, text: String, rect: Rectangle, color: Color) {
@@ -280,5 +226,32 @@ class RoleSelectionScreen(
                 else -> false
             }
         }
+    }
+
+    private companion object {
+        val TITLE_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x7A4B43A8,
+            edgeTint = 0xFFF8E9D3FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF2C887FF,
+            distortion = 0.010f,
+            frost = 0.16f,
+        )
+        val HOST_BUTTON_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x6F3244DA,
+            edgeTint = 0xFFF6D7B3FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFE8A05CFF,
+            distortion = 0.010f,
+            frost = 0.14f,
+        )
+        val GUEST_BUTTON_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x533562DA,
+            edgeTint = 0xFFF4D5C8FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFDA8AA0FF,
+            distortion = 0.010f,
+            frost = 0.14f,
+        )
     }
 }

@@ -18,7 +18,9 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.ui.controller.HostedMatchController
 import com.hitster.ui.render.AtmosphericBackdrop
-import com.hitster.ui.render.LiquidGlassChrome
+import com.hitster.ui.render.LiquidGlassStyle
+import com.hitster.ui.render.LiquidGlassSurfaceRenderer
+import com.hitster.ui.render.UiShadowRenderer
 import com.hitster.ui.render.VerticalCropAnchor
 import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.createUiFont
@@ -33,6 +35,7 @@ class HostPreparingScreen(
     private val batch = SpriteBatch()
     private val backdrop = AtmosphericBackdrop()
     private val backgroundImage = WidthFittedBackgroundImage("welcome-background.png", VerticalCropAnchor.CENTER)
+    private val glassRenderer = LiquidGlassSurfaceRenderer()
     private lateinit var titleFont: BitmapFont
     private lateinit var bodyFont: BitmapFont
     private val titleLayout = GlyphLayout()
@@ -49,6 +52,7 @@ class HostPreparingScreen(
         bodyFont = createUiFont(36)
         backdrop.load()
         backgroundImage.load()
+        glassRenderer.load()
         Thread({
             runCatching { createController() }
                 .onSuccess { createdController ->
@@ -84,11 +88,8 @@ class HostPreparingScreen(
         backgroundImage.draw(batch, viewport.worldWidth, viewport.worldHeight)
         batch.end()
 
-        LiquidGlassChrome.beginFilled(shapeRenderer)
-        fillPanel(titleRect)
-        LiquidGlassChrome.endFilled(shapeRenderer)
-
         batch.begin()
+        glassRenderer.draw(batch, titleRect, 34f, TITLE_GLASS_STYLE, animationSeconds)
         titleLayout.setText(titleFont, "Preparing Host")
         titleFont.color = color(0xFFF7F0E5)
         titleFont.draw(
@@ -111,6 +112,7 @@ class HostPreparingScreen(
         batch.dispose()
         backdrop.dispose()
         backgroundImage.dispose()
+        glassRenderer.dispose()
         if (this::titleFont.isInitialized) {
             titleFont.dispose()
         }
@@ -130,27 +132,6 @@ class HostPreparingScreen(
     }
 
     private fun fillPanel(rect: Rectangle) {
-        val radius = 34f
-        LiquidGlassChrome.drawRoundedShadow(shapeRenderer, rect, radius, 28f, 0x09050664)
-        LiquidGlassChrome.fillRoundedRect(shapeRenderer, rect, radius, 0x29151A72)
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 5f,
-            rect.y + 5f,
-            rect.width - 10f,
-            rect.height - 10f,
-            radius - 4f,
-            0x52262034,
-        )
-        LiquidGlassChrome.fillRoundedRect(
-            shapeRenderer,
-            rect.x + 12f,
-            rect.y + rect.height * 0.54f,
-            rect.width - 24f,
-            rect.height * 0.24f,
-            radius - 10f,
-            0xFFF8F0E622,
-        )
     }
 
     private fun fillGradientRect(x: Float, y: Float, width: Float, height: Float, bottomLeft: Long, bottomRight: Long, topRight: Long, topLeft: Long) {
@@ -204,6 +185,17 @@ class HostPreparingScreen(
             (((rgba shr 16) and 0xFF) / 255f).toFloat(),
             (((rgba shr 8) and 0xFF) / 255f).toFloat(),
             ((rgba and 0xFF) / 255f).toFloat(),
+        )
+    }
+
+    private companion object {
+        val TITLE_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0x6C40378E,
+            edgeTint = 0xFFF8E9D3FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF2C887FF,
+            distortion = 0.010f,
+            frost = 0.16f,
         )
     }
 }
