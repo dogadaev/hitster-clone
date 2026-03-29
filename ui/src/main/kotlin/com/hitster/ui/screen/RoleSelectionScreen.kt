@@ -68,6 +68,7 @@ class RoleSelectionScreen(
         batch.begin()
         backgroundImage.draw(batch, viewport.worldWidth, viewport.worldHeight)
         batch.end()
+        glassRenderer.captureBackbuffer()
 
         batch.begin()
         glassRenderer.draw(batch, titleRect, 34f, TITLE_GLASS_STYLE, animationSeconds)
@@ -230,28 +231,28 @@ class RoleSelectionScreen(
 
     private companion object {
         val TITLE_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x7A4B43A8,
+            bodyTint = 0xECD7CB76,
             edgeTint = 0xFFF8E9D3FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF2C887FF,
-            distortion = 0.010f,
-            frost = 0.16f,
+            glowTint = 0xFFF5CF95FF,
+            distortion = 0.015f,
+            frost = 0.14f,
         )
         val HOST_BUTTON_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x905749C0,
+            bodyTint = 0xF8DFC18E,
             edgeTint = 0xFFFFE8B9FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFFFCD78FF,
-            distortion = 0.015f,
-            frost = 0.20f,
+            glowTint = 0xFFFFDA86FF,
+            distortion = 0.018f,
+            frost = 0.16f,
         )
         val GUEST_BUTTON_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x78445AB8,
+            bodyTint = 0xF4D0C58A,
             edgeTint = 0xFFF9DDD2FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF0A88DFF,
-            distortion = 0.014f,
-            frost = 0.19f,
+            glowTint = 0xFFF6B7A2FF,
+            distortion = 0.018f,
+            frost = 0.17f,
         )
     }
 }

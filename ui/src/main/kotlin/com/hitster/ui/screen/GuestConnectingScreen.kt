@@ -103,6 +103,7 @@ class GuestConnectingScreen(
         batch.begin()
         backgroundImage.draw(batch, viewport.worldWidth, viewport.worldHeight)
         batch.end()
+        glassRenderer.captureBackbuffer()
 
         batch.begin()
         glassRenderer.draw(batch, titleRect, minOf(titleRect.height * 0.42f, 38f), TITLE_GLASS_STYLE, animationSeconds)
@@ -293,20 +294,20 @@ class GuestConnectingScreen(
 
     private companion object {
         val TITLE_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x6C40378E,
+            bodyTint = 0xECD7CB76,
             edgeTint = 0xFFF8E9D3FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF2C887FF,
-            distortion = 0.010f,
-            frost = 0.16f,
+            glowTint = 0xFFF5CF95FF,
+            distortion = 0.015f,
+            frost = 0.14f,
         )
         val BUTTON_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x774560BC,
+            bodyTint = 0xF4D0C58A,
             edgeTint = 0xFFF3D4CBFF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF2A493FF,
-            distortion = 0.014f,
-            frost = 0.20f,
+            glowTint = 0xFFF6B7A2FF,
+            distortion = 0.018f,
+            frost = 0.17f,
         )
     }
 }

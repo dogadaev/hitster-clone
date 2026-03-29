@@ -184,6 +184,11 @@ class MatchScreen(
 
         batch.begin()
         drawAtmosphereTextures()
+        batch.end()
+
+        glassRenderer.captureBackbuffer()
+
+        batch.begin()
         when (presenter.state.status) {
             MatchStatus.LOBBY -> {
                 drawLobbyTextures()
@@ -3247,124 +3252,124 @@ class MatchScreen(
         const val CONFETTI_FILTER_BLEND_START_PROGRESS = 0.72f
         const val LOBBY_DRAG_START_DISTANCE = 20f
         val HERO_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x6E3E3A96,
+            bodyTint = 0xE8D6CB72,
             edgeTint = 0xFFF1DDC9FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF1B76BFF,
-            distortion = 0.010f,
-            frost = 0.15f,
+            glowTint = 0xFFF5C98BFF,
+            distortion = 0.016f,
+            frost = 0.14f,
         )
         val TIMELINE_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x6E3E3A96,
+            bodyTint = 0xE6D3C96E,
             edgeTint = 0xFFF1DDC9FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF1B76BFF,
-            distortion = 0.010f,
-            frost = 0.15f,
+            glowTint = 0xFFF5C98BFF,
+            distortion = 0.017f,
+            frost = 0.13f,
         )
         val LOBBY_PANEL_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x5C37348E,
+            bodyTint = 0xE7D2C779,
             edgeTint = 0xFFF5E3CDFF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF1AF72FF,
-            distortion = 0.012f,
-            frost = 0.18f,
-        )
-        val BADGE_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x6A433FA6,
-            edgeTint = 0xFFF7EBDDFF,
-            highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF3B98CFF,
-            distortion = 0.013f,
-            frost = 0.20f,
-        )
-        val DRAGGED_BADGE_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x8B554FBA,
-            edgeTint = 0xFFFFF2E4FF,
-            highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFFFC39DFF,
+            glowTint = 0xFFF6C78DFF,
             distortion = 0.016f,
-            frost = 0.22f,
-        )
-        val PRIMARY_BUTTON_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x8E5647BC,
-            edgeTint = 0xFFFFE7B5FF,
-            highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFFFC767FF,
-            distortion = 0.014f,
-            frost = 0.19f,
-        )
-        val SECONDARY_BUTTON_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x78445AB8,
-            edgeTint = 0xFFF9DDD2FF,
-            highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF0A88DFF,
-            distortion = 0.014f,
-            frost = 0.19f,
-        )
-        val START_BUTTON_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x905749C0,
-            edgeTint = 0xFFFFE8B9FF,
-            highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFFFCD78FF,
-            distortion = 0.015f,
-            frost = 0.20f,
-        )
-        val IDLE_DOUBT_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x8F5744B8,
-            edgeTint = 0xFFFFE5B1FF,
-            highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFFFC979FF,
-            distortion = 0.014f,
-            frost = 0.19f,
-        )
-        val ACTIVE_DOUBT_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x92554BC2,
-            edgeTint = 0xFFFFF1D5FF,
-            highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFFFC7A0FF,
-            distortion = 0.016f,
-            frost = 0.22f,
-        )
-        val ACTION_WELL_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x52302E7C,
-            edgeTint = 0xFFEFD9C2FF,
-            highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFE9A66CFF,
-            distortion = 0.011f,
             frost = 0.16f,
         )
+        val BADGE_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0xEBCFC185,
+            edgeTint = 0xFFF7EBDDFF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF7C79BFF,
+            distortion = 0.016f,
+            frost = 0.18f,
+        )
+        val DRAGGED_BADGE_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0xF5DBC8A4,
+            edgeTint = 0xFFFFF2E4FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFFFD3AEFF,
+            distortion = 0.020f,
+            frost = 0.20f,
+        )
+        val PRIMARY_BUTTON_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0xF8DFC18E,
+            edgeTint = 0xFFFFE7B5FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFFFD77EFF,
+            distortion = 0.018f,
+            frost = 0.16f,
+        )
+        val SECONDARY_BUTTON_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0xF4D0C58A,
+            edgeTint = 0xFFF9DDD2FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF6B7A2FF,
+            distortion = 0.018f,
+            frost = 0.17f,
+        )
+        val START_BUTTON_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0xF9E0BE92,
+            edgeTint = 0xFFFFE8B9FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFFFDA86FF,
+            distortion = 0.019f,
+            frost = 0.16f,
+        )
+        val IDLE_DOUBT_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0xF6D3B28A,
+            edgeTint = 0xFFFFE5B1FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFFFD07FFF,
+            distortion = 0.018f,
+            frost = 0.17f,
+        )
+        val ACTIVE_DOUBT_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0xF8D5BE94,
+            edgeTint = 0xFFFFF1D5FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFFFD9B6FF,
+            distortion = 0.020f,
+            frost = 0.18f,
+        )
+        val ACTION_WELL_GLASS_STYLE = LiquidGlassStyle(
+            bodyTint = 0xDECABF70,
+            edgeTint = 0xFFEFD9C2FF,
+            highlightTint = 0xFFFFFFFF,
+            glowTint = 0xFFF0BF89FF,
+            distortion = 0.015f,
+            frost = 0.15f,
+        )
         val COIN_PANEL_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x5D36368E,
+            bodyTint = 0xE3D1C67A,
             edgeTint = 0xFFF6E4D0FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF0AE71FF,
-            distortion = 0.012f,
-            frost = 0.18f,
+            glowTint = 0xFFF6C68FFF,
+            distortion = 0.016f,
+            frost = 0.16f,
         )
         val COIN_ROW_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x56323384,
+            bodyTint = 0xDDCBC072,
             edgeTint = 0xFFF2DFC8FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFE6A069FF,
-            distortion = 0.012f,
-            frost = 0.18f,
+            glowTint = 0xFFEFC18AFF,
+            distortion = 0.015f,
+            frost = 0.16f,
         )
         val CLOSE_BUTTON_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0xC26A5A92,
+            bodyTint = 0xF5D0C489,
             edgeTint = 0xFFF8DED3FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF2A88EFF,
-            distortion = 0.014f,
-            frost = 0.19f,
+            glowTint = 0xFFF6C2B0FF,
+            distortion = 0.017f,
+            frost = 0.17f,
         )
         val DOUBT_POPUP_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x4F6B8D7C,
+            bodyTint = 0xD6E0F27A,
             edgeTint = 0xFFE5F2FFFF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFF97CFFFFF,
-            distortion = 0.016f,
-            frost = 0.24f,
+            glowTint = 0xFFB0DAFFFF,
+            distortion = 0.020f,
+            frost = 0.20f,
         )
         val CONFETTI_COLORS = longArrayOf(
             0xFF7280FF,

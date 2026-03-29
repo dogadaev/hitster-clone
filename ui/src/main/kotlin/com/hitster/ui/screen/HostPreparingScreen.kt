@@ -87,6 +87,7 @@ class HostPreparingScreen(
         batch.begin()
         backgroundImage.draw(batch, viewport.worldWidth, viewport.worldHeight)
         batch.end()
+        glassRenderer.captureBackbuffer()
 
         batch.begin()
         glassRenderer.draw(batch, titleRect, 34f, TITLE_GLASS_STYLE, animationSeconds)
@@ -190,12 +191,12 @@ class HostPreparingScreen(
 
     private companion object {
         val TITLE_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0x6C40378E,
+            bodyTint = 0xECD7CB76,
             edgeTint = 0xFFF8E9D3FF,
             highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF2C887FF,
-            distortion = 0.010f,
-            frost = 0.16f,
+            glowTint = 0xFFF5CF95FF,
+            distortion = 0.015f,
+            frost = 0.14f,
         )
     }
 }
