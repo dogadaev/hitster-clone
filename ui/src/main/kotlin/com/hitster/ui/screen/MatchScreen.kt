@@ -968,15 +968,26 @@ class MatchScreen(
         badges.forEach(::drawLobbyBadgeText)
         lobbyDraggedBadgeVisual()?.let(::drawLobbyBadgeText)
         if (showLobbyJoinPanel()) {
-            val joinTitleScale = fittedSingleLineTextScale("SCAN TO JOIN", preferredScale = 0.50f, availableWidth = lobbyJoinPanelRect.width - 64f, minimumScale = 0.40f)
+            val joinTitleInsetX = 36f
+            val joinTitleHeight = 34f
+            val joinTitleY = min(
+                lobbyQrRect.y + lobbyQrRect.height + 22f,
+                lobbyJoinPanelRect.y + lobbyJoinPanelRect.height - joinTitleHeight - 24f,
+            )
+            val joinTitleScale = fittedSingleLineTextScale(
+                "SCAN TO JOIN",
+                preferredScale = 0.42f,
+                availableWidth = lobbyJoinPanelRect.width - joinTitleInsetX * 2f,
+                minimumScale = 0.34f,
+            )
             val joinUrl = displayLobbyJoinUrl()
             val joinUrlScale = fittedSingleLineTextScale(joinUrl, preferredScale = 0.50f, availableWidth = lobbyJoinUrlRect.width)
             drawTextBlock(
                 text = "SCAN TO JOIN",
-                x = lobbyJoinPanelRect.x,
-                y = lobbyJoinPanelRect.y + lobbyJoinPanelRect.height - panelHeaderHeight,
-                width = lobbyJoinPanelRect.width,
-                height = panelHeaderHeight,
+                x = lobbyJoinPanelRect.x + joinTitleInsetX,
+                y = joinTitleY,
+                width = lobbyJoinPanelRect.width - joinTitleInsetX * 2f,
+                height = joinTitleHeight,
                 scale = joinTitleScale,
                 color = color(0xFFDFA15B),
                 align = Align.center,
