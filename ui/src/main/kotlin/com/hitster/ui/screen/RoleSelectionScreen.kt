@@ -18,6 +18,8 @@ import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.ui.render.AtmosphericBackdrop
+import com.hitster.ui.render.VerticalCropAnchor
+import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.createUiFont
 
 class RoleSelectionScreen(
@@ -30,6 +32,7 @@ class RoleSelectionScreen(
     private val batch = SpriteBatch()
     private val touchPoint = Vector3()
     private val backdrop = AtmosphericBackdrop()
+    private val backgroundImage = WidthFittedBackgroundImage("welcome-background.png", VerticalCropAnchor.CENTER)
     private lateinit var titleFont: BitmapFont
     private lateinit var buttonFont: BitmapFont
     private val titleLayout = GlyphLayout()
@@ -42,6 +45,7 @@ class RoleSelectionScreen(
         titleFont = createUiFont(82)
         buttonFont = createUiFont(54)
         backdrop.load()
+        backgroundImage.load()
         Gdx.input.inputProcessor = RoleSelectionInput()
         updateLayout()
     }
@@ -56,15 +60,19 @@ class RoleSelectionScreen(
         shapeRenderer.projectionMatrix = camera.combined
         batch.projectionMatrix = camera.combined
 
+        batch.begin()
+        backgroundImage.draw(batch, viewport.worldWidth, viewport.worldHeight)
+        batch.end()
+
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        backdrop.drawShapes(shapeRenderer, viewport.worldWidth, viewport.worldHeight, 34f)
+        fillGradientRect(0f, 0f, viewport.worldWidth, viewport.worldHeight, 0x07090DB0, 0x07090DB0, 0x09111C72, 0x09111C72)
+        fillGradientRect(0f, viewport.worldHeight * 0.52f, viewport.worldWidth, viewport.worldHeight * 0.48f, 0x00000000, 0x00000000, 0x121A28A0, 0x121A28A0)
         fillPanel(titleRect, 0x223868FF, 0x15284BFF, 0x9EC3FF2A)
         drawButton(hostButtonRect, 0xF6BF55FF, 0xD98B1FFF, 0xFFF3C68C)
         drawButton(guestButtonRect, 0x8FC9FFFF, 0x347EB5FF, 0xE4F6FFFF)
         shapeRenderer.end()
 
         batch.begin()
-        backdrop.drawTextures(batch, viewport.worldWidth, viewport.worldHeight, animationSeconds, 1.08f)
         backdrop.drawPanelTexture(batch, titleRect, Color(0.78f, 0.86f, 1f, 0.08f), animationSeconds)
         backdrop.drawPanelTexture(batch, hostButtonRect, Color(1f, 0.94f, 0.78f, 0.12f), animationSeconds)
         backdrop.drawPanelTexture(batch, guestButtonRect, Color(0.85f, 0.94f, 1f, 0.10f), animationSeconds)
@@ -89,6 +97,7 @@ class RoleSelectionScreen(
         shapeRenderer.dispose()
         batch.dispose()
         backdrop.dispose()
+        backgroundImage.dispose()
         if (this::titleFont.isInitialized) {
             titleFont.dispose()
         }

@@ -20,6 +20,8 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.ui.controller.HostDiscoveryService
 import com.hitster.ui.render.AtmosphericBackdrop
+import com.hitster.ui.render.VerticalCropAnchor
+import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.createUiFont
 
 class GuestDiscoveryScreen(
@@ -35,6 +37,7 @@ class GuestDiscoveryScreen(
     private val batch = SpriteBatch()
     private val touchPoint = Vector3()
     private val backdrop = AtmosphericBackdrop()
+    private val backgroundImage = WidthFittedBackgroundImage("welcome-background.png", VerticalCropAnchor.CENTER)
     private lateinit var titleFont: BitmapFont
     private lateinit var itemFont: BitmapFont
     private val titleLayout = GlyphLayout()
@@ -50,6 +53,7 @@ class GuestDiscoveryScreen(
         titleFont = createUiFont(70)
         itemFont = createUiFont(34)
         backdrop.load()
+        backgroundImage.load()
         discoveryService.start { hosts ->
             discoveredHosts = hosts
         }
@@ -73,8 +77,13 @@ class GuestDiscoveryScreen(
         shapeRenderer.projectionMatrix = camera.combined
         batch.projectionMatrix = camera.combined
 
+        batch.begin()
+        backgroundImage.draw(batch, viewport.worldWidth, viewport.worldHeight)
+        batch.end()
+
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        backdrop.drawShapes(shapeRenderer, viewport.worldWidth, viewport.worldHeight, 34f)
+        fillGradientRect(0f, 0f, viewport.worldWidth, viewport.worldHeight, 0x07090DAA, 0x07090DAA, 0x09111C68, 0x09111C68)
+        fillGradientRect(0f, viewport.worldHeight * 0.52f, viewport.worldWidth, viewport.worldHeight * 0.48f, 0x00000000, 0x00000000, 0x121A2898, 0x121A2898)
         fillPanel(titleRect, 0x223868FF, 0x15284BFF, 0x9EC3FF2A)
         if (showBackButton) {
             fillPanel(backRect, 0x294A86FF, 0x18345DFF, 0xC7D8FF4A)
@@ -89,7 +98,6 @@ class GuestDiscoveryScreen(
         shapeRenderer.end()
 
         batch.begin()
-        backdrop.drawTextures(batch, viewport.worldWidth, viewport.worldHeight, animationSeconds, 1.02f)
         backdrop.drawPanelTexture(batch, titleRect, Color(0.78f, 0.86f, 1f, 0.08f), animationSeconds)
         if (showBackButton) {
             backdrop.drawPanelTexture(batch, backRect, Color(0.84f, 0.92f, 1f, 0.08f), animationSeconds)
@@ -131,6 +139,7 @@ class GuestDiscoveryScreen(
         shapeRenderer.dispose()
         batch.dispose()
         backdrop.dispose()
+        backgroundImage.dispose()
         if (this::titleFont.isInitialized) {
             titleFont.dispose()
         }

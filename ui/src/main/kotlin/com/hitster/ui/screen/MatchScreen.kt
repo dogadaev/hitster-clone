@@ -34,6 +34,8 @@ import com.hitster.playback.api.PlaybackSessionState
 import com.hitster.ui.controller.MatchController
 import com.hitster.ui.controller.UiBootstrapper
 import com.hitster.ui.layout.TimelineLayoutCalculator
+import com.hitster.ui.render.VerticalCropAnchor
+import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.DecadeCardPalettes
 import com.hitster.ui.theme.createUiFont
 import java.util.Random
@@ -59,6 +61,7 @@ class MatchScreen(
     private lateinit var grainTexture: Texture
     private lateinit var glowTexture: Texture
     private lateinit var vignetteTexture: Texture
+    private val lobbyBackgroundImage = WidthFittedBackgroundImage("lobby-background.png", VerticalCropAnchor.TOP)
     private val textLayout = GlyphLayout()
     private val worldTouch = Vector2()
 
@@ -134,6 +137,7 @@ class MatchScreen(
         grainTexture = createGrainTexture()
         glowTexture = createGlowTexture()
         vignetteTexture = createVignetteTexture()
+        lobbyBackgroundImage.load()
         Gdx.input.inputProcessor = MatchInputController()
         updateLayout()
     }
@@ -150,6 +154,12 @@ class MatchScreen(
 
         shapeRenderer.projectionMatrix = camera.combined
         batch.projectionMatrix = camera.combined
+
+        if (presenter.state.status == MatchStatus.LOBBY) {
+            batch.begin()
+            lobbyBackgroundImage.draw(batch, layoutWorldWidth, layoutWorldHeight)
+            batch.end()
+        }
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
         drawBackground()
@@ -246,6 +256,7 @@ class MatchScreen(
         if (this::vignetteTexture.isInitialized) {
             vignetteTexture.dispose()
         }
+        lobbyBackgroundImage.dispose()
     }
 
     private fun updateLayout() {
@@ -815,6 +826,12 @@ class MatchScreen(
     }
 
     private fun drawBackground() {
+        if (presenter.state.status == MatchStatus.LOBBY) {
+            fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x040507B8, 0x040507B8, 0x0E14218A, 0x0E14218A)
+            fillGradientRect(0f, layoutWorldHeight * 0.60f, layoutWorldWidth, layoutWorldHeight * 0.40f, 0x00000000, 0x00000000, 0x111A2CAA, 0x111A2CAA)
+            fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight * 0.34f, 0x080A0E9A, 0x080A0E9A, 0x00000018, 0x00000018)
+            return
+        }
         fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x040B14FF, 0x091521FF, 0x214D7CFF, 0x13314FFF)
         fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x060A103F, 0x0A10184F, 0x1F4C7C22, 0x295A902C)
         fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x020407B8, 0x05091194, 0x00000000, 0x00000000)
@@ -823,6 +840,12 @@ class MatchScreen(
     }
 
     private fun drawAtmosphereTextures() {
+        if (presenter.state.status == MatchStatus.LOBBY) {
+            drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xF8D2A20E))
+            drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x0000008C))
+            drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x1D2F4A20))
+            return
+        }
         val time = overlayAnimationSeconds
         val leftBloomX = -layoutWorldWidth * 0.16f + sin(time * 0.11f) * 118f
         val leftBloomY = layoutWorldHeight * 0.18f + cos(time * 0.13f) * 36f
@@ -921,34 +944,8 @@ class MatchScreen(
                 color(0xF9D06D24),
             )
         }
-        val time = overlayAnimationSeconds
-        drawGlow(
-            lobbyMainRect.x + lobbyMainRect.width * 0.18f + sin(time * 0.16f) * 22f,
-            lobbyMainRect.y + lobbyMainRect.height * 0.16f + cos(time * 0.14f) * 14f,
-            lobbyMainRect.width * 0.62f,
-            lobbyMainRect.height * 0.56f,
-            color(0xF5C96E1A),
-        )
-        drawGlow(
-            lobbyMainRect.x + lobbyMainRect.width * 0.02f + cos(time * 0.12f) * 18f,
-            lobbyMainRect.y + lobbyMainRect.height * 0.38f + sin(time * 0.10f) * 12f,
-            lobbyMainRect.width * 0.96f,
-            lobbyMainRect.height * 0.44f,
-            color(0x80B8FF14),
-        )
-        drawRepeatedTexture(
-            grainTexture,
-            lobbyMainRect.x,
-            lobbyMainRect.y,
-            lobbyMainRect.width,
-            lobbyMainRect.height,
-            color(0xDCE8FF06),
-            max(1f, lobbyMainRect.width / 138f),
-            max(1f, lobbyMainRect.height / 110f),
-            time * 0.005f,
-            time * 0.004f,
-        )
         if (showLobbyJoinPanel()) {
+            val time = overlayAnimationSeconds
             drawPanelTexture(lobbyJoinPanelRect, color(0xCBDEFF12))
             drawGlow(
                 lobbyJoinPanelRect.x - lobbyJoinPanelRect.width * 0.14f + cos(time * 0.13f) * 10f,

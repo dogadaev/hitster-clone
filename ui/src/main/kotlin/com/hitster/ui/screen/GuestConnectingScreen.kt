@@ -21,6 +21,8 @@ import com.hitster.networking.SessionAdvertisementDto
 import com.hitster.ui.controller.HostDiscoveryService
 import com.hitster.ui.controller.MatchController
 import com.hitster.ui.render.AtmosphericBackdrop
+import com.hitster.ui.render.VerticalCropAnchor
+import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.createUiFont
 
 class GuestConnectingScreen(
@@ -36,6 +38,7 @@ class GuestConnectingScreen(
     private val batch = SpriteBatch()
     private val touchPoint = Vector3()
     private val backdrop = AtmosphericBackdrop()
+    private val backgroundImage = WidthFittedBackgroundImage("welcome-background.png", VerticalCropAnchor.CENTER)
     private lateinit var titleFont: BitmapFont
     private lateinit var bodyFont: BitmapFont
     private lateinit var detailFont: BitmapFont
@@ -57,6 +60,7 @@ class GuestConnectingScreen(
         bodyFont = createUiFont(36)
         detailFont = createUiFont(26)
         backdrop.load()
+        backgroundImage.load()
         discoveryService.start { hosts ->
             if (controller != null) {
                 return@start
@@ -91,8 +95,13 @@ class GuestConnectingScreen(
         shapeRenderer.projectionMatrix = camera.combined
         batch.projectionMatrix = camera.combined
 
+        batch.begin()
+        backgroundImage.draw(batch, viewport.worldWidth, viewport.worldHeight)
+        batch.end()
+
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        backdrop.drawShapes(shapeRenderer, viewport.worldWidth, viewport.worldHeight, 34f)
+        fillGradientRect(0f, 0f, viewport.worldWidth, viewport.worldHeight, 0x07090DAA, 0x07090DAA, 0x09111C68, 0x09111C68)
+        fillGradientRect(0f, viewport.worldHeight * 0.52f, viewport.worldWidth, viewport.worldHeight * 0.48f, 0x00000000, 0x00000000, 0x121A2898, 0x121A2898)
         fillPanel(titleRect, 0x223868FF, 0x15284BFF, 0x9EC3FF2A)
         if (showBackButton || activeController?.lastError != null) {
             fillPanel(buttonRect, 0x2F4E87FF, 0x1B3158FF, 0xC7D8FF42)
@@ -100,7 +109,6 @@ class GuestConnectingScreen(
         shapeRenderer.end()
 
         batch.begin()
-        backdrop.drawTextures(batch, viewport.worldWidth, viewport.worldHeight, animationSeconds, 1.02f)
         backdrop.drawPanelTexture(batch, titleRect, Color(0.78f, 0.86f, 1f, 0.08f), animationSeconds)
         if (showBackButton || activeController?.lastError != null) {
             backdrop.drawPanelTexture(batch, buttonRect, Color(0.84f, 0.92f, 1f, 0.08f), animationSeconds)
@@ -154,6 +162,7 @@ class GuestConnectingScreen(
         shapeRenderer.dispose()
         batch.dispose()
         backdrop.dispose()
+        backgroundImage.dispose()
         if (this::titleFont.isInitialized) {
             titleFont.dispose()
         }
