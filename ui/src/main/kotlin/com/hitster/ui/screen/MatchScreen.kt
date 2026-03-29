@@ -74,8 +74,6 @@ class MatchScreen(
     private val redrawButtonRect = Rectangle()
     private val doubtButtonRect = Rectangle()
     private val hostCoinsButtonRect = Rectangle()
-    private val deckPanelRect = Rectangle()
-    private val deckRect = Rectangle()
     private val timelinePanelRect = Rectangle()
     private val timelineHeaderRect = Rectangle()
     private val timelineTrackRect = Rectangle()
@@ -90,7 +88,6 @@ class MatchScreen(
     private val lobbyQrRect = Rectangle()
     private val lobbyJoinUrlRect = Rectangle()
     private val startButtonRect = Rectangle()
-    private val deckFrontCardRect = Rectangle()
 
     private var layoutWorldWidth = 0f
     private var layoutWorldHeight = 0f
@@ -111,7 +108,6 @@ class MatchScreen(
     private val doubtTimelineCardVisuals = mutableListOf<TimelineCardVisual>()
     private var pendingCardVisual: TimelineCardVisual? = null
     private var doubtPendingCardVisual: TimelineCardVisual? = null
-    private var transientCardVisual: TimelineCardVisual? = null
     private val animatedCardLefts = mutableMapOf<String, Float>()
     private val animatedDoubtCardLefts = mutableMapOf<String, Float>()
     private var animatedPendingCardLeft: Float? = null
@@ -126,7 +122,6 @@ class MatchScreen(
     private val lobbyDragPosition = Vector2()
     private val lobbyDragOffset = Vector2()
 
-    private var draggingDeckGhost = false
     private var draggingPendingCard = false
     private var draggingDoubtCard = false
     private var pendingCardGrabOffsetX = 0f
@@ -316,23 +311,28 @@ class MatchScreen(
             worldWidth - outerMargin * 2f,
             heroHeight,
         )
-        val turnLabelReserve = 170f
+        val actionButtonWidth = clamp(heroRect.width * 0.14f, 176f, 216f)
+        val actionButtonHeight = clamp(heroRect.height * 0.56f, 50f, 62f)
+        actionButtonRect.set(
+            heroRect.x + heroRect.width - panelPadding - actionButtonWidth,
+            heroRect.y + (heroRect.height - actionButtonHeight) / 2f,
+            actionButtonWidth,
+            actionButtonHeight,
+        )
         val playbackButtonWidth = clamp(heroRect.width * 0.11f, 138f, 166f)
         val playbackButtonHeight = clamp(heroRect.height * 0.56f, 50f, 62f)
         playbackButtonRect.set(
-            heroRect.x + heroRect.width - panelPadding - turnLabelReserve - panelGap - playbackButtonWidth,
+            actionButtonRect.x - panelGap - playbackButtonWidth,
             heroRect.y + (heroRect.height - playbackButtonHeight) / 2f,
             playbackButtonWidth,
             playbackButtonHeight,
         )
 
-        val deckWidth = clamp(worldWidth * 0.135f, 208f, 246f)
         val mainHeight = heroRect.y - outerMargin - panelGap
-        deckPanelRect.set(outerMargin, outerMargin, deckWidth, mainHeight)
         timelinePanelRect.set(
-            deckPanelRect.x + deckPanelRect.width + panelGap,
             outerMargin,
-            worldWidth - outerMargin * 2f - deckWidth - panelGap,
+            outerMargin,
+            worldWidth - outerMargin * 2f,
             mainHeight,
         )
 
@@ -353,56 +353,37 @@ class MatchScreen(
             timelinePanelRect.width - trackInsetX * 2f,
             trackHeight,
         )
-
-        val deckCardWidth = clamp(deckPanelRect.width * 0.78f, 164f, 208f)
-        val deckCardHeight = clamp(deckPanelRect.height * 0.46f, 222f, 296f)
-        val deckContentHeight = deckPanelRect.height - panelPadding * 2f
-        val stackOffset = deckStackOffset()
-        deckRect.set(
-            deckPanelRect.x + (deckPanelRect.width - deckCardWidth) / 2f,
-            deckPanelRect.y + panelPadding + (deckContentHeight - deckCardHeight) / 2f,
-            deckCardWidth,
-            deckCardHeight,
-        )
-        deckFrontCardRect.set(
-            deckRect.x + stackOffset,
-            deckRect.y - stackOffset,
-            deckRect.width,
-            deckRect.height,
+        val headerButtonWidth = clamp(timelineHeaderRect.width * 0.16f, 152f, 206f)
+        val headerButtonHeight = clamp(timelineHeaderRect.height * 0.62f, 50f, 62f)
+        redrawButtonRect.set(
+            timelineHeaderRect.x + panelPadding,
+            timelineHeaderRect.y + (timelineHeaderRect.height - headerButtonHeight) / 2f,
+            headerButtonWidth,
+            headerButtonHeight,
         )
 
-        val actionSize = clamp(deckPanelRect.width * 0.84f, 176f, 214f)
-        actionButtonRect.set(
-            deckPanelRect.x + (deckPanelRect.width - actionSize) / 2f,
-            deckPanelRect.y + (deckPanelRect.height - actionSize) / 2f,
-            actionSize,
-            actionSize,
-        )
-        val doubtButtonWidth = clamp(deckPanelRect.width * 0.92f, 184f, 236f)
-        val doubtButtonHeight = clamp(deckPanelRect.height * 0.16f, 92f, 118f)
-        doubtButtonRect.set(
-            deckPanelRect.x + (deckPanelRect.width - doubtButtonWidth) / 2f,
-            deckPanelRect.y + (deckPanelRect.height - doubtButtonHeight) / 2f,
-            doubtButtonWidth,
-            doubtButtonHeight,
-        )
-        val coinsButtonWidth = clamp(deckPanelRect.width * 0.82f, 124f, 176f)
-        val coinsButtonHeight = clamp(deckPanelRect.height * 0.09f, 56f, 68f)
+        val coinsButtonWidth = clamp(timelinePanelRect.width * 0.11f, 124f, 176f)
+        val coinsButtonHeight = clamp(timelinePanelRect.height * 0.09f, 56f, 68f)
+        val overlayControlLeft = timelinePanelRect.x + panelPadding
+        val overlayControlBottom = timelinePanelRect.y + panelPadding
         hostCoinsButtonRect.set(
-            deckPanelRect.x,
-            deckPanelRect.y,
+            overlayControlLeft,
+            overlayControlBottom,
             coinsButtonWidth,
             coinsButtonHeight,
         )
-        val redrawButtonWidth = clamp(deckPanelRect.width * 0.88f, 156f, 206f)
-        val redrawButtonHeight = clamp(deckPanelRect.height * 0.10f, 54f, 68f)
-        val redrawZoneTop = deckPanelRect.y + deckPanelRect.height
-        val redrawZoneBottom = actionButtonRect.y + actionButtonRect.height
-        redrawButtonRect.set(
-            deckPanelRect.x + (deckPanelRect.width - redrawButtonWidth) / 2f,
-            redrawZoneBottom + (redrawZoneTop - redrawZoneBottom - redrawButtonHeight) / 2f,
-            redrawButtonWidth,
-            redrawButtonHeight,
+        val doubtButtonWidth = clamp(timelinePanelRect.width * 0.20f, 192f, 254f)
+        val doubtButtonHeight = clamp(timelinePanelRect.height * 0.16f, 92f, 118f)
+        val doubtButtonBottom = if (showCoinsShortcutButton()) {
+            hostCoinsButtonRect.y + hostCoinsButtonRect.height + panelGap * 0.52f
+        } else {
+            overlayControlBottom
+        }
+        doubtButtonRect.set(
+            overlayControlLeft,
+            doubtButtonBottom,
+            doubtButtonWidth,
+            doubtButtonHeight,
         )
 
         val coinPanelWidth = clamp(worldWidth * 0.48f, 620f, 860f)
@@ -525,27 +506,9 @@ class MatchScreen(
         doubtTimelineCardVisuals.clear()
         pendingCardVisual = null
         doubtPendingCardVisual = null
-        transientCardVisual = null
 
         if (isLocalDoubtPlacementPhase()) {
             coinPanelOpen = false
-        }
-
-        if (draggingDeckGhost) {
-            val ghostWidth = clamp(timelineTrackRect.width * 0.14f, 128f, 178f)
-            transientCardVisual = TimelineCardVisual(
-                id = "deck-ghost",
-                rect = Rectangle(
-                    worldTouch.x - ghostWidth / 2f,
-                    timelineCardBottom(cardHeight),
-                    ghostWidth,
-                    cardHeight,
-                ),
-                face = CardFace.Hidden,
-                topColor = 0xFFD18AFF,
-                bottomColor = 0xE8A650FF,
-                edgeColor = 0xFFF3DCAD,
-            )
         }
 
         val player = displayedTimelinePlayer()
@@ -1294,23 +1257,15 @@ class MatchScreen(
                 fillButton(playbackButtonRect, 0xCE7D63FF, 0xA3472CFF, 0xFFD8B39A)
             }
         }
+        if (showActionButton()) {
+            fillButton(actionButtonRect, 0xF5CB77FF, 0xD98B35FF, 0xFFF1C58D)
+        }
+        if (headerDrawButtonLabel() != null) {
+            fillButton(redrawButtonRect, 0xF4C870FF, 0xD47F20FF, 0xFFF0C38D)
+        }
         fillPanel(timelinePanelRect, 0x40221BFF, 0x1C0F13FF, 0x7E3A23FF, 0x5B221DFF, 0xFFD5A55C)
         if (showActionWell()) {
             fillActionWell()
-        }
-        if (!showActionButton() && !showDoubtToggleButton()) {
-            repeat(DECK_STACK_DEPTH) { index ->
-                val offset = centeredDeckStackOffset(index)
-                drawCardSurface(
-                    left = deckRect.x + offset,
-                    bottom = deckRect.y - offset,
-                    width = deckRect.width,
-                    height = deckRect.height,
-                    topColor = 0xEE9B58FF,
-                    bottomColor = 0xC26031FF,
-                    edgeColor = 0xFFD9B08BFF,
-                )
-            }
         }
 
         drawTimelineCards(includeOverlay)
@@ -1324,6 +1279,12 @@ class MatchScreen(
                 playbackButtonRect,
                 if (isPlaybackPaused()) color(0xFFF0CE18) else color(0xFFD6A21A),
             )
+        }
+        if (showActionButton()) {
+            drawPanelTexture(actionButtonRect, color(0xFFF0CE18))
+        }
+        if (headerDrawButtonLabel() != null) {
+            drawPanelTexture(redrawButtonRect, color(0xFFF2D017))
         }
         drawPanelTexture(timelinePanelRect, color(0xFFD8B80D))
         if (showActionWell()) {
@@ -1372,8 +1333,6 @@ class MatchScreen(
     private fun drawMatchText(includeOverlay: Boolean) {
         val player = displayedTimelinePlayer()
         val toolbarStatus = toolbarStatusText()
-        val turnLabelWidth = if (toolbarStatus == null) 170f else 142f
-        val turnX = heroRect.x + heroRect.width - panelPadding - turnLabelWidth
         val playerWidth = if (toolbarStatus == null) {
             heroRect.width * 0.46f
         } else {
@@ -1391,23 +1350,14 @@ class MatchScreen(
             verticalAlign = VerticalTextAlign.Center,
             shadowColor = activeTurnToolbarShadowColor(),
         )
-        drawTextBlock(
-            text = "Turn ${presenter.state.turn?.number ?: 0}",
-            x = turnX,
-            y = heroRect.y,
-            width = turnLabelWidth,
-            height = heroRect.height,
-            scale = 0.92f,
-            color = color(0xFFF2E4D3),
-            align = Align.right,
-            verticalAlign = VerticalTextAlign.Center,
-        )
         toolbarStatus?.let { text ->
             val messageX = heroRect.x + panelPadding + playerWidth + panelGap
             val messageRight = if (showPlaybackToggleButton()) {
                 playbackButtonRect.x - panelGap
+            } else if (showActionButton()) {
+                actionButtonRect.x - panelGap
             } else {
-                turnX - panelGap
+                heroRect.x + heroRect.width - panelPadding
             }
             val messageWidth = max(1f, messageRight - messageX)
             val fittedStatus = fitSingleLineText(
@@ -1445,33 +1395,35 @@ class MatchScreen(
                 shadowColor = if (isPlaybackPaused()) color(0xFFF7E2A640) else color(0x5C1A113E),
             )
         }
-
-        if (!showActionButton() && !showDoubtToggleButton()) {
+        if (showActionButton()) {
             drawTextBlock(
-                text = presenter.state.deck.size.toString(),
-                x = deckFrontCardRect.x,
-                y = deckFrontCardRect.y,
-                width = deckFrontCardRect.width,
-                height = deckFrontCardRect.height,
-                scale = 1.34f,
-                color = color(0xFFF8ECD7),
+                text = actionButtonLabel(),
+                x = actionButtonRect.x,
+                y = actionButtonRect.y,
+                width = actionButtonRect.width,
+                height = actionButtonRect.height,
+                scale = 0.62f,
+                color = color(0x1A1308FF),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0x5A180B9D),
+                shadowColor = color(0xFFF7E2A640),
             )
         }
 
-        drawTextBlock(
-            text = timelineHeaderLabel(player),
-            x = timelinePanelRect.x,
-            y = timelineHeaderRect.y,
-            width = timelineHeaderRect.width * 0.45f,
-            height = timelineHeaderRect.height,
-            scale = 1.06f,
-            color = color(0xFFF4E6D7),
-            insetX = panelPadding,
-            verticalAlign = VerticalTextAlign.Center,
-        )
+        headerDrawButtonLabel()?.let { label ->
+            drawTextBlock(
+                text = label,
+                x = redrawButtonRect.x,
+                y = redrawButtonRect.y,
+                width = redrawButtonRect.width,
+                height = redrawButtonRect.height,
+                scale = 0.60f,
+                color = color(0x1A1308FF),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = color(0xFFF7E2A640),
+            )
+        }
         drawTextBlock(
             text = "Score ${player?.score ?: 0}  Coins ${player?.coins ?: 0}",
             x = timelineHeaderRect.x + timelineHeaderRect.width - 332f,
@@ -1486,7 +1438,7 @@ class MatchScreen(
 
         if (player?.timeline?.cards.isNullOrEmpty() && player?.pendingCard == null && toolbarStatus == null) {
             drawTextBlock(
-                text = "Drag from deck to timeline.",
+                text = if (canDraw()) "Tap DRAW to start." else "Waiting for draw.",
                 x = timelineTrackRect.x,
                 y = timelineTrackRect.y,
                 width = timelineTrackRect.width,
@@ -1524,29 +1476,12 @@ class MatchScreen(
         if (showCoinsShortcutButton()) {
             fillButton(hostCoinsButtonRect, 0xF2C468FF, 0xCE7E24FF, 0xFFF0C48D)
         }
-        if (showRedrawButton()) {
-            fillButton(redrawButtonRect, 0xF4C870FF, 0xD47F20FF, 0xFFF0C38D)
-        }
-        when {
-            showActionButton() -> {
-                val enabled = isActionButtonEnabled()
-                fillCircularActionButton(actionButtonRect, enabled)
-                drawFastForwardGlyph(actionButtonRect, enabled)
-            }
-
-            showDoubtToggleButton() -> {
-                fillDoubtToggleButton(isDoubtToggleActive())
-            }
+        if (showDoubtToggleButton()) {
+            fillDoubtToggleButton(isDoubtToggleActive())
         }
     }
 
     private fun drawFloatingControlsTextures() {
-        if (showActionButton()) {
-            drawActionButtonGlow(actionButtonRect, isActionButtonEnabled())
-        }
-        if (showRedrawButton()) {
-            drawPanelTexture(redrawButtonRect, color(0xFFF2D017))
-        }
         if (showDoubtToggleButton()) {
             drawDoubtButtonGlow(isDoubtToggleActive())
             drawPanelTexture(
@@ -1560,20 +1495,6 @@ class MatchScreen(
     }
 
     private fun drawFloatingControlsText() {
-        if (showRedrawButton()) {
-            drawTextBlock(
-                text = "REDRAW",
-                x = redrawButtonRect.x,
-                y = redrawButtonRect.y,
-                width = redrawButtonRect.width,
-                height = redrawButtonRect.height,
-                scale = 0.60f,
-                color = color(0x1A1308FF),
-                align = Align.center,
-                verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0xFFF7E2A640),
-            )
-        }
         if (showDoubtToggleButton()) {
             val isActive = isDoubtToggleActive()
             val labelColor = if (isActive) color(0x2A1109FF) else color(0x1A1308FF)
@@ -2100,29 +2021,41 @@ class MatchScreen(
     private fun showActionWell(): Boolean = showDoubtToggleButton() || showCoinsShortcutButton()
 
     private fun actionWellRect(): Rectangle {
-        val margin = clamp(deckPanelRect.width * 0.06f, 12f, 18f)
-        return when {
-            showDoubtToggleButton() -> Rectangle(
-                doubtButtonRect.x - margin,
-                doubtButtonRect.y - margin,
-                doubtButtonRect.width + margin * 2f,
-                doubtButtonRect.height + margin * 2f,
-            )
-
-            showCoinsShortcutButton() -> Rectangle(
-                hostCoinsButtonRect.x - margin * 0.5f,
-                hostCoinsButtonRect.y - margin * 0.5f,
-                hostCoinsButtonRect.width + margin,
-                hostCoinsButtonRect.height + margin,
-            )
-
-            else -> Rectangle(
-                deckPanelRect.x + margin,
-                deckPanelRect.y + margin,
-                deckPanelRect.width - margin * 2f,
-                deckPanelRect.height - margin * 2f,
-            )
+        val margin = clamp(panelPadding * 0.55f, 12f, 18f)
+        val includeCoins = showCoinsShortcutButton()
+        val includeDoubt = showDoubtToggleButton()
+        val left = when {
+            includeCoins && includeDoubt -> min(hostCoinsButtonRect.x, doubtButtonRect.x)
+            includeCoins -> hostCoinsButtonRect.x
+            else -> doubtButtonRect.x
         }
+        val bottom = when {
+            includeCoins && includeDoubt -> min(hostCoinsButtonRect.y, doubtButtonRect.y)
+            includeCoins -> hostCoinsButtonRect.y
+            else -> doubtButtonRect.y
+        }
+        val right = when {
+            includeCoins && includeDoubt -> max(
+                hostCoinsButtonRect.x + hostCoinsButtonRect.width,
+                doubtButtonRect.x + doubtButtonRect.width,
+            )
+            includeCoins -> hostCoinsButtonRect.x + hostCoinsButtonRect.width
+            else -> doubtButtonRect.x + doubtButtonRect.width
+        }
+        val top = when {
+            includeCoins && includeDoubt -> max(
+                hostCoinsButtonRect.y + hostCoinsButtonRect.height,
+                doubtButtonRect.y + doubtButtonRect.height,
+            )
+            includeCoins -> hostCoinsButtonRect.y + hostCoinsButtonRect.height
+            else -> doubtButtonRect.y + doubtButtonRect.height
+        }
+        return Rectangle(
+            left - margin,
+            bottom - margin,
+            right - left + margin * 2f,
+            top - bottom + margin * 2f,
+        )
     }
 
     private fun drawCardSurface(
@@ -2164,18 +2097,12 @@ class MatchScreen(
                 drawCardVisual(visual)
             }
         }
-        if (includeOverlay) {
-            transientCardVisual?.let(::drawCardVisual)
-        }
     }
 
     private fun drawTimelineCardText(includeOverlay: Boolean) {
         val layerVisuals = timelineCardVisuals.filter { isOverlayVisual(it) == includeOverlay }
         layerVisuals.forEachIndexed { index, visual ->
             drawClippedCardText(visual, layerVisuals, index)
-        }
-        if (includeOverlay) {
-            transientCardVisual?.let(::drawCardText)
         }
     }
 
@@ -2255,7 +2182,7 @@ class MatchScreen(
     }
 
     private fun hasOverlayTimelineVisuals(): Boolean {
-        return ((draggingPendingCard || draggingDoubtCard) && pendingCardVisual != null) || transientCardVisual != null
+        return (draggingPendingCard || draggingDoubtCard) && pendingCardVisual != null
     }
 
     private fun hasOverlayDoubtTimelineVisuals(): Boolean {
@@ -2551,15 +2478,6 @@ class MatchScreen(
         return activePlayerId?.let { presenter.state.requirePlayer(it) } ?: presenter.localPlayer
     }
 
-    private fun timelineHeaderLabel(player: PlayerState?): String {
-        player ?: return "Timeline"
-        return if (player.id == presenter.localPlayerId) {
-            "Your Timeline"
-        } else {
-            "${player.displayName} Timeline"
-        }
-    }
-
     private fun localResolution() = presenter.state.lastResolution?.takeIf { it.playerId == presenter.localPlayerId }
 
     private fun isLocalPlayersTurn(): Boolean = presenter.state.turn?.activePlayerId == presenter.localPlayerId
@@ -2578,6 +2496,14 @@ class MatchScreen(
         val remainingMillis = max(0L, deadline - presenter.currentSharedTimeMillis)
         return countdownSecondsRemaining(remainingMillis)
     }
+
+    private fun headerDrawButtonLabel(): String? = when {
+        canDraw() -> "DRAW"
+        showRedrawButton() -> "REDRAW"
+        else -> null
+    }
+
+    private fun actionButtonLabel(): String = if (isLocalDoubtPlacementPhase()) "LOCK DOUBT" else "END TURN"
 
     private fun canDraw(): Boolean = isLocalPlayersTurn() && presenter.state.turn?.phase == TurnPhase.WAITING_FOR_DRAW
 
@@ -2608,11 +2534,6 @@ class MatchScreen(
         val phase = presenter.state.turn?.phase ?: return false
         return isLocalDoubtPlacementPhase() &&
             (phase == TurnPhase.AWAITING_DOUBT_PLACEMENT || phase == TurnPhase.DOUBT_POSITIONED)
-    }
-
-    private fun drawDropSlotIndexFor(x: Float): Int {
-        val player = localPlayer() ?: return 0
-        return timelineLayout.nearestSlotIndex(player.timeline.cards.size, x)
     }
 
     private fun requestedSlotIndexFor(x: Float): Int {
@@ -2975,22 +2896,7 @@ class MatchScreen(
         return max(minValue, min(value, maxValue))
     }
 
-    private fun centeredDeckStackOffset(index: Int): Float {
-        return index * DECK_STACK_SPREAD - deckStackOffset()
-    }
-
-    private fun deckStackOffset(): Float {
-        return (DECK_STACK_DEPTH - 1) * DECK_STACK_SPREAD / 2f
-    }
-
-    private fun actionButtonContains(x: Float, y: Float): Boolean {
-        val radius = min(actionButtonRect.width, actionButtonRect.height) / 2f
-        val centerX = actionButtonRect.x + actionButtonRect.width / 2f
-        val centerY = actionButtonRect.y + actionButtonRect.height / 2f
-        val dx = x - centerX
-        val dy = y - centerY
-        return dx * dx + dy * dy <= radius * radius
-    }
+    private fun actionButtonContains(x: Float, y: Float): Boolean = actionButtonRect.contains(x, y)
 
     private inner class MatchInputController : InputAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
@@ -3050,13 +2956,17 @@ class MatchScreen(
                 return false
             }
 
-            if (showHostCoinsButton() && hostCoinsButtonRect.contains(world.x, world.y)) {
+            if (showCoinsShortcutButton() && hostCoinsButtonRect.contains(world.x, world.y)) {
                 coinPanelOpen = true
                 return true
             }
 
-            if (showRedrawButton() && redrawButtonRect.contains(world.x, world.y)) {
-                presenter.redrawCard()
+            if (headerDrawButtonLabel() != null && redrawButtonRect.contains(world.x, world.y)) {
+                if (canDraw()) {
+                    presenter.drawCard()
+                } else {
+                    presenter.redrawCard()
+                }
                 return true
             }
 
@@ -3083,13 +2993,6 @@ class MatchScreen(
                 return true
             }
 
-            val player = localPlayer() ?: return false
-            if (canDraw() && deckRect.contains(world.x, world.y)) {
-                draggingDeckGhost = true
-                worldTouch.set(world)
-                return true
-            }
-
             if (canMoveMainPendingCard() && currentPendingCard?.rect?.contains(world.x, world.y) == true) {
                 draggingPendingCard = true
                 worldTouch.set(world)
@@ -3110,7 +3013,7 @@ class MatchScreen(
                 return true
             }
 
-            if (!draggingDeckGhost && !draggingPendingCard && !draggingDoubtCard) {
+            if (!draggingPendingCard && !draggingDoubtCard) {
                 return false
             }
 
@@ -3140,23 +3043,18 @@ class MatchScreen(
                 return true
             }
 
-            if (!draggingDeckGhost && !draggingPendingCard && !draggingDoubtCard) {
+            if (!draggingPendingCard && !draggingDoubtCard) {
                 return false
             }
 
             val world = viewport.unproject(worldTouch.set(screenX.toFloat(), screenY.toFloat()))
 
-            if (draggingDeckGhost) {
-                val drawDropSlotIndex = drawDropSlotIndexFor(world.x)
-                presenter.drawCard()
-                presenter.movePendingCard(drawDropSlotIndex)
-            } else if (draggingDoubtCard) {
+            if (draggingDoubtCard) {
                 presenter.moveDoubtCard(requestedDoubtSlotIndexFor(world.x))
             } else if (draggingPendingCard) {
                 presenter.movePendingCard(requestedSlotIndexFor(world.x))
             }
 
-            draggingDeckGhost = false
             draggingPendingCard = false
             draggingDoubtCard = false
             pendingCardGrabOffsetX = 0f
@@ -3226,8 +3124,6 @@ class MatchScreen(
     private companion object {
         const val BASE_WORLD_WIDTH = 1600f
         const val BASE_WORLD_HEIGHT = 900f
-        const val DECK_STACK_DEPTH = 3
-        const val DECK_STACK_SPREAD = 14f
         const val CONFETTI_COUNT = 110
         const val CONFETTI_GRAVITY = -520f
         const val CONFETTI_FILTER_BLEND_START_PROGRESS = 0.72f
