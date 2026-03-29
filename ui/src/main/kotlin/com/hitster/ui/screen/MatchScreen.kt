@@ -121,9 +121,11 @@ class MatchScreen(
     private var overlayAnimationSeconds = 0f
     private var coinPanelOpen = false
     private var draggingLobbyPlayerId: PlayerId? = null
+    private var pendingLobbyDragPlayerId: PlayerId? = null
     private var lobbyReorderTargetIndex: Int? = null
     private val lobbyDragPosition = Vector2()
     private val lobbyDragOffset = Vector2()
+    private val lobbyDragStartPosition = Vector2()
     private val animatedLobbyBadgeRects = mutableMapOf<PlayerId, Rectangle>()
 
     private var draggingPendingCard = false
@@ -951,7 +953,7 @@ class MatchScreen(
         drawTextBlock(
             text = "${presenter.state.players.size} PLAYERS",
             x = badgeColumn.x,
-            y = badgeColumn.y + badgeColumn.height - 54f,
+            y = badgeColumn.y + badgeColumn.height - 44f,
             width = badgeColumn.width,
             height = 42f,
             scale = 0.74f,
@@ -1078,7 +1080,7 @@ class MatchScreen(
         if (orderedPlayers.isEmpty()) {
             return emptyList()
         }
-        return buildLobbyBadgeVisuals(orderedPlayers)
+        return buildLobbyBadgeVisuals(orderedPlayers, lobbyReservedGapIndex())
     }
 
     private fun lobbyDraggedBadgeVisual(): LobbyBadgeVisual? {
@@ -1102,10 +1104,10 @@ class MatchScreen(
         )
         val editRect = if (player.id == presenter.localPlayerId) {
             Rectangle(
-                rect.x + rect.width - 38f,
-                rect.y + (rect.height - 24f) / 2f,
-                24f,
-                24f,
+                rect.x + rect.width - 50f,
+                rect.y + (rect.height - 36f) / 2f,
+                36f,
+                36f,
             )
         } else {
             null
@@ -1113,8 +1115,11 @@ class MatchScreen(
         return baseVisual.copy(rect = rect, editRect = editRect, isDragged = true)
     }
 
-    private fun buildLobbyBadgeVisuals(players: List<PlayerState>): List<LobbyBadgeVisual> {
-        val targetVisuals = buildLobbyBadgeTargetVisuals(players)
+    private fun buildLobbyBadgeVisuals(
+        players: List<PlayerState>,
+        reserveGapIndex: Int? = null,
+    ): List<LobbyBadgeVisual> {
+        val targetVisuals = buildLobbyBadgeTargetVisuals(players, reserveGapIndex)
         return targetVisuals.map { target ->
             val animatedRect = animatedLobbyBadgeRects[target.player.id]
             if (animatedRect == null) {
@@ -1123,10 +1128,10 @@ class MatchScreen(
                 val rect = Rectangle(animatedRect)
                 val editRect = target.editRect?.let {
                     Rectangle(
-                        rect.x + rect.width - 46f,
-                        rect.y + (rect.height - 32f) / 2f,
-                        32f,
-                        32f,
+                        rect.x + rect.width - 50f,
+                        rect.y + (rect.height - 36f) / 2f,
+                        36f,
+                        36f,
                     )
                 }
                 target.copy(rect = rect, editRect = editRect)
@@ -1134,16 +1139,20 @@ class MatchScreen(
         }
     }
 
-    private fun buildLobbyBadgeTargetVisuals(players: List<PlayerState>): List<LobbyBadgeVisual> {
+    private fun buildLobbyBadgeTargetVisuals(
+        players: List<PlayerState>,
+        reserveGapIndex: Int? = null,
+    ): List<LobbyBadgeVisual> {
         if (players.isEmpty()) {
             return emptyList()
         }
         val columnRect = lobbyBadgeColumnRect()
         val rowGap = clamp(panelGap * 0.64f, 12f, 18f)
-        val topReserve = 86f
+        val topReserve = 126f
         val availableHeight = max(1f, columnRect.height - topReserve)
+        val slotCount = players.size + if (reserveGapIndex != null) 1 else 0
         val badgeHeight = clamp(
-            (availableHeight - rowGap * max(0, players.size - 1)) / players.size,
+            (availableHeight - rowGap * max(0, slotCount - 1)) / max(1, slotCount),
             54f,
             76f,
         )
@@ -1169,15 +1178,22 @@ class MatchScreen(
 
         val visuals = ArrayList<LobbyBadgeVisual>(players.size)
         val availableTop = columnRect.y + columnRect.height - topReserve
+        val clampedGapIndex = reserveGapIndex?.coerceIn(0, slotCount - 1)
         var currentY = availableTop - badgeHeight
-        specs.forEach { spec ->
+        var playerIndex = 0
+        for (slotIndex in 0 until slotCount) {
+            if (clampedGapIndex != null && slotIndex == clampedGapIndex) {
+                currentY -= badgeHeight + rowGap
+                continue
+            }
+            val spec = specs[playerIndex++]
             val rect = Rectangle(columnRect.x, currentY, spec.width, badgeHeight)
             val editRect = if (spec.player.id == presenter.localPlayerId) {
                 Rectangle(
-                    rect.x + rect.width - 46f,
-                    rect.y + (rect.height - 32f) / 2f,
-                    32f,
-                    32f,
+                    rect.x + rect.width - 50f,
+                    rect.y + (rect.height - 36f) / 2f,
+                    36f,
+                    36f,
                 )
             } else {
                 null
@@ -1199,7 +1215,10 @@ class MatchScreen(
             animatedLobbyBadgeRects.clear()
             return
         }
-        val targets = buildLobbyBadgeTargetVisuals(lobbyDisplayedPlayers(includeDraggedPlayer = false))
+        val targets = buildLobbyBadgeTargetVisuals(
+            lobbyDisplayedPlayers(includeDraggedPlayer = false),
+            lobbyReservedGapIndex(),
+        )
         val targetIds = targets.map { it.player.id }.toSet()
         animatedLobbyBadgeRects.keys.retainAll(targetIds)
         val smoothing = clamp(delta * 14f, 0f, 1f)
@@ -1218,13 +1237,8 @@ class MatchScreen(
 
     private fun lobbyDisplayedPlayers(includeDraggedPlayer: Boolean): List<PlayerState> {
         val draggedPlayerId = draggingLobbyPlayerId
-        val targetIndex = lobbyReorderTargetIndex
-        val previewPlayers = if (presenter.isLocalHost && draggedPlayerId != null && targetIndex != null) {
-            presenter.state.players.moveLobbyPlayer(draggedPlayerId, targetIndex)
-        } else {
-            presenter.state.players
-        }
-        return if (includeDraggedPlayer) previewPlayers else previewPlayers.filterNot { it.id == draggedPlayerId }
+        val displayedPlayers = presenter.state.players
+        return if (includeDraggedPlayer) displayedPlayers else displayedPlayers.filterNot { it.id == draggedPlayerId }
     }
 
     private fun requestLobbyDisplayNameEdit() {
@@ -1251,8 +1265,8 @@ class MatchScreen(
         if (currentPlayers.size <= 1) {
             return 0
         }
-        val visuals = buildLobbyBadgeVisuals(currentPlayers)
-            .filterNot { it.player.id == draggedPlayerId }
+        val remainingPlayers = currentPlayers.filterNot { it.id == draggedPlayerId }
+        val visuals = buildLobbyBadgeTargetVisuals(remainingPlayers)
         if (visuals.isEmpty()) {
             return 0
         }
@@ -1261,12 +1275,12 @@ class MatchScreen(
             val dy = centerY - y
             dy * dy
         } ?: return 0
-        val nearestIndex = currentPlayers.indexOfFirst { it.id == nearestVisual.player.id }.coerceAtLeast(0)
+        val nearestIndex = remainingPlayers.indexOfFirst { it.id == nearestVisual.player.id }.coerceAtLeast(0)
         val centerY = nearestVisual.rect.y + nearestVisual.rect.height / 2f
-        return if (y < centerY) {
-            min(nearestIndex + 1, currentPlayers.lastIndex)
-        } else {
+        return if (y > centerY) {
             nearestIndex
+        } else {
+            min(nearestIndex + 1, remainingPlayers.size)
         }
     }
 
@@ -1284,6 +1298,15 @@ class MatchScreen(
             min(columnWidth, lobbyMainRect.width - insetX * 2f),
             max(1f, lobbyMainRect.height - insetY * 2f),
         )
+    }
+
+    private fun lobbyReservedGapIndex(): Int? {
+        val draggedPlayerId = draggingLobbyPlayerId ?: return null
+        val currentIndex = presenter.state.players.indexOfFirst { it.id == draggedPlayerId }
+        if (currentIndex < 0) {
+            return null
+        }
+        return lobbyReorderTargetIndex ?: currentIndex
     }
 
     private fun drawMatch(includeOverlay: Boolean) {
@@ -2886,9 +2909,11 @@ class MatchScreen(
 
                 if (presenter.isLocalHost) {
                     lobbyBadgeVisuals().firstOrNull { it.rect.contains(world.x, world.y) }?.let { visual ->
-                        draggingLobbyPlayerId = visual.player.id
-                        lobbyReorderTargetIndex = presenter.state.players.indexOfFirst { it.id == visual.player.id }.coerceAtLeast(0)
+                        pendingLobbyDragPlayerId = visual.player.id
+                        draggingLobbyPlayerId = null
+                        lobbyReorderTargetIndex = null
                         lobbyDragPosition.set(world.x, world.y)
+                        lobbyDragStartPosition.set(world.x, world.y)
                         lobbyDragOffset.set(world.x - visual.rect.x, world.y - visual.rect.y)
                         return true
                     }
@@ -2960,6 +2985,18 @@ class MatchScreen(
 
         override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
             updateLayout()
+            if (pendingLobbyDragPlayerId != null) {
+                viewport.unproject(worldTouch.set(screenX.toFloat(), screenY.toFloat()))
+                lobbyDragPosition.set(worldTouch.x, worldTouch.y)
+                val dragDistanceX = worldTouch.x - lobbyDragStartPosition.x
+                val dragDistanceY = worldTouch.y - lobbyDragStartPosition.y
+                if (dragDistanceX * dragDistanceX + dragDistanceY * dragDistanceY >= LOBBY_DRAG_START_DISTANCE * LOBBY_DRAG_START_DISTANCE) {
+                    draggingLobbyPlayerId = pendingLobbyDragPlayerId
+                    pendingLobbyDragPlayerId = null
+                    lobbyReorderTargetIndex = lobbyReorderIndexFor(worldTouch.x, worldTouch.y)
+                }
+                return true
+            }
             if (draggingLobbyPlayerId != null) {
                 viewport.unproject(worldTouch.set(screenX.toFloat(), screenY.toFloat()))
                 lobbyDragPosition.set(worldTouch.x, worldTouch.y)
@@ -2984,6 +3021,14 @@ class MatchScreen(
 
         override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             updateLayout()
+            if (pendingLobbyDragPlayerId != null) {
+                pendingLobbyDragPlayerId = null
+                lobbyReorderTargetIndex = null
+                lobbyDragOffset.setZero()
+                lobbyDragPosition.setZero()
+                lobbyDragStartPosition.setZero()
+                return true
+            }
             if (draggingLobbyPlayerId != null) {
                 val draggedPlayerId = draggingLobbyPlayerId
                 val targetIndex = lobbyReorderTargetIndex
@@ -2991,6 +3036,7 @@ class MatchScreen(
                 lobbyReorderTargetIndex = null
                 lobbyDragOffset.setZero()
                 lobbyDragPosition.setZero()
+                lobbyDragStartPosition.setZero()
                 if (draggedPlayerId != null && targetIndex != null) {
                     presenter.reorderLobbyPlayer(draggedPlayerId, targetIndex)
                 }
@@ -3081,6 +3127,7 @@ class MatchScreen(
         const val CONFETTI_COUNT = 110
         const val CONFETTI_GRAVITY = -520f
         const val CONFETTI_FILTER_BLEND_START_PROGRESS = 0.72f
+        const val LOBBY_DRAG_START_DISTANCE = 20f
         val HERO_GLASS_STYLE = LiquidGlassStyle(
             bodyTint = 0x6E3E3A96,
             edgeTint = 0xFFF1DDC9FF,
