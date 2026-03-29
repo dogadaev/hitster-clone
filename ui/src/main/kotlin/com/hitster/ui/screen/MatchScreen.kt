@@ -167,7 +167,7 @@ class MatchScreen(
             batch.end()
         }
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+        beginFilledShapes()
         drawBackground()
         when (presenter.state.status) {
             MatchStatus.LOBBY -> drawLobby()
@@ -175,7 +175,7 @@ class MatchScreen(
             MatchStatus.COMPLETE,
             -> drawMatch(includeOverlay = false)
         }
-        shapeRenderer.end()
+        endFilledShapes()
 
         batch.begin()
         drawAtmosphereTextures()
@@ -195,9 +195,9 @@ class MatchScreen(
         batch.end()
 
         if (hasOverlayTimelineVisuals()) {
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+            beginFilledShapes()
             drawTimelineCards(includeOverlay = true)
-            shapeRenderer.end()
+            endFilledShapes()
 
             batch.begin()
             drawTimelineCardText(includeOverlay = true)
@@ -205,9 +205,9 @@ class MatchScreen(
         }
 
         if (confettiParticles.isNotEmpty()) {
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+            beginFilledShapes()
             drawConfetti()
-            shapeRenderer.end()
+            endFilledShapes()
         }
 
         if (inactiveTurnFilterAlpha > 0.01f) {
@@ -218,9 +218,9 @@ class MatchScreen(
 
         if (presenter.state.status != MatchStatus.LOBBY) {
             if (coinPanelOpen) {
-                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+                beginFilledShapes()
                 drawModalShapes()
-                shapeRenderer.end()
+                endFilledShapes()
 
                 batch.begin()
                 drawModalTextures()
@@ -228,9 +228,9 @@ class MatchScreen(
                 batch.end()
             }
 
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+            beginFilledShapes()
             drawFloatingControlsShapes()
-            shapeRenderer.end()
+            endFilledShapes()
 
             batch.begin()
             drawFloatingControlsTextures()
@@ -838,6 +838,21 @@ class MatchScreen(
         }
         fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x04020312, 0x04020312, 0x14060524, 0x14060524)
         fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x00000000, 0x00000000, 0x2A0E0714, 0x2A0E0714)
+    }
+
+    /**
+     * ShapeRenderer does not guarantee alpha blending for filled passes, and this screen depends on
+     * semi-transparent washes so the art-directed backgrounds remain visible behind the gameplay UI.
+     */
+    private fun beginFilledShapes() {
+        Gdx.gl.glEnable(GL20.GL_BLEND)
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+    }
+
+    private fun endFilledShapes() {
+        shapeRenderer.end()
+        Gdx.gl.glDisable(GL20.GL_BLEND)
     }
 
     private fun drawAtmosphereTextures() {
