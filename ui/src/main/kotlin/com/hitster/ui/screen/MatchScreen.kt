@@ -630,8 +630,8 @@ class MatchScreen(
         }
         animatedPendingCardLeft = pendingLeft
 
-        val pendingTopColor = if (localDoubtPlacement) 0x7ED9FFFF else 0xF5B348FF
-        val pendingBottomColor = if (localDoubtPlacement) 0x2D8FCAFF else 0xD48620FF
+        val pendingTopColor = if (localDoubtPlacement) 0x7ED9FFFF else 0xFFD06BFF
+        val pendingBottomColor = if (localDoubtPlacement) 0x2D8FCAFF else 0xE89B2FFF
         val pendingEdgeColor = if (localDoubtPlacement) 0xDBF5FFFF else 0xFFF1D089
         pendingCardVisual = TimelineCardVisual(
             id = pendingCard.entry.id,
@@ -2090,14 +2090,44 @@ class MatchScreen(
         bottom: Float,
         width: Float,
         height: Float,
+        face: CardFace,
         topColor: Long,
         bottomColor: Long,
         edgeColor: Long,
     ) {
-        drawDropShadow(left, bottom, width, height, 12f, 0x01050B58)
+        val shadowColor = if (face == CardFace.Revealed) 0x01050B42L else 0x01050B58L
+        val shadowBlur = if (face == CardFace.Revealed) 9f else 12f
+        drawDropShadow(left, bottom, width, height, shadowBlur, shadowColor)
         fillGradientRect(left, bottom, width, height, bottomColor, bottomColor, topColor, topColor)
-        fillRect(left + 8f, bottom + height - 16f, width - 16f, 3f, 0xFFFFFF1F)
-        fillRect(left + 8f, bottom + 12f, width - 16f, 2f, 0x0000001E)
+        if (face == CardFace.Revealed) {
+            fillGradientRect(
+                left + 5f,
+                bottom + 5f,
+                width - 10f,
+                height - 10f,
+                0xFFF7E6D416,
+                0xFFF7E6D416,
+                0xFFFFFFFF28,
+                0xFFFFFFFF28,
+            )
+            fillRect(left + 8f, bottom + height - 16f, width - 16f, 3f, 0xFFFFFF4A)
+            fillRect(left + 10f, bottom + height - 26f, width - 20f, 2f, 0xFFFFFF20)
+            fillRect(left + 8f, bottom + 12f, width - 16f, 2f, 0x00000012)
+            drawFrame(left + 4f, bottom + 4f, width - 8f, height - 8f, 0xFFF9F1DE26, 1f)
+        } else {
+            fillGradientRect(
+                left + 5f,
+                bottom + 5f,
+                width - 10f,
+                height - 10f,
+                0xFFF5CC741E,
+                0xFFF5CC741E,
+                0xFFFFFFFF2C,
+                0xFFFFFFFF2C,
+            )
+            fillRect(left + 8f, bottom + height - 16f, width - 16f, 3f, 0xFFFFFF38)
+            fillRect(left + 8f, bottom + 12f, width - 16f, 2f, 0x00000016)
+        }
         drawFrame(left, bottom, width, height, edgeColor, 2f)
     }
 
@@ -2230,6 +2260,7 @@ class MatchScreen(
             bottom = visual.rect.y,
             width = visual.rect.width,
             height = visual.rect.height,
+            face = visual.face,
             topColor = visual.topColor,
             bottomColor = visual.bottomColor,
             edgeColor = visual.edgeColor,
