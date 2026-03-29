@@ -62,6 +62,7 @@ class MatchScreen(
     private lateinit var glowTexture: Texture
     private lateinit var vignetteTexture: Texture
     private val lobbyBackgroundImage = WidthFittedBackgroundImage("lobby-background.png", VerticalCropAnchor.TOP)
+    private val matchBackgroundImage = WidthFittedBackgroundImage("match-background.png", VerticalCropAnchor.CENTER)
     private val textLayout = GlyphLayout()
     private val worldTouch = Vector2()
 
@@ -138,6 +139,7 @@ class MatchScreen(
         glowTexture = createGlowTexture()
         vignetteTexture = createVignetteTexture()
         lobbyBackgroundImage.load()
+        matchBackgroundImage.load()
         Gdx.input.inputProcessor = MatchInputController()
         updateLayout()
     }
@@ -158,6 +160,10 @@ class MatchScreen(
         if (presenter.state.status == MatchStatus.LOBBY) {
             batch.begin()
             lobbyBackgroundImage.draw(batch, layoutWorldWidth, layoutWorldHeight)
+            batch.end()
+        } else {
+            batch.begin()
+            matchBackgroundImage.draw(batch, layoutWorldWidth, layoutWorldHeight, color(0xFFF8F2F2))
             batch.end()
         }
 
@@ -257,6 +263,7 @@ class MatchScreen(
             vignetteTexture.dispose()
         }
         lobbyBackgroundImage.dispose()
+        matchBackgroundImage.dispose()
     }
 
     private fun updateLayout() {
@@ -829,18 +836,17 @@ class MatchScreen(
         if (presenter.state.status == MatchStatus.LOBBY) {
             return
         }
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x040B14FF, 0x091521FF, 0x214D7CFF, 0x13314FFF)
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x060A103F, 0x0A10184F, 0x1F4C7C22, 0x295A902C)
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x020407B8, 0x05091194, 0x00000000, 0x00000000)
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x120E090E, 0x090E1302, 0x14315600, 0x224E821A)
-        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x00000000, 0x060B120C, 0x1A3A621A, 0x2C6CB022)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x100606D8, 0x120908DA, 0x2D0F0CB2, 0x32120FB6)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x00000036, 0x09030444, 0x7E311014, 0x8C3B151C)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0x26120B46, 0x14080A36, 0x00000000, 0x00000000)
+        fillGradientRect(0f, 0f, layoutWorldWidth, layoutWorldHeight, 0xE5964A12, 0xF4AE5010, 0xFFDE9A06, 0xFFD48A08)
     }
 
     private fun drawAtmosphereTextures() {
         if (presenter.state.status == MatchStatus.LOBBY) {
-            drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xF8D2A208))
+            drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xF6B25D06))
             drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x00000042))
-            drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x1D2F4A12))
+            drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x4E140B18))
             return
         }
         val time = overlayAnimationSeconds
@@ -857,12 +863,13 @@ class MatchScreen(
         val sweepX = -layoutWorldWidth * 0.28f + sin(time * 0.05f) * 84f
         val sweepY = layoutWorldHeight * 0.16f + cos(time * 0.04f) * 28f
 
-        drawGlow(leftBloomX, leftBloomY, layoutWorldWidth * 0.62f, layoutWorldHeight * 0.54f, color(0x2B77D64A))
-        drawGlow(centerBloomX, centerBloomY, layoutWorldWidth * 0.78f, layoutWorldHeight * 0.56f, color(0x72A7FF42))
-        drawGlow(rightBloomX, rightBloomY, layoutWorldWidth * 0.64f, layoutWorldHeight * 0.48f, color(0x1B5CAF44))
-        drawGlow(topBloomX, topBloomY, layoutWorldWidth * 0.72f, layoutWorldHeight * 0.28f, color(0xA7CEFF18))
-        drawGlow(emberX, emberY, layoutWorldWidth * 0.54f, layoutWorldWidth * 0.54f, color(0xF4B8641C))
-        drawGlow(sweepX, sweepY, layoutWorldWidth * 1.34f, layoutWorldHeight * 0.26f, color(0xD8E9FF16))
+        drawGlow(leftBloomX, leftBloomY, layoutWorldWidth * 0.62f, layoutWorldHeight * 0.54f, color(0xB84D2140))
+        drawGlow(centerBloomX, centerBloomY, layoutWorldWidth * 0.82f, layoutWorldHeight * 0.62f, color(0x7E281E36))
+        drawGlow(rightBloomX, rightBloomY, layoutWorldWidth * 0.64f, layoutWorldHeight * 0.48f, color(0xF49B4330))
+        drawGlow(topBloomX, topBloomY, layoutWorldWidth * 0.78f, layoutWorldHeight * 0.34f, color(0xFFDA8F16))
+        drawGlow(emberX, emberY, layoutWorldWidth * 0.58f, layoutWorldWidth * 0.58f, color(0xFFB3611F))
+        drawGlow(sweepX, sweepY, layoutWorldWidth * 1.34f, layoutWorldHeight * 0.26f, color(0xFFE2BF10))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0xFFF2DA0B))
 
         drawRepeatedTexture(
             grainTexture,
@@ -870,7 +877,7 @@ class MatchScreen(
             0f,
             layoutWorldWidth,
             layoutWorldHeight,
-            color(0xEEF5FF14),
+            color(0xFFF1DE12),
             layoutWorldWidth / 126f,
             layoutWorldHeight / 126f,
             time * 0.010f,
@@ -882,28 +889,28 @@ class MatchScreen(
             0f,
             layoutWorldWidth,
             layoutWorldHeight,
-            color(0x7FAEDC0A),
+            color(0xE9A86F0A),
             layoutWorldWidth / 82f,
             layoutWorldHeight / 82f,
             -time * 0.006f,
             time * 0.004f,
         )
-        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x000000A2))
-        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x21304B1C))
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x0000007E))
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, color(0x4B130F1A))
     }
 
     private fun drawLobby() {
         if (showLobbyPrimaryButton()) {
             val isPairing = presenter.playbackSessionState == PlaybackSessionState.Connecting
             if (isPairing) {
-                fillButton(startButtonRect, 0xA4B5DBFF, 0x7D90BBFF, 0xE9F0FF55)
+                fillButton(startButtonRect, 0xC5886FFF, 0x934634FF, 0xFFDDBFA8)
             } else {
-                fillButton(startButtonRect, 0xF6B447FF, 0xE4952BFF, 0xFFF0BF66)
+                fillButton(startButtonRect, 0xF5C067FF, 0xD37D29FF, 0xFFF0BF66)
             }
         }
 
         if (showLobbyJoinPanel()) {
-            fillPanel(lobbyJoinPanelRect, 0x132850FF, 0x0C1D38FF, 0x2C4788FF, 0x20396DFF, 0xBCD0F04C)
+            fillPanel(lobbyJoinPanelRect, 0x3B201FFF, 0x1B1117FF, 0x6E311FFF, 0x52241DFF, 0xFFD4A461)
             drawDropShadow(lobbyQrRect, 12f, 0x01050B38)
             fillGradientRect(
                 lobbyQrRect.x - 10f,
@@ -931,25 +938,25 @@ class MatchScreen(
 
     private fun drawLobbyTextures() {
         if (showLobbyPrimaryButton()) {
-            drawPanelTexture(startButtonRect, color(0xFFF5D41E))
+            drawPanelTexture(startButtonRect, color(0xFFF3D21D))
             val time = overlayAnimationSeconds
             drawGlow(
                 startButtonRect.x - startButtonRect.width * 0.14f + sin(time * 0.20f) * 14f,
                 startButtonRect.y - startButtonRect.height * 0.32f,
                 startButtonRect.width * 1.28f,
                 startButtonRect.height * 1.58f,
-                color(0xF9D06D24),
+                color(0xF9C06D24),
             )
         }
         if (showLobbyJoinPanel()) {
             val time = overlayAnimationSeconds
-            drawPanelTexture(lobbyJoinPanelRect, color(0xCBDEFF12))
+            drawPanelTexture(lobbyJoinPanelRect, color(0xFFD8B80F))
             drawGlow(
                 lobbyJoinPanelRect.x - lobbyJoinPanelRect.width * 0.14f + cos(time * 0.13f) * 10f,
                 lobbyJoinPanelRect.y + lobbyJoinPanelRect.height * 0.18f + sin(time * 0.11f) * 10f,
                 lobbyJoinPanelRect.width * 1.18f,
                 lobbyJoinPanelRect.height * 0.58f,
-                color(0x7EB6FF16),
+                color(0xFFBA7814),
             )
             drawRepeatedTexture(
                 grainTexture,
@@ -957,7 +964,7 @@ class MatchScreen(
                 lobbyJoinPanelRect.y + 2f,
                 lobbyJoinPanelRect.width - 4f,
                 lobbyJoinPanelRect.height - 4f,
-                color(0xE3EDFF0B),
+                color(0xFFF2DB0B),
                 max(1f, lobbyJoinPanelRect.width / 100f),
                 max(1f, lobbyJoinPanelRect.height / 100f),
                 time * 0.004f,
@@ -981,7 +988,7 @@ class MatchScreen(
             width = lobbyMainRect.width,
             height = 42f,
             scale = 0.74f,
-            color = color(0xF3CF7BFF),
+            color = color(0xFFDFA15B),
             align = Align.center,
             verticalAlign = VerticalTextAlign.Center,
         )
@@ -995,7 +1002,7 @@ class MatchScreen(
                 width = lobbyJoinPanelRect.width,
                 height = panelHeaderHeight,
                 scale = 0.72f,
-                color = color(0xF4CF79FF),
+                color = color(0xFFDFA15B),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
             )
@@ -1006,7 +1013,7 @@ class MatchScreen(
                 width = lobbyJoinUrlRect.width,
                 height = lobbyJoinUrlRect.height,
                 scale = 0.52f,
-                color = color(0xE3ECFFFF),
+                color = color(0xFFF0E4D7),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
                 wrap = true,
@@ -1023,13 +1030,13 @@ class MatchScreen(
                 height = startButtonRect.height,
                 scale = 1.16f,
                 color = if (presenter.playbackSessionState == PlaybackSessionState.Connecting) {
-                    color(0x0F1A2EFF)
+                    color(0xFFF7E8DB)
                 } else {
                     color(0x1A1308FF)
                 },
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0xFFF8E29F33),
+                shadowColor = if (presenter.playbackSessionState == PlaybackSessionState.Connecting) color(0x5B1C123B) else color(0xFFF8E29F33),
             )
         } else {
             drawTextBlock(
@@ -1039,10 +1046,10 @@ class MatchScreen(
                 width = startButtonRect.width,
                 height = startButtonRect.height,
                 scale = 0.88f,
-                color = color(0xD9E4FDFF),
+                color = color(0xFFF0E4D7),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0x02060C8A),
+                shadowColor = color(0x35160F8A),
             )
         }
     }
@@ -1054,16 +1061,16 @@ class MatchScreen(
             visual.rect.y,
             visual.rect.width,
             visual.rect.height,
-            if (visual.isDragged) 0x18335FDE else 0x1323418A,
-            if (visual.isDragged) 0x14305AD8 else 0x10203D8A,
-            if (visual.isDragged) 0x295490F2 else 0x20386A9D,
-            if (visual.isDragged) 0x214C88EB else 0x182D5596,
+            if (visual.isDragged) 0x5A2C2BDE else 0x3B21218A,
+            if (visual.isDragged) 0x4E2527D8 else 0x321B1F8A,
+            if (visual.isDragged) 0x9D522DF2 else 0x6B35299D,
+            if (visual.isDragged) 0x8D4A2AEB else 0x5C2D2496,
         )
         visual.editRect?.let(::drawLobbyEditIcon)
     }
 
     private fun drawLobbyBadgeTexture(visual: LobbyBadgeVisual) {
-        drawPanelTexture(visual.rect, color(if (visual.isDragged) 0xDBEEFF18 else 0xC7DAFF10))
+        drawPanelTexture(visual.rect, color(if (visual.isDragged) 0xFFE4C518 else 0xFFD8B50F))
     }
 
     private fun drawLobbyBadgeText(visual: LobbyBadgeVisual) {
@@ -1076,10 +1083,10 @@ class MatchScreen(
             width = visual.rect.width - leftInset - rightInset,
             height = visual.rect.height,
             scale = visual.textScale,
-            color = Color.WHITE,
+            color = color(0xFFF2E6D7),
             align = Align.left,
             verticalAlign = VerticalTextAlign.Center,
-            shadowColor = color(0x02060CA0),
+            shadowColor = color(0x35150EA0),
             enforceMinimumScale = false,
         )
     }
@@ -1282,12 +1289,12 @@ class MatchScreen(
         fillHero(heroRect)
         if (showPlaybackToggleButton()) {
             if (isPlaybackPaused()) {
-                fillButton(playbackButtonRect, 0xF2C662FF, 0xD78622FF, 0xFFF3C07D)
+                fillButton(playbackButtonRect, 0xF5CB77FF, 0xD98B35FF, 0xFFF1C58D)
             } else {
-                fillButton(playbackButtonRect, 0xAFC7F8FF, 0x6786C0FF, 0xDDE8FF7A)
+                fillButton(playbackButtonRect, 0xCE7D63FF, 0xA3472CFF, 0xFFD8B39A)
             }
         }
-        fillPanel(timelinePanelRect, 0x14264DFF, 0x0D1B37FF, 0x556EABFF, 0x41598FFF, 0xB4C7F144)
+        fillPanel(timelinePanelRect, 0x40221BFF, 0x1C0F13FF, 0x7E3A23FF, 0x5B221DFF, 0xFFD5A55C)
         if (showActionWell()) {
             fillActionWell()
         }
@@ -1299,9 +1306,9 @@ class MatchScreen(
                     bottom = deckRect.y - offset,
                     width = deckRect.width,
                     height = deckRect.height,
-                    topColor = 0xE87853FF,
-                    bottomColor = 0xCC5D3EFF,
-                    edgeColor = 0xFFD3A28FFF,
+                    topColor = 0xEE9B58FF,
+                    bottomColor = 0xC26031FF,
+                    edgeColor = 0xFFD9B08BFF,
                 )
             }
         }
@@ -1311,14 +1318,14 @@ class MatchScreen(
     }
 
     private fun drawMatchTextures() {
-        drawPanelTexture(heroRect, color(0xCFE1FF10))
+        drawPanelTexture(heroRect, color(0xFFE3BE12))
         if (showPlaybackToggleButton()) {
             drawPanelTexture(
                 playbackButtonRect,
-                if (isPlaybackPaused()) color(0xFFF0D31A) else color(0xD6E6FF18),
+                if (isPlaybackPaused()) color(0xFFF0CE18) else color(0xFFD6A21A),
             )
         }
-        drawPanelTexture(timelinePanelRect, color(0xC9DBFF12))
+        drawPanelTexture(timelinePanelRect, color(0xFFD8B80D))
         if (showActionWell()) {
             drawActionWellTexture()
         }
@@ -1328,7 +1335,7 @@ class MatchScreen(
             timelinePanelRect.y + 2f,
             timelinePanelRect.width - 4f,
             timelinePanelRect.height - panelHeaderHeight - 4f,
-            color(0x7FA9DD0C),
+            color(0xFFE4C30A),
             timelinePanelRect.width / 116f,
             max(1f, (timelinePanelRect.height - panelHeaderHeight) / 116f),
         )
@@ -1391,7 +1398,7 @@ class MatchScreen(
             width = turnLabelWidth,
             height = heroRect.height,
             scale = 0.92f,
-            color = color(0xD9E4FDFF),
+            color = color(0xFFF2E4D3),
             align = Align.right,
             verticalAlign = VerticalTextAlign.Center,
         )
@@ -1420,7 +1427,7 @@ class MatchScreen(
                 color = toolbarStatusColor(),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0x02060C8A),
+                shadowColor = color(0x35160F92),
                 enforceMinimumScale = false,
             )
         }
@@ -1432,10 +1439,10 @@ class MatchScreen(
                 width = playbackButtonRect.width,
                 height = playbackButtonRect.height,
                 scale = 0.64f,
-                color = if (isPlaybackPaused()) color(0x261708FF) else color(0x0D1628FF),
+                color = if (isPlaybackPaused()) color(0x261307FF) else color(0xFFF7E9DB),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = if (isPlaybackPaused()) color(0xFFF7E2A640) else color(0xF2FBFF40),
+                shadowColor = if (isPlaybackPaused()) color(0xFFF7E2A640) else color(0x5C1A113E),
             )
         }
 
@@ -1447,10 +1454,10 @@ class MatchScreen(
                 width = deckFrontCardRect.width,
                 height = deckFrontCardRect.height,
                 scale = 1.34f,
-                color = color(0xFFF5E8D0),
+                color = color(0xFFF8ECD7),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = color(0x441A0C99),
+                shadowColor = color(0x5A180B9D),
             )
         }
 
@@ -1461,7 +1468,7 @@ class MatchScreen(
             width = timelineHeaderRect.width * 0.45f,
             height = timelineHeaderRect.height,
             scale = 1.06f,
-            color = Color.WHITE,
+            color = color(0xFFF4E6D7),
             insetX = panelPadding,
             verticalAlign = VerticalTextAlign.Center,
         )
@@ -1472,7 +1479,7 @@ class MatchScreen(
             width = 296f,
             height = timelineHeaderRect.height,
             scale = 0.86f,
-            color = color(0xF4CF79FF),
+            color = color(0xFFD88C4EFF),
             align = Align.right,
             verticalAlign = VerticalTextAlign.Center,
         )
@@ -1485,7 +1492,7 @@ class MatchScreen(
                 width = timelineTrackRect.width,
                 height = timelineTrackRect.height,
                 scale = 1.06f,
-                color = color(0xE0E9FFFF),
+                color = color(0xFFF1E7DB),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
             )
@@ -1515,10 +1522,10 @@ class MatchScreen(
 
     private fun drawFloatingControlsShapes() {
         if (showCoinsShortcutButton()) {
-            fillButton(hostCoinsButtonRect, 0xF4C55BFF, 0xDA8E2CFF, 0xFFF3C07D)
+            fillButton(hostCoinsButtonRect, 0xF2C468FF, 0xCE7E24FF, 0xFFF0C48D)
         }
         if (showRedrawButton()) {
-            fillButton(redrawButtonRect, 0xF3C764FF, 0xD17E1BFF, 0xFFF3C07D)
+            fillButton(redrawButtonRect, 0xF4C870FF, 0xD47F20FF, 0xFFF0C38D)
         }
         when {
             showActionButton() -> {
@@ -1538,17 +1545,17 @@ class MatchScreen(
             drawActionButtonGlow(actionButtonRect, isActionButtonEnabled())
         }
         if (showRedrawButton()) {
-            drawPanelTexture(redrawButtonRect, color(0xFFF1D316))
+            drawPanelTexture(redrawButtonRect, color(0xFFF2D017))
         }
         if (showDoubtToggleButton()) {
             drawDoubtButtonGlow(isDoubtToggleActive())
             drawPanelTexture(
                 doubtButtonRect,
-                if (isDoubtToggleActive()) color(0xD4F6FF16) else color(0xFFF3D712),
+                if (isDoubtToggleActive()) color(0xFFD2A61A) else color(0xFFECC47014),
             )
         }
         if (showCoinsShortcutButton()) {
-            drawPanelTexture(hostCoinsButtonRect, color(0xFFE7B313))
+            drawPanelTexture(hostCoinsButtonRect, color(0xFFE7B513))
         }
     }
 
@@ -1569,7 +1576,7 @@ class MatchScreen(
         }
         if (showDoubtToggleButton()) {
             val isActive = isDoubtToggleActive()
-            val labelColor = if (isActive) color(0x041C2FFF) else color(0x1A1308FF)
+            val labelColor = if (isActive) color(0x2A1109FF) else color(0x1A1308FF)
             val countdown = if (presenter.state.turn?.phase == TurnPhase.AWAITING_DOUBT_WINDOW) {
                 doubtWindowCountdownSecondsRemaining()
             } else {
@@ -1596,7 +1603,7 @@ class MatchScreen(
                 color = labelColor,
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
-                shadowColor = if (isActive) color(0xD6F7FF52) else color(0xFFF6E29A2C),
+                shadowColor = if (isActive) color(0x4C190F66) else color(0xFFF6E29A2C),
                 enforceMinimumScale = false,
             )
         }
@@ -1665,8 +1672,8 @@ class MatchScreen(
     }
 
     private fun drawCoinPanelShapes() {
-        fillPanel(coinPanelRect, 0x132145FF, 0x0C1A33FF, 0xF0BE61FF, 0xD58E2DFF, 0xFFE7B44D)
-        fillButton(coinPanelCloseRect, 0xE38A7AFF, 0xB84A35FF, 0xFFDAB2A5)
+        fillPanel(coinPanelRect, 0x3E1F1DFF, 0x1E1116FF, 0xA55D35FF, 0x6D2E24FF, 0xFFD29F66)
+        fillButton(coinPanelCloseRect, 0xE08E79FF, 0xB54C38FF, 0xFFDAB2A5)
         coinPanelRows().forEach { row ->
             drawDropShadow(row.rowRect, 10f, 0x01050B38)
             fillGradientRect(
@@ -1674,20 +1681,20 @@ class MatchScreen(
                 row.rowRect.y,
                 row.rowRect.width,
                 row.rowRect.height,
-                0x13284BFF,
-                0x102241FF,
-                0x203862FF,
-                0x183154FF,
+                0x3B211FFF,
+                0x28171AFF,
+                0x5B3128FF,
+                0x452521FF,
             )
             fillButton(row.minusRect, 0xF0B25CFF, 0xC97C1DFF, 0xFFE6BF82)
-            fillButton(row.plusRect, 0x7CD4E8FF, 0x2E8AB7FF, 0xDDF8FFFF)
+            fillButton(row.plusRect, 0xE69C76FF, 0xB85636FF, 0xFFDAB9A6)
         }
     }
 
     private fun drawCoinPanelTextures() {
-        drawPanelTexture(coinPanelRect, color(0xC7DAFF10))
+        drawPanelTexture(coinPanelRect, color(0xFFD7B70E))
         coinPanelRows().forEach { row ->
-            drawPanelTexture(row.rowRect, color(0xC7DAFF0C))
+            drawPanelTexture(row.rowRect, color(0xFFD6B30A))
         }
     }
 
@@ -1699,7 +1706,7 @@ class MatchScreen(
             width = coinPanelRect.width * 0.72f,
             height = panelHeaderHeight,
             scale = 0.98f,
-            color = Color.WHITE,
+            color = color(0xFFF2E6D7),
             insetX = panelPadding,
             verticalAlign = VerticalTextAlign.Center,
         )
@@ -1723,7 +1730,7 @@ class MatchScreen(
                 width = row.rowRect.width * 0.42f,
                 height = row.rowRect.height,
                 scale = 0.74f,
-                color = Color.WHITE,
+                color = color(0xFFF0E4D7),
                 verticalAlign = VerticalTextAlign.Center,
             )
             drawTextBlock(
@@ -1755,7 +1762,7 @@ class MatchScreen(
                 width = row.plusRect.width,
                 height = row.plusRect.height,
                 scale = 0.86f,
-                color = color(0x031E2FFF),
+                color = color(0x2A1209FF),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
             )
@@ -1795,22 +1802,22 @@ class MatchScreen(
         val sweepGlowX = layoutWorldWidth * (0.52f + 0.08f * cos(time * 0.28f))
         val sweepGlowY = layoutWorldHeight * (0.08f + 0.04f * sin(time * 0.22f))
 
-        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0xCFD7E2FF, alpha * 0.34f))
-        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x7C8EADFF, alpha * 0.27f))
-        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x2A3344FF, alpha * 0.12f))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0xE7D8C8FF, alpha * 0.26f))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x8F6558FF, alpha * 0.22f))
+        drawTexture(flatTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x2D1B1FFF, alpha * 0.14f))
         drawGlow(
             accentGlowX,
             accentGlowY,
             accentGlowWidth,
             accentGlowHeight,
-            colorWithAlpha(0xDCE8FFF0, alpha * 0.12f),
+            colorWithAlpha(0xF5D8BEF0, alpha * 0.10f),
         )
         drawGlow(
             sweepGlowX,
             sweepGlowY,
             sweepGlowWidth,
             sweepGlowHeight,
-            colorWithAlpha(0x91A9CFFF, alpha * 0.08f),
+            colorWithAlpha(0xC98A64FF, alpha * 0.07f),
         )
         drawRepeatedTexture(
             grainTexture,
@@ -1818,7 +1825,7 @@ class MatchScreen(
             0f,
             layoutWorldWidth,
             layoutWorldHeight,
-            colorWithAlpha(0xDDE6F1FF, alpha * 0.10f),
+            colorWithAlpha(0xF4E3D0FF, alpha * 0.08f),
             layoutWorldWidth / 88f,
             layoutWorldHeight / 88f,
             grainDriftX,
@@ -1830,41 +1837,42 @@ class MatchScreen(
             0f,
             layoutWorldWidth,
             layoutWorldHeight,
-            colorWithAlpha(0x94A6BEFF, alpha * 0.06f),
+            colorWithAlpha(0xB68873FF, alpha * 0.05f),
             layoutWorldWidth / 58f,
             layoutWorldHeight / 58f,
             slowDriftX,
             slowDriftY,
         )
-        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x000000FF, alpha * 0.26f))
-        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x24334DFF, alpha * 0.13f))
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x000000FF, alpha * 0.24f))
+        drawTexture(vignetteTexture, 0f, 0f, layoutWorldWidth, layoutWorldHeight, colorWithAlpha(0x5A251DFF, alpha * 0.11f))
     }
 
     private fun fillHero(rect: Rectangle) {
-        drawDropShadow(rect, 18f, 0x01050B2A)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x101A2FA0, 0x0D16299A, 0x1A2A4BBB, 0x152445B4)
+        drawDropShadow(rect, 18f, 0x0C05072E)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x2C1419A8, 0x241116A4, 0x4B211EA8, 0x3B1A1CA8)
     }
 
     private fun fillTrack(rect: Rectangle) {
-        drawDropShadow(rect, 18f, 0x01050B2A)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x1A27459B, 0x16213C96, 0x243254AF, 0x1F2C4AA9)
+        drawDropShadow(rect, 18f, 0x0B06082A)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x2C171D82, 0x2412187C, 0x46201E86, 0x39191A84)
     }
 
     private fun fillButton(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
-        drawDropShadow(rect, 16f, 0x1409014B)
+        drawDropShadow(rect, 16f, 0x18090550)
         fillGradientRect(rect.x, rect.y, rect.width, rect.height, bottomColor, bottomColor, topColor, topColor)
-        fillRect(rect.x + 8f, rect.y + rect.height - 12f, rect.width - 16f, 3f, 0xFFFFFF1A)
+        fillRect(rect.x + 8f, rect.y + rect.height - 12f, rect.width - 16f, 3f, 0xFFF8E02C)
         drawFrame(rect, edgeColor, 2f)
+        drawFrame(rect.x + 3f, rect.y + 3f, rect.width - 6f, rect.height - 6f, 0xFFF2D285, 1.2f)
     }
 
     private fun fillDoubtToggleButton(isActive: Boolean) {
-        val shadowColor = if (isActive) 0x319BC8FF else 0xD58A22FF
-        val bottomLeft = if (isActive) 0x287FB8FF else 0xC97717FF
-        val bottomRight = if (isActive) 0x2C8CC3FF else 0xD4831FFF
-        val topRight = if (isActive) 0x78DEFFFF else 0xF7D16FFF
-        val topLeft = if (isActive) 0x6FD2F8FF else 0xF3BF56FF
-        val outerEdge = if (isActive) 0xECFCFFFF else 0xFFF4D0FF
-        val innerEdge = if (isActive) 0xCBF3FFB8 else 0xFFF1BF96
+        val shadowColor = if (isActive) 0xA24F28FF else 0xD58A22FF
+        val bottomLeft = if (isActive) 0xA4492BFF else 0xC97717FF
+        val bottomRight = if (isActive) 0xB45A31FF else 0xD4831FFF
+        val topRight = if (isActive) 0xF1A96BFF else 0xF7D16FFF
+        val topLeft = if (isActive) 0xE98D56FF else 0xF3BF56FF
+        val outerEdge = if (isActive) 0xFFF0D6FF else 0xFFF4D0FF
+        val innerEdge = if (isActive) 0xFFDDB694 else 0xFFF1BF96
 
         drawDropShadow(doubtButtonRect, 14f, shadowColor)
         fillGradientRect(
@@ -1882,7 +1890,7 @@ class MatchScreen(
             doubtButtonRect.y + doubtButtonRect.height - 11f,
             doubtButtonRect.width - 16f,
             3f,
-            if (isActive) 0xEFFFFF2A else 0xFFF7D01F,
+            if (isActive) 0xFFF8E92A else 0xFFF7D01F,
         )
         drawFrame(doubtButtonRect, outerEdge, 2f)
         drawFrame(
@@ -1896,7 +1904,7 @@ class MatchScreen(
     }
 
     private fun drawDoubtButtonGlow(isActive: Boolean) {
-        val glowTint = if (isActive) 0x8EEDFFFF else 0xFFE89DFF
+        val glowTint = if (isActive) 0xFFBD86FF else 0xFFE89DFF
         val expansion = if (isActive) 42f else 36f
         drawGlow(
             doubtButtonRect.x - expansion * 0.42f,
@@ -1912,13 +1920,13 @@ class MatchScreen(
         val centerX = rect.x + rect.width / 2f
         val centerY = rect.y + rect.height / 2f
         val outerShadow = if (enabled) 0x170801FFL else 0x1C0E03FFL
-        val outerRing = if (enabled) 0x4A2404FFL else 0x573915FFL
-        val rimColor = if (enabled) 0xFFF3C86EFFL else 0xE1C28CFFL
-        val innerRim = if (enabled) 0xFFF9E2A5FFL else 0xF0DDB3FFL
-        val bodyLower = if (enabled) 0xD78418FFL else 0xBA8E43FFL
-        val bodyUpper = if (enabled) 0xF7C759FFL else 0xD8B36AFFL
-        val coreColor = if (enabled) 0xE8A93CFFL else 0xC59A58FFL
-        val highlightColor = if (enabled) 0xFFF5C6FFL else 0xFFF0D0FFL
+        val outerRing = if (enabled) 0x5A220FFF else 0x573915FFL
+        val rimColor = if (enabled) 0xFFF0BA6DFF else 0xE1C28CFFL
+        val innerRim = if (enabled) 0xFFF7DCA6FF else 0xF0DDB3FFL
+        val bodyLower = if (enabled) 0xC66522FF else 0xBA8E43FFL
+        val bodyUpper = if (enabled) 0xF0AF4FFF else 0xD8B36AFFL
+        val coreColor = if (enabled) 0xE09038FF else 0xC59A58FFL
+        val highlightColor = if (enabled) 0xFFF2C4FF else 0xFFF0D0FFL
         val lowerShade = if (enabled) 0x8F5310FFL else 0x7E6130FFL
 
         repeat(5) { layer ->
@@ -1991,7 +1999,7 @@ class MatchScreen(
     }
 
     private fun fillPanel(rect: Rectangle, bodyTop: Long, bodyBottom: Long, headerTop: Long, headerBottom: Long, _edgeColor: Long) {
-        drawDropShadow(rect, 18f, 0x01050B2E)
+        drawDropShadow(rect, 18f, 0x09050632)
         fillGradientRect(
             rect.x,
             rect.y,
@@ -2012,26 +2020,28 @@ class MatchScreen(
             withAlpha(headerTop, 0xB8),
             withAlpha(headerTop, 0xB8),
         )
+        drawFrame(rect.x, rect.y, rect.width, rect.height, 0xFFD3A15C, 1.6f)
+        drawFrame(rect.x + 4f, rect.y + 4f, rect.width - 8f, rect.height - 8f, 0xFFEED3A4, 0.9f)
     }
 
     private fun fillActionWell() {
         val rect = actionWellRect()
-        drawDropShadow(rect, 16f, 0x01050B20)
+        drawDropShadow(rect, 16f, 0x09050722)
         fillGradientRect(
             rect.x,
             rect.y,
             rect.width,
             rect.height,
-            0x0A132262,
-            0x0B142464,
-            0x1321407A,
-            0x11203B78,
+            0x30161A64,
+            0x28121866,
+            0x51211C74,
+            0x441C1C72,
         )
     }
 
     private fun drawActionWellTexture() {
         val rect = actionWellRect()
-        drawPanelTexture(rect, color(0xB8D3FF0A))
+        drawPanelTexture(rect, color(0xFFDAB10A))
     }
 
     private fun showActionWell(): Boolean = showDoubtToggleButton() || showCoinsShortcutButton()
@@ -2323,11 +2333,11 @@ class MatchScreen(
     }
 
     private fun toolbarStatusColor(): Color {
-        presenter.lastError?.let { return color(0xFFB7ACFF) }
+        presenter.lastError?.let { return color(0xFFCBAB8D) }
         return if (localResolution()?.correct == true) {
-            color(0xF4D283FF)
+            color(0xFFD88B4D)
         } else {
-            color(0xFFB7ACFF)
+            color(0xFFCBAB8D)
         }
     }
 
@@ -2362,9 +2372,9 @@ class MatchScreen(
 
     private fun activeTurnToolbarColor(): Color {
         return if (isLocalPlayersTurn()) {
-            color(0xF4CF79FF)
+            color(0xFFD88A45)
         } else {
-            Color.WHITE
+            color(0xFFF2E6D7)
         }
     }
 
@@ -2372,7 +2382,7 @@ class MatchScreen(
         return if (isLocalPlayersTurn()) {
             color(0x533106A6)
         } else {
-            color(0x02060CB8)
+            color(0x35150EA8)
         }
     }
 

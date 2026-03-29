@@ -82,28 +82,29 @@ class GuestDiscoveryScreen(
         batch.end()
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        fillPanel(titleRect, 0x223868FF, 0x15284BFF, 0x9EC3FF2A)
+        fillPanel(titleRect, 0x522620FF, 0x29151AFF, 0xFFD5A55C)
         if (showBackButton) {
-            fillPanel(backRect, 0x294A86FF, 0x18345DFF, 0xC7D8FF4A)
+            fillPanel(backRect, 0xC26A5AFF, 0x853228FF, 0xF3C1AF)
         }
         hostRects.forEachIndexed { index, (rect, _) ->
             if (index % 2 == 0) {
-                fillPanel(rect, 0x203968FF, 0x12233FFF, 0xB6CAE832)
+                fillPanel(rect, 0x46211EFF, 0x241419FF, 0xFFD2A163)
             } else {
-                fillPanel(rect, 0x1A3159FF, 0x10203AFF, 0xA8BEE028)
+                fillPanel(rect, 0x3A1C1EFF, 0x1F1319FF, 0xFFD2A163)
             }
         }
         shapeRenderer.end()
 
         batch.begin()
-        backdrop.drawPanelTexture(batch, titleRect, Color(0.78f, 0.86f, 1f, 0.08f), animationSeconds)
+        backdrop.drawPanelTexture(batch, titleRect, Color(1f, 0.87f, 0.68f, 0.10f), animationSeconds)
         if (showBackButton) {
-            backdrop.drawPanelTexture(batch, backRect, Color(0.84f, 0.92f, 1f, 0.08f), animationSeconds)
+            backdrop.drawPanelTexture(batch, backRect, Color(1f, 0.82f, 0.72f, 0.10f), animationSeconds)
         }
         hostRects.forEach { (rect, _) ->
-            backdrop.drawPanelTexture(batch, rect, Color(0.83f, 0.90f, 1f, 0.06f), animationSeconds)
+            backdrop.drawPanelTexture(batch, rect, Color(1f, 0.84f, 0.72f, 0.08f), animationSeconds)
         }
         titleLayout.setText(titleFont, "Available Hosts")
+        titleFont.color = color(0xFFF4E6D7)
         titleFont.draw(batch, titleLayout, (viewport.worldWidth - titleLayout.width) / 2f, titleRect.y + (titleRect.height + titleLayout.height) / 2f)
         if (showBackButton) {
             drawText(itemFont, "BACK", backRect.x + 22f, backRect.y + backRect.height * 0.68f)
@@ -165,19 +166,21 @@ class GuestDiscoveryScreen(
     }
 
     private fun drawText(font: BitmapFont, text: String, x: Float, y: Float) {
-        font.color = Color.WHITE
+        font.color = color(0xFFF2E6D7)
         font.draw(batch, text, x, y)
     }
 
     private fun drawCenteredText(font: BitmapFont, text: String, x: Float, y: Float, width: Float) {
-        font.color = Color.WHITE
+        font.color = color(0xFFF2E6D7)
         val layout = GlyphLayout(font, text)
         font.draw(batch, layout, x + (width - layout.width) / 2f, y)
     }
 
-    private fun fillPanel(rect: Rectangle, topColor: Long, bottomColor: Long, _edgeColor: Long) {
-        drawDropShadow(rect, 18f, 0x01050B30)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x0D16288A, 0x0C152689, 0x182B50A8, 0x132347A1)
+    private fun fillPanel(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
+        drawDropShadow(rect, 18f, 0x09050634)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, withAlpha(bottomColor, 0xA2), withAlpha(bottomColor, 0xA2), withAlpha(topColor, 0xB0), withAlpha(topColor, 0xB0))
+        drawFrame(rect, edgeColor, 1.6f)
+        drawFrame(rect.x + 4f, rect.y + 4f, rect.width - 8f, rect.height - 8f, 0xFFF0D3A2, 0.9f)
     }
 
     private fun fillGradientRect(x: Float, y: Float, width: Float, height: Float, bottomLeft: Long, bottomRight: Long, topRight: Long, topLeft: Long) {
@@ -203,6 +206,13 @@ class GuestDiscoveryScreen(
         fillRect(rect.x, rect.y + rect.height - thickness, rect.width, thickness, rgba)
         fillRect(rect.x, rect.y + thickness, thickness, rect.height - thickness * 2f, rgba)
         fillRect(rect.x + rect.width - thickness, rect.y + thickness, thickness, rect.height - thickness * 2f, rgba)
+    }
+
+    private fun drawFrame(x: Float, y: Float, width: Float, height: Float, rgba: Long, thickness: Float) {
+        fillRect(x, y, width, thickness, rgba)
+        fillRect(x, y + height - thickness, width, thickness, rgba)
+        fillRect(x, y + thickness, thickness, height - thickness * 2f, rgba)
+        fillRect(x + width - thickness, y + thickness, thickness, height - thickness * 2f, rgba)
     }
 
     private fun drawDropShadow(rect: Rectangle, spread: Float, rgba: Long) {
@@ -233,6 +243,8 @@ class GuestDiscoveryScreen(
             ((rgba and 0xFF) / 255f).toFloat(),
         )
     }
+
+    private fun withAlpha(rgba: Long, alpha: Long): Long = (rgba and 0xFFFFFF00) or (alpha and 0xFF)
 
     private inner class DiscoveryInput : InputAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {

@@ -100,18 +100,19 @@ class GuestConnectingScreen(
         batch.end()
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
-        fillPanel(titleRect, 0x223868FF, 0x15284BFF, 0x9EC3FF2A)
+        fillPanel(titleRect, 0x522620FF, 0x29151AFF, 0xFFD5A55C)
         if (showBackButton || activeController?.lastError != null) {
-            fillPanel(buttonRect, 0x2F4E87FF, 0x1B3158FF, 0xC7D8FF42)
+            fillPanel(buttonRect, 0xC26A5AFF, 0x853228FF, 0xF3C1AF)
         }
         shapeRenderer.end()
 
         batch.begin()
-        backdrop.drawPanelTexture(batch, titleRect, Color(0.78f, 0.86f, 1f, 0.08f), animationSeconds)
+        backdrop.drawPanelTexture(batch, titleRect, Color(1f, 0.87f, 0.68f, 0.10f), animationSeconds)
         if (showBackButton || activeController?.lastError != null) {
-            backdrop.drawPanelTexture(batch, buttonRect, Color(0.84f, 0.92f, 1f, 0.08f), animationSeconds)
+            backdrop.drawPanelTexture(batch, buttonRect, Color(1f, 0.82f, 0.72f, 0.10f), animationSeconds)
         }
         titleLayout.setText(titleFont, "Joining Host")
+        titleFont.color = color(0xFFF4E6D7)
         titleFont.draw(batch, titleLayout, (viewport.worldWidth - titleLayout.width) / 2f, titleRect.y + (titleRect.height + titleLayout.height) / 2f)
         val hostDisplayName = discoveredHostDisplayName
         drawText(
@@ -190,7 +191,7 @@ class GuestConnectingScreen(
         width: Float,
         centered: Boolean,
     ) {
-        font.color = Color.WHITE
+        font.color = color(0xFFF2E6D7)
         if (centered) {
             val layout = GlyphLayout(font, text)
             font.draw(batch, layout, x + (width - layout.width) / 2f, y)
@@ -206,14 +207,16 @@ class GuestConnectingScreen(
         y: Float,
         width: Float,
     ) {
-        font.color = Color(0.76f, 0.82f, 0.95f, 1f)
+        font.color = color(0xFFE4CDBA)
         detailLayout.setText(font, text, font.color, width, 1, true)
         font.draw(batch, detailLayout, x, y)
     }
 
-    private fun fillPanel(rect: Rectangle, topColor: Long, bottomColor: Long, _edgeColor: Long) {
-        drawDropShadow(rect, 18f, 0x01050B30)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x0D16288A, 0x0C152689, 0x182B50A8, 0x132347A1)
+    private fun fillPanel(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
+        drawDropShadow(rect, 18f, 0x09050634)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, withAlpha(bottomColor, 0xA2), withAlpha(bottomColor, 0xA2), withAlpha(topColor, 0xB0), withAlpha(topColor, 0xB0))
+        drawFrame(rect, edgeColor, 1.6f)
+        drawFrame(rect.x + 4f, rect.y + 4f, rect.width - 8f, rect.height - 8f, 0xFFF0D3A2, 0.9f)
     }
 
     private fun fillGradientRect(x: Float, y: Float, width: Float, height: Float, bottomLeft: Long, bottomRight: Long, topRight: Long, topLeft: Long) {
@@ -239,6 +242,13 @@ class GuestConnectingScreen(
         fillRect(rect.x, rect.y + rect.height - thickness, rect.width, thickness, rgba)
         fillRect(rect.x, rect.y + thickness, thickness, rect.height - thickness * 2f, rgba)
         fillRect(rect.x + rect.width - thickness, rect.y + thickness, thickness, rect.height - thickness * 2f, rgba)
+    }
+
+    private fun drawFrame(x: Float, y: Float, width: Float, height: Float, rgba: Long, thickness: Float) {
+        fillRect(x, y, width, thickness, rgba)
+        fillRect(x, y + height - thickness, width, thickness, rgba)
+        fillRect(x, y + thickness, thickness, height - thickness * 2f, rgba)
+        fillRect(x + width - thickness, y + thickness, thickness, height - thickness * 2f, rgba)
     }
 
     private fun drawDropShadow(rect: Rectangle, spread: Float, rgba: Long) {
@@ -269,6 +279,8 @@ class GuestConnectingScreen(
             ((rgba and 0xFF) / 255f).toFloat(),
         )
     }
+
+    private fun withAlpha(rgba: Long, alpha: Long): Long = (rgba and 0xFFFFFF00) or (alpha and 0xFF)
 
     private inner class ConnectingInput : InputAdapter() {
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {

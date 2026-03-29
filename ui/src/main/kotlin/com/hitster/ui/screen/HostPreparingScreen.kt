@@ -88,8 +88,9 @@ class HostPreparingScreen(
         shapeRenderer.end()
 
         batch.begin()
-        backdrop.drawPanelTexture(batch, titleRect, Color(0.78f, 0.86f, 1f, 0.08f), animationSeconds)
+        backdrop.drawPanelTexture(batch, titleRect, Color(1f, 0.87f, 0.68f, 0.10f), animationSeconds)
         titleLayout.setText(titleFont, "Preparing Host")
+        titleFont.color = color(0xFFF4E6D7)
         titleFont.draw(
             batch,
             titleLayout,
@@ -124,13 +125,15 @@ class HostPreparingScreen(
 
     private fun drawCenteredText(font: BitmapFont, text: String, y: Float) {
         val layout = GlyphLayout(font, text)
-        font.color = Color.WHITE
+        font.color = color(0xFFF2E6D7)
         font.draw(batch, layout, (viewport.worldWidth - layout.width) / 2f, y)
     }
 
     private fun fillPanel(rect: Rectangle) {
-        drawDropShadow(rect, 18f, 0x01050B32)
-        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x0D16288A, 0x0C152689, 0x182B50A8, 0x132347A1)
+        drawDropShadow(rect, 18f, 0x09050634)
+        fillGradientRect(rect.x, rect.y, rect.width, rect.height, 0x29151AA2, 0x29151AA2, 0x522620B0, 0x522620B0)
+        drawFrame(rect.x, rect.y, rect.width, rect.height, 0xFFD5A55C, 1.6f)
+        drawFrame(rect.x + 4f, rect.y + 4f, rect.width - 8f, rect.height - 8f, 0xFFF0D3A2, 0.9f)
     }
 
     private fun fillGradientRect(x: Float, y: Float, width: Float, height: Float, bottomLeft: Long, bottomRight: Long, topRight: Long, topLeft: Long) {
@@ -169,6 +172,13 @@ class HostPreparingScreen(
                 shadow,
             )
         }
+    }
+
+    private fun drawFrame(x: Float, y: Float, width: Float, height: Float, rgba: Long, thickness: Float) {
+        fillRect(x, y, width, thickness, rgba)
+        fillRect(x, y + height - thickness, width, thickness, rgba)
+        fillRect(x, y + thickness, thickness, height - thickness * 2f, rgba)
+        fillRect(x + width - thickness, y + thickness, thickness, height - thickness * 2f, rgba)
     }
 
     private fun color(rgba: Long): Color {
