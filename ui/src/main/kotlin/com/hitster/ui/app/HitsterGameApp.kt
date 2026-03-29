@@ -9,9 +9,11 @@ import com.hitster.animations.AnimationCatalog
 import com.hitster.playback.api.NoOpPlaybackController
 import com.hitster.playback.api.PlaybackController
 import com.hitster.ui.controller.AppPlatformServices
+import com.hitster.ui.controller.HostedMatchController
 import com.hitster.ui.controller.MatchController
 import com.hitster.ui.controller.UiBootstrapper
 import com.hitster.ui.screen.GuestConnectingScreen
+import com.hitster.ui.screen.HostPreparingScreen
 import com.hitster.ui.screen.MatchScreen
 import com.hitster.ui.screen.RoleSelectionScreen
 
@@ -27,6 +29,12 @@ class HitsterGameApp(
     private var enteredDisplayName: String = UiBootstrapper.sanitizeDisplayName(suggestedDisplayName)
 
     override fun create() {
+        Thread({
+            UiBootstrapper.warmBundledPlaylist()
+        }, "hitster-playlist-warmup").apply {
+            isDaemon = true
+            start()
+        }
         if (platformServices.supportsHosting) {
             openRoleSelection()
         } else {
@@ -45,17 +53,26 @@ class HitsterGameApp(
         setScreen(
             RoleSelectionScreen(
                 onHostSelected = {
-                    val controller = platformServices.createHostedMatchController(
-                        playbackController,
-                        resolvedDisplayName(),
-                    )
-                    activeMatchController = controller
                     setScreen(
-                        MatchScreen(
-                            presenter = controller,
-                            animationCatalog = animationCatalog,
-                            requestDisplayNameInput = platformServices::requestDisplayNameInput,
-                            onLocalDisplayNameEdited = ::updateEnteredDisplayName,
+                        HostPreparingScreen(
+                            createController = {
+                                platformServices.createHostedMatchController(
+                                    playbackController,
+                                    resolvedDisplayName(),
+                                ) as HostedMatchController
+                            },
+                            onReady = { controller ->
+                                activeMatchController = controller
+                                setScreen(
+                                    MatchScreen(
+                                        presenter = controller,
+                                        animationCatalog = animationCatalog,
+                                        requestDisplayNameInput = platformServices::requestDisplayNameInput,
+                                        onLocalDisplayNameEdited = ::updateEnteredDisplayName,
+                                    ),
+                                )
+                                controller.startHosting()
+                            },
                         ),
                     )
                 },

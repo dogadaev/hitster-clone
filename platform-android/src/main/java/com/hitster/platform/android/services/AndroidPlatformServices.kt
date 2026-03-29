@@ -41,24 +41,28 @@ class AndroidPlatformServices(
             hostDisplayName = localDisplayName,
             sessionTransportFactory = { presenter ->
                 val serverPort = DEFAULT_SESSION_SERVER_PORT
-                val hostAddress = resolveSiteLocalIpv4Address() ?: "127.0.0.1"
+                val hostAddressProvider = { resolveSiteLocalIpv4Address() ?: "127.0.0.1" }
                 val discoveryAnnouncer = LanHostDiscoveryAnnouncer(
                     advertisementProvider = {
                         SessionAdvertisementDto(
                             sessionId = presenter.state.sessionId.value,
                             hostPlayerId = presenter.state.hostId.value,
                             hostDisplayName = presenter.state.players.firstOrNull { it.id == presenter.state.hostId }?.displayName ?: "Host",
-                            hostAddress = hostAddress,
+                            hostAddress = hostAddressProvider(),
                             serverPort = serverPort,
                             playerCount = presenter.state.players.size,
                         )
                     },
                 )
                 object : HostedSessionTransport {
-                    override val guestJoinUrl: String = "http://$hostAddress:${AndroidGuestWebServer.port}"
+                    private val hostAddress by lazy(LazyThreadSafetyMode.NONE) {
+                        hostAddressProvider()
+                    }
                     private val guestJoinQrTextureDelegate = lazy(LazyThreadSafetyMode.NONE) {
                         AndroidLobbyQrCodeFactory.createTexture(guestJoinUrl)
                     }
+                    override val guestJoinUrl: String
+                        get() = "http://${resolvedHostAddress()}:${AndroidGuestWebServer.port}"
                     override val guestJoinQrTexture
                         get() = guestJoinQrTextureDelegate.value
 
@@ -68,7 +72,7 @@ class AndroidPlatformServices(
                                 sessionId = presenter.state.sessionId.value,
                                 hostPlayerId = presenter.state.hostId.value,
                                 hostDisplayName = presenter.state.players.firstOrNull { it.id == presenter.state.hostId }?.displayName ?: "Host",
-                                hostAddress = hostAddress,
+                                hostAddress = resolvedHostAddress(),
                                 serverPort = serverPort,
                                 playerCount = presenter.state.players.size,
                             ),
@@ -106,6 +110,8 @@ class AndroidPlatformServices(
                         }
                         HostingForegroundService.stop(applicationContext)
                     }
+
+                    private fun resolvedHostAddress(): String = hostAddress
                 }
             },
         )

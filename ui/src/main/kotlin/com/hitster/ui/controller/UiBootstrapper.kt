@@ -133,6 +133,14 @@ object UiBootstrapper {
             }
         }
 
+    /**
+     * Preloads the bundled playlist while an entry screen is already visible so the first host
+     * selection does not pay the full JSON parse cost on the touch handler path.
+     */
+    fun warmBundledPlaylist() {
+        bundledEntries.size
+    }
+
     /** Produces a fresh per-session shuffle seed for real host lobbies. */
     internal fun nextShuffleSeed(random: Random = Random.Default): Long = random.nextLong()
 
