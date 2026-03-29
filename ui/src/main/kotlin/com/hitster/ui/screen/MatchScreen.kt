@@ -630,9 +630,9 @@ class MatchScreen(
         }
         animatedPendingCardLeft = pendingLeft
 
-        val pendingTopColor = if (localDoubtPlacement) 0x7ED9FFFF else 0xFFD06BFF
-        val pendingBottomColor = if (localDoubtPlacement) 0x2D8FCAFF else 0xE89B2FFF
-        val pendingEdgeColor = if (localDoubtPlacement) 0xDBF5FFFF else 0xFFF1D089
+        val pendingTopColor = if (localDoubtPlacement) 0x7EE7FFFF else 0xF1B14EFF
+        val pendingBottomColor = if (localDoubtPlacement) 0x2A93CFFF else 0xE28A1EFF
+        val pendingEdgeColor = if (localDoubtPlacement) 0xDBF5FFFF else 0xF5DEB8FF
         pendingCardVisual = TimelineCardVisual(
             id = pendingCard.entry.id,
             rect = Rectangle(pendingLeft, cardBottom, arrangement.cardWidth, cardHeight),
@@ -2095,38 +2095,36 @@ class MatchScreen(
         bottomColor: Long,
         edgeColor: Long,
     ) {
-        val shadowColor = if (face == CardFace.Revealed) 0x01050B42L else 0x01050B58L
-        val shadowBlur = if (face == CardFace.Revealed) 9f else 12f
+        val shadowColor = if (face == CardFace.Revealed) 0x12080848L else 0x18080858L
+        val shadowBlur = if (face == CardFace.Revealed) 10f else 13f
         drawDropShadow(left, bottom, width, height, shadowBlur, shadowColor)
         fillGradientRect(left, bottom, width, height, bottomColor, bottomColor, topColor, topColor)
         if (face == CardFace.Revealed) {
             fillGradientRect(
-                left + 5f,
-                bottom + 5f,
-                width - 10f,
-                height - 10f,
-                0xFFF7E6D416,
-                0xFFF7E6D416,
-                0xFFFFFFFF28,
-                0xFFFFFFFF28,
+                left + 6f,
+                bottom + 6f,
+                width - 12f,
+                height - 12f,
+                withAlpha(bottomColor, 44),
+                withAlpha(bottomColor, 44),
+                withAlpha(topColor, 20),
+                withAlpha(topColor, 20),
             )
-            fillRect(left + 8f, bottom + height - 16f, width - 16f, 3f, 0xFFFFFF4A)
-            fillRect(left + 10f, bottom + height - 26f, width - 20f, 2f, 0xFFFFFF20)
-            fillRect(left + 8f, bottom + 12f, width - 16f, 2f, 0x00000012)
-            drawFrame(left + 4f, bottom + 4f, width - 8f, height - 8f, 0xFFF9F1DE26, 1f)
+            fillRect(left + 10f, bottom + height - 9f, width - 20f, 1.5f, 0xFFF8EE24)
+            drawFrame(left + 4f, bottom + 4f, width - 8f, height - 8f, withAlpha(edgeColor, 76), 1f)
         } else {
             fillGradientRect(
-                left + 5f,
-                bottom + 5f,
-                width - 10f,
-                height - 10f,
-                0xFFF5CC741E,
-                0xFFF5CC741E,
-                0xFFFFFFFF2C,
-                0xFFFFFFFF2C,
+                left + 6f,
+                bottom + 6f,
+                width - 12f,
+                height - 12f,
+                0xF1A12F30,
+                0xF1A12F30,
+                0xF1C24A18,
+                0xF1C24A18,
             )
-            fillRect(left + 8f, bottom + height - 16f, width - 16f, 3f, 0xFFFFFF38)
-            fillRect(left + 8f, bottom + 12f, width - 16f, 2f, 0x00000016)
+            fillRect(left + 10f, bottom + height - 9f, width - 20f, 1.5f, 0xFFF3B042)
+            drawFrame(left + 4f, bottom + 4f, width - 8f, height - 8f, 0xF7E4A86A, 1f)
         }
         drawFrame(left, bottom, width, height, edgeColor, 2f)
     }
@@ -2270,6 +2268,10 @@ class MatchScreen(
     private fun drawCardText(visual: TimelineCardVisual) {
         when (visual.face) {
             CardFace.Revealed -> {
+                val usesLightText = revealedCardUsesLightText(visual)
+                val primaryTextColor = color(if (usesLightText) 0xFBF4E7FF else 0x2A1A12FF)
+                val secondaryTextColor = color(if (usesLightText) 0xF2E6D8FF else 0x493228FF)
+                val textShadowColor = color(if (usesLightText) 0x160906A8 else 0xF7E7CF52)
                 visual.secondaryText?.let { artist ->
                     drawTextBlock(
                         text = artist,
@@ -2278,10 +2280,10 @@ class MatchScreen(
                         width = visual.rect.width - 28f,
                         height = visual.rect.height * 0.14f,
                         scale = 0.46f,
-                        color = color(0x393024FF),
+                        color = secondaryTextColor,
                         align = Align.center,
                         verticalAlign = VerticalTextAlign.Center,
-                        shadowColor = color(0xFFF7F0E028),
+                        shadowColor = textShadowColor,
                         wrap = true,
                         enforceMinimumScale = false,
                     )
@@ -2294,10 +2296,10 @@ class MatchScreen(
                         width = visual.rect.width - 28f,
                         height = visual.rect.height * 0.16f,
                         scale = 0.76f,
-                        color = color(0x17120CFF),
+                        color = primaryTextColor,
                         align = Align.center,
                         verticalAlign = VerticalTextAlign.Center,
-                        shadowColor = color(0xFFF7F0E040),
+                        shadowColor = textShadowColor,
                         enforceMinimumScale = false,
                     )
                 }
@@ -2309,10 +2311,10 @@ class MatchScreen(
                     width = visual.rect.width - 28f,
                     height = visual.rect.height * 0.26f,
                     scale = 0.54f,
-                    color = color(0x17120CFF),
+                    color = primaryTextColor,
                     align = Align.center,
                     verticalAlign = VerticalTextAlign.Bottom,
-                    shadowColor = color(0xFFF7F0E040),
+                    shadowColor = textShadowColor,
                     wrap = true,
                     insetY = 4f,
                     enforceMinimumScale = false,
@@ -2350,6 +2352,12 @@ class MatchScreen(
                 }
             }
         }
+    }
+
+    private fun revealedCardUsesLightText(visual: TimelineCardVisual): Boolean {
+        val topLuminance = rgbaLuminance(visual.topColor)
+        val bottomLuminance = rgbaLuminance(visual.bottomColor)
+        return (topLuminance + bottomLuminance) * 0.5f < 0.62f
     }
 
     private fun toolbarStatusText(): String? {
@@ -2941,6 +2949,13 @@ class MatchScreen(
     }
 
     private fun withAlpha(rgba: Long, alpha: Int): Long = (rgba and 0xFFFFFF00) or (alpha.toLong() and 0xFF)
+
+    private fun rgbaLuminance(rgba: Long): Float {
+        val red = ((rgba shr 24) and 0xFF) / 255f
+        val green = ((rgba shr 16) and 0xFF) / 255f
+        val blue = ((rgba shr 8) and 0xFF) / 255f
+        return 0.2126f * red.toFloat() + 0.7152f * green.toFloat() + 0.0722f * blue.toFloat()
+    }
 
     private fun Color.toRgba(): Long {
         val red = (r * 255f).roundToInt().coerceIn(0, 255).toLong()
