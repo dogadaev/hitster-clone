@@ -20,7 +20,6 @@ import com.badlogic.gdx.utils.viewport.ExtendViewport
 import com.hitster.ui.render.AtmosphericBackdrop
 import com.hitster.ui.render.LiquidGlassStyle
 import com.hitster.ui.render.LiquidGlassSurfaceRenderer
-import com.hitster.ui.render.UiShadowRenderer
 import com.hitster.ui.render.VerticalCropAnchor
 import com.hitster.ui.render.WidthFittedBackgroundImage
 import com.hitster.ui.theme.createUiFont
@@ -46,7 +45,7 @@ class RoleSelectionScreen(
     private var animationSeconds = 0f
 
     override fun show() {
-        titleFont = createUiFont(82)
+        titleFont = createUiFont(96)
         buttonFont = createUiFont(42)
         backdrop.load()
         backgroundImage.load()
@@ -71,17 +70,9 @@ class RoleSelectionScreen(
         glassRenderer.captureBackbuffer()
 
         batch.begin()
-        glassRenderer.draw(batch, titleRect, 34f, TITLE_GLASS_STYLE, animationSeconds)
         glassRenderer.draw(batch, hostButtonRect, pillRadius(hostButtonRect), HOST_BUTTON_GLASS_STYLE, animationSeconds)
         glassRenderer.draw(batch, guestButtonRect, pillRadius(guestButtonRect), GUEST_BUTTON_GLASS_STYLE, animationSeconds)
-        titleLayout.setText(titleFont, "Choose Your Role")
-        titleFont.color = color(0xFFF7F0E5)
-        titleFont.draw(
-            batch,
-            titleLayout,
-            (viewport.worldWidth - titleLayout.width) / 2f,
-            titleRect.y + (titleRect.height + titleLayout.height) / 2f,
-        )
+        drawTitleWordmark()
         drawCenteredText(buttonFont, "HOST", hostButtonRect, color(0xFFF8F0E7))
         drawCenteredText(buttonFont, "GUEST", guestButtonRect, color(0xFFF8F0E7))
         batch.end()
@@ -109,7 +100,8 @@ class RoleSelectionScreen(
     private fun updateLayout() {
         val worldWidth = viewport.worldWidth
         val worldHeight = viewport.worldHeight
-        titleRect.set(44f, worldHeight - 144f, worldWidth - 88f, 102f)
+        val titleWidth = (worldWidth * 0.62f).coerceIn(780f, 1080f)
+        titleRect.set((worldWidth - titleWidth) * 0.5f, worldHeight - 158f, titleWidth, 124f)
         val buttonWidth = (worldWidth * 0.21f).coerceIn(312f, 352f)
         val buttonHeight = 118f
         val buttonGap = 44f
@@ -129,6 +121,23 @@ class RoleSelectionScreen(
     }
 
     private fun pillRadius(rect: Rectangle): Float = minOf(rect.width, rect.height) * 0.5f
+
+    private fun drawTitleWordmark() {
+        val centerX = titleRect.x + titleRect.width * 0.5f
+        titleLayout.setText(titleFont, "MELONMAN")
+        val drawX = centerX - titleLayout.width * 0.5f
+        val baselineY = titleRect.y + titleRect.height * 0.62f
+        drawTitleLayer(drawX - 1f, baselineY + 4f, 0x4DFFF2D1)
+        drawTitleLayer(drawX + 10f, baselineY - 12f, 0x8E4E1EFF)
+        drawTitleLayer(drawX + 7f, baselineY - 8f, 0xCC884026)
+        drawTitleLayer(drawX + 4f, baselineY - 4f, 0xFFF2A14EFF)
+        drawTitleLayer(drawX, baselineY, 0xFFFFF7EA)
+    }
+
+    private fun drawTitleLayer(x: Float, y: Float, rgba: Long) {
+        titleFont.color = color(rgba)
+        titleFont.draw(batch, titleLayout, x, y)
+    }
 
     private fun drawButton(rect: Rectangle, topColor: Long, bottomColor: Long, edgeColor: Long) {
     }
@@ -230,14 +239,6 @@ class RoleSelectionScreen(
     }
 
     private companion object {
-        val TITLE_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0xECD7CB76,
-            edgeTint = 0xFFF8E9D3FF,
-            highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF5CF95FF,
-            distortion = 0.015f,
-            frost = 0.14f,
-        )
         val HOST_BUTTON_GLASS_STYLE = LiquidGlassStyle(
             bodyTint = 0xF8DFC18E,
             edgeTint = 0xFFFFE8B9FF,
