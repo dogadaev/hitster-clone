@@ -45,7 +45,7 @@ class RoleSelectionScreen(
     private var animationSeconds = 0f
 
     override fun show() {
-        titleFont = createUiFont(112)
+        titleFont = createUiFont(132)
         buttonFont = createUiFont(42)
         backdrop.load()
         backgroundImage.load()
@@ -100,8 +100,8 @@ class RoleSelectionScreen(
     private fun updateLayout() {
         val worldWidth = viewport.worldWidth
         val worldHeight = viewport.worldHeight
-        val titleWidth = (worldWidth * 0.68f).coerceIn(860f, 1180f)
-        titleRect.set((worldWidth - titleWidth) * 0.5f, worldHeight - 170f, titleWidth, 140f)
+        val titleWidth = (worldWidth * 0.78f).coerceIn(980f, 1320f)
+        titleRect.set((worldWidth - titleWidth) * 0.5f, worldHeight - 190f, titleWidth, 164f)
         val buttonWidth = (worldWidth * 0.21f).coerceIn(312f, 352f)
         val buttonHeight = 118f
         val buttonGap = 44f
@@ -126,12 +126,12 @@ class RoleSelectionScreen(
         val centerX = titleRect.x + titleRect.width * 0.5f
         titleLayout.setText(titleFont, "MELONMAN")
         val drawX = centerX - titleLayout.width * 0.5f
-        val baselineY = titleRect.y + titleRect.height * 0.58f
-        drawTitleLayer(drawX - 2f, baselineY + 5f, 0xFFFFD98CFF)
-        drawTitleLayer(drawX + 12f, baselineY - 14f, 0x73311BFF)
-        drawTitleLayer(drawX + 8f, baselineY - 9f, 0xA44F1EFF)
-        drawTitleLayer(drawX + 4f, baselineY - 5f, 0xE88E39FF)
-        drawTitleLayer(drawX, baselineY, 0xF7F6C9FF)
+        val baselineY = titleRect.y + titleRect.height * 0.56f
+        drawTitleLayer(drawX + 16f, baselineY - 16f, 0x58210FFF)
+        drawTitleLayer(drawX + 12f, baselineY - 12f, 0x803519FF)
+        drawTitleLayer(drawX + 8f, baselineY - 8f, 0xB85122FF)
+        drawTitleLayer(drawX + 4f, baselineY - 4f, 0xF0A047FF)
+        drawTitleLayer(drawX, baselineY, 0xFFF0C1FF)
     }
 
     private fun drawTitleLayer(x: Float, y: Float, rgba: Long) {
