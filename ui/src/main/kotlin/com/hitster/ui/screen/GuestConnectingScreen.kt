@@ -43,13 +43,10 @@ class GuestConnectingScreen(
     private val backdrop = AtmosphericBackdrop()
     private val backgroundImage = WidthFittedBackgroundImage("welcome-background.png", VerticalCropAnchor.CENTER)
     private val glassRenderer = LiquidGlassSurfaceRenderer()
-    private lateinit var titleFont: BitmapFont
     private lateinit var bodyFont: BitmapFont
     private lateinit var detailFont: BitmapFont
-    private val titleLayout = GlyphLayout()
     private val detailLayout = GlyphLayout()
     private val backLayout = GlyphLayout()
-    private val titleRect = Rectangle()
     private val buttonRect = Rectangle()
     private var transitionDispatched = false
     private var animationSeconds = 0f
@@ -60,7 +57,6 @@ class GuestConnectingScreen(
     private var autoSelectedSessionId: String? = null
 
     override fun show() {
-        titleFont = createUiFont(72)
         bodyFont = createUiFont(36)
         detailFont = createUiFont(26)
         backdrop.load()
@@ -106,13 +102,9 @@ class GuestConnectingScreen(
         glassRenderer.captureBackbuffer()
 
         batch.begin()
-        glassRenderer.draw(batch, titleRect, minOf(titleRect.height * 0.42f, 38f), TITLE_GLASS_STYLE, animationSeconds)
         if (showBackButton || activeController?.lastError != null) {
             glassRenderer.draw(batch, buttonRect, minOf(buttonRect.height * 0.42f, 38f), BUTTON_GLASS_STYLE, animationSeconds)
         }
-        titleLayout.setText(titleFont, "Joining Host")
-        titleFont.color = color(0xFFF7F0E5)
-        titleFont.draw(batch, titleLayout, (viewport.worldWidth - titleLayout.width) / 2f, titleRect.y + (titleRect.height + titleLayout.height) / 2f)
         val hostDisplayName = discoveredHostDisplayName
         drawText(
             bodyFont,
@@ -162,9 +154,6 @@ class GuestConnectingScreen(
         backdrop.dispose()
         backgroundImage.dispose()
         glassRenderer.dispose()
-        if (this::titleFont.isInitialized) {
-            titleFont.dispose()
-        }
         if (this::bodyFont.isInitialized) {
             bodyFont.dispose()
         }
@@ -174,7 +163,6 @@ class GuestConnectingScreen(
     }
 
     private fun updateLayout() {
-        titleRect.set(42f, viewport.worldHeight - 132f, viewport.worldWidth - 84f, 88f)
         buttonRect.set(
             (viewport.worldWidth - 360f) / 2f,
             viewport.worldHeight * 0.22f,
@@ -293,14 +281,6 @@ class GuestConnectingScreen(
     }
 
     private companion object {
-        val TITLE_GLASS_STYLE = LiquidGlassStyle(
-            bodyTint = 0xECD7CB76,
-            edgeTint = 0xFFF8E9D3FF,
-            highlightTint = 0xFFFFFFFF,
-            glowTint = 0xFFF5CF95FF,
-            distortion = 0.015f,
-            frost = 0.14f,
-        )
         val BUTTON_GLASS_STYLE = LiquidGlassStyle(
             bodyTint = 0xF4D0C58A,
             edgeTint = 0xFFF3D4CBFF,

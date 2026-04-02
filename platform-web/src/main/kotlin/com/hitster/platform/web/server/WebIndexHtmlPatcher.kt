@@ -184,10 +184,7 @@ internal object WebIndexHtmlPatcher {
                 if (!supportsTouchBridge()) {
                   return pixelRatio;
                 }
-                if (isIosBrowser()) {
-                  return Math.min(pixelRatio, 1);
-                }
-                return Math.min(pixelRatio, 1.5);
+                return Math.min(pixelRatio, 3);
               }
 
               function canvasContainsTouch(touch) {

@@ -179,6 +179,8 @@ Local per-device presentation state includes:
 - playback status presentation
 
 A player's personal timeline is part of the authoritative match state. During active play, the main gameplay timeline shown on all devices should follow the current turn player rather than each device always showing its owner's timeline.
+A device may offer a local UI toggle to temporarily inspect that device player's own timeline, but active placement and doubt interactions must still force the required current shared timeline surface.
+After a turn resolves, the shared gameplay timeline should stay on the just-resolved player's timeline until the next player actually draws a new card, and if that draw starts before the round-end reveal overlay finishes, the reveal overlay should keep ownership of the shared gameplay surface until it completes so the next player's cards do not mix underneath it.
 
 ## Privacy / Visibility Rule
 A device should not show every player's timeline at once during normal gameplay. The synchronized gameplay view should focus on the current turn player's timeline rather than a multi-board overview.

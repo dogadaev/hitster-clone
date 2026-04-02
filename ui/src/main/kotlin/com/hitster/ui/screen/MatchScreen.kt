@@ -30,6 +30,7 @@ import com.hitster.core.model.PlayerId
 import com.hitster.core.model.PlayerState
 import com.hitster.core.model.PlaylistEntry
 import com.hitster.core.model.TurnPhase
+import com.hitster.core.model.TurnResolution
 import com.hitster.playback.api.PlaybackSessionState
 import com.hitster.ui.controller.MatchController
 import com.hitster.ui.controller.UiBootstrapper
@@ -73,12 +74,15 @@ class MatchScreen(
     private val headerRect = Rectangle()
     private val heroRect = Rectangle()
     private val playbackButtonRect = Rectangle()
+    private val pendingCardPlaybackRect = Rectangle()
     private val actionButtonRect = Rectangle()
     private val redrawButtonRect = Rectangle()
     private val doubtButtonRect = Rectangle()
     private val hostCoinsButtonRect = Rectangle()
+    private val timelineFocusButtonRect = Rectangle()
     private val timelinePanelRect = Rectangle()
     private val timelineHeaderRect = Rectangle()
+    private val timelineScoreRect = Rectangle()
     private val timelineTrackRect = Rectangle()
     private val coinPanelRect = Rectangle()
     private val coinPanelCloseRect = Rectangle()
@@ -95,8 +99,6 @@ class MatchScreen(
 
     private var layoutWorldWidth = 0f
     private var layoutWorldHeight = 0f
-    private var layoutStatus: MatchStatus? = null
-    private var layoutGuestJoinUrl: String? = null
     private var outerMargin = 28f
     private var panelGap = 22f
     private var panelPadding = 28f
@@ -117,10 +119,19 @@ class MatchScreen(
     private var animatedPendingCardLeft: Float? = null
     private var animatedDoubtPendingCardLeft: Float? = null
     private val confettiParticles = mutableListOf<ConfettiParticle>()
+    private var currentResolutionPresentation: ResolutionPresentation? = null
+    private var lastPresentedResolutionCardId: String? = null
+    private var roundResolutionOverlayVisual: TimelineCardVisual? = null
     private var celebratedResolutionCardId: String? = null
+    private var lastRenderedSharedTimelinePlayerId: PlayerId? = null
+    private var lastRenderedSharedCommittedVisuals = emptyList<TimelineCardVisual>()
+    private var lastRenderedSharedPendingRect: Rectangle? = null
+    private var lastTimelineVisualPlayerId: PlayerId? = null
+    private var lastAnimatedPendingCardId: String? = null
     private var inactiveTurnFilterAlpha = 0f
     private var overlayAnimationSeconds = 0f
     private var coinPanelOpen = false
+    private var timelineFocusMode = TimelineFocusMode.Current
     private var draggingLobbyPlayerId: PlayerId? = null
     private var pendingLobbyDragPlayerId: PlayerId? = null
     private var lobbyReorderTargetIndex: Int? = null
@@ -150,6 +161,7 @@ class MatchScreen(
 
     override fun render(delta: Float) {
         overlayAnimationSeconds += delta
+        updateResolutionPresentation(delta)
         updateLayout()
         updateLobbyBadgeAnimations(delta)
         updateTimelineVisuals(delta)
@@ -225,6 +237,16 @@ class MatchScreen(
             batch.end()
         }
 
+        roundResolutionOverlayVisual?.let { visual ->
+            beginFilledShapes()
+            drawCardVisual(visual)
+            endFilledShapes()
+
+            batch.begin()
+            drawCardText(visual)
+            batch.end()
+        }
+
         if (confettiParticles.isNotEmpty()) {
             beginFilledShapes()
             drawConfetti()
@@ -291,26 +313,17 @@ class MatchScreen(
     private fun updateLayout() {
         val worldWidth = viewport.worldWidth
         val worldHeight = viewport.worldHeight
-        val status = presenter.state.status
-        val guestJoinUrl = presenter.guestJoinUrl
-        if (
-            worldWidth == layoutWorldWidth &&
-            worldHeight == layoutWorldHeight &&
-            status == layoutStatus &&
-            guestJoinUrl == layoutGuestJoinUrl
-        ) {
-            return
-        }
-
         layoutWorldWidth = worldWidth
         layoutWorldHeight = worldHeight
-        layoutStatus = status
-        layoutGuestJoinUrl = guestJoinUrl
+        val status = presenter.state.status
 
         outerMargin = clamp(min(worldWidth, worldHeight) * 0.03f, 24f, 36f)
         panelGap = clamp(outerMargin * 1.22f, 36f, 52f)
         panelPadding = clamp(worldHeight * 0.034f, 22f, 34f)
         panelHeaderHeight = clamp(worldHeight * 0.115f, 76f, 96f)
+        fontScaleMultiplier = clamp(worldHeight / 960f, 0.98f, 1.08f)
+        minimumTextScale = 0.88f
+        shadowOffset = clamp(worldHeight * 0.0011f, 1f, 1.6f)
 
         val isLobby = status == MatchStatus.LOBBY
         val headerHeight = if (isLobby) clamp(worldHeight * 0.09f, 60f, 80f) else 0f
@@ -337,22 +350,49 @@ class MatchScreen(
             worldWidth - outerMargin * 2f,
             heroHeight,
         )
-        val actionButtonWidth = clamp(heroRect.width * 0.14f, 176f, 216f)
-        val actionButtonHeight = clamp(heroRect.height * 0.56f, 50f, 62f)
-        actionButtonRect.set(
-            heroRect.x + heroRect.width - panelPadding - actionButtonWidth,
-            heroRect.y + (heroRect.height - actionButtonHeight) / 2f,
-            actionButtonWidth,
-            actionButtonHeight,
-        )
-        val playbackButtonWidth = clamp(heroRect.width * 0.11f, 138f, 166f)
-        val playbackButtonHeight = clamp(heroRect.height * 0.56f, 50f, 62f)
-        playbackButtonRect.set(
-            actionButtonRect.x - panelGap - playbackButtonWidth,
-            heroRect.y + (heroRect.height - playbackButtonHeight) / 2f,
-            playbackButtonWidth,
-            playbackButtonHeight,
-        )
+        val heroButtonHeight = clamp(heroRect.height * 0.56f, 50f, 62f)
+        val heroButtonY = heroRect.y + (heroRect.height - heroButtonHeight) / 2f
+        val heroButtonGap = clamp(panelGap * 0.56f, 20f, 30f)
+        val heroButtonPadding = clamp(heroButtonHeight * 0.62f, 36f, 48f)
+        val heroActionMinWidth = clamp(heroRect.width * 0.14f, 176f, 216f)
+        val heroActionMaxWidth = clamp(heroRect.width * 0.26f, 252f, 360f)
+        val heroPlaybackMinWidth = clamp(heroRect.width * 0.11f, 138f, 166f)
+        val heroPlaybackMaxWidth = clamp(heroRect.width * 0.23f, 220f, 308f)
+        var heroControlsRight = heroRect.x + heroRect.width - panelPadding
+        actionButtonRect.set(0f, 0f, 0f, 0f)
+        playbackButtonRect.set(0f, 0f, 0f, 0f)
+        pendingCardPlaybackRect.set(0f, 0f, 0f, 0f)
+        if (showActionButton()) {
+            val actionButtonWidth = buttonWidthFor(
+                label = actionButtonLabel(),
+                textScale = MATCH_ACTION_BUTTON_TEXT_SCALE,
+                minWidth = heroActionMinWidth,
+                maxWidth = heroActionMaxWidth,
+                horizontalPadding = heroButtonPadding,
+            )
+            actionButtonRect.set(
+                heroControlsRight - actionButtonWidth,
+                heroButtonY,
+                actionButtonWidth,
+                heroButtonHeight,
+            )
+            heroControlsRight = actionButtonRect.x - heroButtonGap
+        }
+        if (showHeroPlaybackButton()) {
+            val playbackButtonWidth = buttonWidthFor(
+                label = playbackToggleLabel(),
+                textScale = MATCH_PLAYBACK_BUTTON_TEXT_SCALE,
+                minWidth = heroPlaybackMinWidth,
+                maxWidth = heroPlaybackMaxWidth,
+                horizontalPadding = heroButtonPadding,
+            )
+            playbackButtonRect.set(
+                heroControlsRight - playbackButtonWidth,
+                heroButtonY,
+                playbackButtonWidth,
+                heroButtonHeight,
+            )
+        }
 
         val timelineInsetX = clamp(outerMargin * 0.22f, 6f, 10f)
         val mainHeight = heroRect.y - outerMargin - panelGap
@@ -363,11 +403,32 @@ class MatchScreen(
             mainHeight,
         )
 
+        val timelineHeaderY = timelinePanelRect.y + timelinePanelRect.height - panelHeaderHeight
+        val timelineHeaderButtonHeight = panelHeaderHeight
+        val timelineHeaderButtonY = timelineHeaderY + (panelHeaderHeight - timelineHeaderButtonHeight) / 2f
+        val timelineHeaderGap = clamp(panelGap * 0.50f, 18f, 26f)
+        val timelineHeaderButtonPadding = clamp(timelineHeaderButtonHeight * 0.58f, 30f, 40f)
+        val timelineScoreLabel = timelineScoreSummaryText()
+        val timelineScoreWidth = buttonWidthFor(
+            label = timelineScoreLabel,
+            textScale = MATCH_SCORE_TEXT_SCALE,
+            minWidth = 220f,
+            maxWidth = clamp(timelinePanelRect.width * 0.34f, 240f, 360f),
+            horizontalPadding = 12f,
+        )
+        val timelineScorePanelPadding = clamp(panelPadding * 0.84f, 26f, 34f)
+        val timelineScorePanelWidth = timelineScoreWidth + timelineScorePanelPadding * 2f
         timelineHeaderRect.set(
-            timelinePanelRect.x,
-            timelinePanelRect.y + timelinePanelRect.height - panelHeaderHeight,
-            timelinePanelRect.width,
+            heroRect.x + heroRect.width - timelineScorePanelWidth,
+            timelineHeaderY,
+            timelineScorePanelWidth,
             panelHeaderHeight,
+        )
+        timelineScoreRect.set(
+            timelineHeaderRect.x + timelineScorePanelPadding,
+            timelineHeaderRect.y,
+            timelineHeaderRect.width - timelineScorePanelPadding * 2f,
+            timelineHeaderRect.height,
         )
 
         val trackInsetX = panelPadding * 0.48f
@@ -380,17 +441,32 @@ class MatchScreen(
             timelinePanelRect.width - trackInsetX * 2f,
             trackHeight,
         )
-        val headerButtonWidth = clamp(timelineHeaderRect.width * 0.16f, 152f, 206f)
-        val headerButtonHeight = clamp(timelineHeaderRect.height * 0.62f, 50f, 62f)
-        redrawButtonRect.set(
-            timelineHeaderRect.x + panelPadding,
-            timelineHeaderRect.y + (timelineHeaderRect.height - headerButtonHeight) / 2f,
-            headerButtonWidth,
-            headerButtonHeight,
-        )
+        redrawButtonRect.set(0f, 0f, 0f, 0f)
+        headerDrawButtonLabel()?.let { label ->
+            val headerButtonWidth = buttonWidthFor(
+                label = label,
+                textScale = MATCH_HEADER_BUTTON_TEXT_SCALE,
+                minWidth = clamp(timelinePanelRect.width * 0.16f, 152f, 206f),
+                maxWidth = clamp(timelinePanelRect.width * 0.25f, 240f, 340f),
+                horizontalPadding = timelineHeaderButtonPadding,
+            )
+            val headerButtonLeft = timelinePanelRect.x + panelPadding
+            redrawButtonRect.set(
+                headerButtonLeft,
+                timelineHeaderButtonY,
+                min(headerButtonWidth, max(1f, timelineHeaderRect.x - timelineHeaderGap - headerButtonLeft)),
+                timelineHeaderButtonHeight,
+            )
+        }
 
-        val coinsButtonWidth = clamp(timelinePanelRect.width * 0.11f, 124f, 176f)
-        val coinsButtonHeight = clamp(timelinePanelRect.height * 0.09f, 56f, 68f)
+        val coinsButtonHeight = panelHeaderHeight
+        val coinsButtonWidth = buttonWidthFor(
+            label = MATCH_COINS_BUTTON_LABEL,
+            textScale = MATCH_COINS_BUTTON_TEXT_SCALE,
+            minWidth = clamp(timelinePanelRect.width * 0.11f, 124f, 176f),
+            maxWidth = clamp(timelinePanelRect.width * 0.15f, 150f, 210f),
+            horizontalPadding = clamp(coinsButtonHeight * 0.50f, 24f, 32f),
+        )
         val overlayControlLeft = timelinePanelRect.x + panelPadding
         val overlayControlBottom = timelinePanelRect.y + panelPadding
         hostCoinsButtonRect.set(
@@ -399,8 +475,31 @@ class MatchScreen(
             coinsButtonWidth,
             coinsButtonHeight,
         )
-        val doubtButtonWidth = clamp(timelinePanelRect.width * 0.20f, 192f, 254f)
+        timelineFocusButtonRect.set(0f, 0f, 0f, 0f)
+        if (showTimelineFocusButton()) {
+            val timelineFocusButtonHeight = panelHeaderHeight
+            val timelineFocusButtonWidth = buttonWidthFor(
+                label = timelineFocusButtonLabel(),
+                textScale = MATCH_TIMELINE_TOGGLE_TEXT_SCALE,
+                minWidth = clamp(timelinePanelRect.width * 0.13f, 176f, 212f),
+                maxWidth = clamp(timelinePanelRect.width * 0.24f, 248f, 360f),
+                horizontalPadding = clamp(timelineFocusButtonHeight * 0.70f, 38f, 48f),
+            )
+            timelineFocusButtonRect.set(
+                timelinePanelRect.x + timelinePanelRect.width - panelPadding - timelineFocusButtonWidth,
+                overlayControlBottom,
+                timelineFocusButtonWidth,
+                timelineFocusButtonHeight,
+            )
+        }
         val doubtButtonHeight = clamp(timelinePanelRect.height * 0.16f, 92f, 118f)
+        val doubtButtonWidth = buttonWidthFor(
+            label = MATCH_DOUBT_ACTIVE_BUTTON_LABEL,
+            textScale = MATCH_DOUBT_BUTTON_TEXT_SCALE,
+            minWidth = clamp(timelinePanelRect.width * 0.20f, 192f, 254f),
+            maxWidth = clamp(timelinePanelRect.width * 0.27f, 248f, 336f),
+            horizontalPadding = clamp(doubtButtonHeight * 0.42f, 32f, 42f),
+        )
         val doubtButtonBottom = if (showCoinsShortcutButton()) {
             hostCoinsButtonRect.y + hostCoinsButtonRect.height + panelGap * 0.52f
         } else {
@@ -413,19 +512,21 @@ class MatchScreen(
             doubtButtonHeight,
         )
 
-        val coinPanelWidth = clamp(worldWidth * 0.48f, 620f, 860f)
-        val coinPanelHeight = clamp(worldHeight * 0.60f, 420f, 620f)
+        val coinPanelWidth = clamp(worldWidth * 0.58f, 760f, 1040f)
+        val coinPanelHeight = clamp(worldHeight * 0.72f, 540f, 760f)
         coinPanelRect.set(
             (worldWidth - coinPanelWidth) / 2f,
             (worldHeight - coinPanelHeight) / 2f,
             coinPanelWidth,
             coinPanelHeight,
         )
+        val coinPanelCloseSize = clamp(panelHeaderHeight * 0.74f, 56f, 68f)
+        val coinPanelCloseInset = clamp(panelPadding * 0.82f, 20f, 28f)
         coinPanelCloseRect.set(
-            coinPanelRect.x + coinPanelRect.width - 68f,
-            coinPanelRect.y + coinPanelRect.height - 68f,
-            48f,
-            48f,
+            coinPanelRect.x + coinPanelRect.width - coinPanelCloseInset - coinPanelCloseSize,
+            coinPanelRect.y + coinPanelRect.height - coinPanelCloseInset - coinPanelCloseSize,
+            coinPanelCloseSize,
+            coinPanelCloseSize,
         )
 
         val doubtPopupWidth = clamp(timelinePanelRect.width * 0.97f, 840f, 1320f)
@@ -551,9 +652,6 @@ class MatchScreen(
         )
 
         cardHeight = clamp(timelineTrackRect.height * 0.88f, 244f, 322f)
-        fontScaleMultiplier = clamp(worldHeight / 960f, 0.98f, 1.08f)
-        minimumTextScale = 0.88f
-        shadowOffset = clamp(worldHeight * 0.0011f, 1f, 1.6f)
     }
 
     private fun updateTimelineVisuals(delta: Float) {
@@ -561,23 +659,58 @@ class MatchScreen(
         doubtTimelineCardVisuals.clear()
         pendingCardVisual = null
         doubtPendingCardVisual = null
+        roundResolutionOverlayVisual = null
 
         if (isLocalDoubtPlacementPhase()) {
             coinPanelOpen = false
         }
 
+        lastRenderedSharedTimelinePlayerId = currentSharedTimelinePlayerId()
+        rememberSharedTimelineSnapshot(lastRenderedSharedTimelinePlayerId)
         val player = displayedTimelinePlayer()
         if (presenter.state.status == MatchStatus.LOBBY || player == null) {
+            lastTimelineVisualPlayerId = null
+            lastAnimatedPendingCardId = null
+            lastRenderedSharedTimelinePlayerId = null
+            lastRenderedSharedCommittedVisuals = emptyList()
+            lastRenderedSharedPendingRect = null
             animatedCardLefts.clear()
             animatedDoubtCardLefts.clear()
             animatedPendingCardLeft = null
             animatedDoubtPendingCardLeft = null
+            pendingCardPlaybackRect.set(0f, 0f, 0f, 0f)
             return
+        }
+
+        val previousTimelineVisualPlayerId = lastTimelineVisualPlayerId
+        if (previousTimelineVisualPlayerId != player.id) {
+            lastTimelineVisualPlayerId = player.id
+            lastAnimatedPendingCardId = null
+            animatedCardLefts.clear()
+            animatedPendingCardLeft = null
         }
 
         val animationAlpha = clamp(delta * 12f, 0f, 1f)
         val cardBottom = timelineCardBottom(cardHeight)
         val visibleCardIds = mutableSetOf<String>()
+        val resolutionPresentation = currentResolutionPresentation
+        roundResolutionOverlayVisual = resolutionPresentation
+            ?.takeIf { it.isOverlayActive() }
+            ?.let(::resolutionOverlayVisual)
+        resolutionPresentation
+            ?.takeIf { presentation ->
+                shouldFreezeResolutionBaseTimeline(
+                    displayedTimelinePlayerId = player.id,
+                    overlayPlayerId = presentation.overlayPlayerId,
+                    localPlayerId = presenter.localPlayerId,
+                    showingLocalTimeline = isShowingLocalTimeline(),
+                    overlayActive = presentation.isOverlayActive(),
+                )
+            }
+            ?.let { presentation ->
+                buildResolutionFrozenTimelineVisuals(presentation)
+                return
+            }
 
         val pendingCard = player.pendingCard
         if (pendingCard == null) {
@@ -596,12 +729,20 @@ class MatchScreen(
                     primaryText = card.title,
                     secondaryText = card.artist,
                     tertiaryText = card.releaseYear.toString(),
+                    highlight = resolutionHighlightFor(card.id, player.id),
                 )
             }
             animatedPendingCardLeft = null
+            lastAnimatedPendingCardId = null
+            pendingCardPlaybackRect.set(0f, 0f, 0f, 0f)
             animatedCardLefts.keys.retainAll(visibleCardIds)
             return
         }
+
+        if (shouldResetPendingCardAnimation(previousTimelineVisualPlayerId, player.id, lastAnimatedPendingCardId, pendingCard.entry.id)) {
+            animatedPendingCardLeft = null
+        }
+        lastAnimatedPendingCardId = pendingCard.entry.id
 
         val localDoubtPlacement = isLocalDoubtPlacementPhase()
         val arrangement = timelineLayout.pendingArrangement(
@@ -645,6 +786,7 @@ class MatchScreen(
                 primaryText = card.title,
                 secondaryText = card.artist,
                 tertiaryText = card.releaseYear.toString(),
+                highlight = resolutionHighlightFor(card.id, player.id),
             )
         }
         animatedPendingCardLeft = pendingLeft
@@ -662,8 +804,163 @@ class MatchScreen(
             primaryText = "?",
             secondaryText = if (localDoubtPlacement) "DOUBT" else "LISTEN",
         )
+        if (showPendingCardPlaybackControl()) {
+            pendingCardPlaybackRect.set(hiddenCardPlaybackControlRect(pendingCardVisual!!.rect))
+        } else {
+            pendingCardPlaybackRect.set(0f, 0f, 0f, 0f)
+        }
         pendingCardVisual?.let(timelineCardVisuals::add)
         animatedCardLefts.keys.retainAll(visibleCardIds)
+    }
+
+    /**
+     * Keeps the just-resolved card readable before the authoritative timeline and player focus catch up.
+     */
+    private fun updateResolutionPresentation(delta: Float) {
+        val resolution = presenter.state.lastResolution
+        val currentPresentation = currentResolutionPresentation
+        if (resolution == null) {
+            lastPresentedResolutionCardId = null
+            if (currentPresentation == null) {
+                return
+            }
+            currentPresentation.elapsedSeconds += delta
+            if (!currentPresentation.isOverlayActive()) {
+                currentResolutionPresentation = null
+            }
+            return
+        }
+
+        if (shouldCreateResolutionPresentation(resolution.cardId, currentPresentation?.cardId, lastPresentedResolutionCardId)) {
+            currentResolutionPresentation = createResolutionPresentation(resolution)
+            lastPresentedResolutionCardId = resolution.cardId
+            return
+        }
+
+        if (currentPresentation == null) {
+            return
+        }
+
+        currentPresentation.elapsedSeconds += delta
+        if (!currentPresentation.correct && !currentPresentation.isOverlayActive()) {
+            currentResolutionPresentation = null
+        }
+    }
+
+    private fun createResolutionPresentation(resolution: TurnResolution): ResolutionPresentation {
+        val overlayPlayerId = lastRenderedSharedTimelinePlayerId ?: resolution.playerId
+        return ResolutionPresentation(
+            cardId = resolution.cardId,
+            overlayPlayerId = overlayPlayerId,
+            highlightPlayerId = resolution.playerId.takeIf { resolution.correct },
+            correct = resolution.correct,
+            overlayRect = lastRenderedSharedPendingRect?.let(::Rectangle) ?: pendingCardVisual?.rect?.let(::Rectangle) ?: fallbackResolutionOverlayRect(),
+            frozenCommittedVisuals = if (lastRenderedSharedCommittedVisuals.isNotEmpty()) {
+                lastRenderedSharedCommittedVisuals.map { it.snapshot() }
+            } else {
+                timelineCardVisuals.asSequence()
+                    .filter { it.face == CardFace.Revealed }
+                    .map { it.snapshot() }
+                    .toList()
+            },
+        )
+    }
+
+    private fun fallbackResolutionOverlayRect(): Rectangle {
+        val fallbackWidth = lastRenderedSharedPendingRect?.width ?: pendingCardVisual?.rect?.width ?: timelineCardVisuals.firstOrNull()?.rect?.width ?: cardHeight * 0.66f
+        val fallbackHeight = lastRenderedSharedPendingRect?.height ?: pendingCardVisual?.rect?.height ?: cardHeight
+        return Rectangle(
+            timelineCardsX + (timelineCardsWidth - fallbackWidth) / 2f,
+            timelineCardBottom(fallbackHeight),
+            fallbackWidth,
+            fallbackHeight,
+        )
+    }
+
+    private fun buildResolutionFrozenTimelineVisuals(presentation: ResolutionPresentation) {
+        val visibleCardIds = mutableSetOf<String>()
+        presentation.frozenCommittedVisuals.forEach { frozenVisual ->
+            val snapshot = frozenVisual.snapshot()
+            timelineCardVisuals += snapshot
+            animatedCardLefts[snapshot.id] = snapshot.rect.x
+            visibleCardIds += snapshot.id
+        }
+        animatedPendingCardLeft = null
+        pendingCardPlaybackRect.set(0f, 0f, 0f, 0f)
+        animatedCardLefts.keys.retainAll(visibleCardIds)
+    }
+
+    private fun rememberSharedTimelineSnapshot(sharedPlayerId: PlayerId?) {
+        val sharedPlayer = sharedPlayerId?.let { presenter.state.requirePlayer(it) }
+        if (presenter.state.status == MatchStatus.LOBBY || sharedPlayer == null) {
+            lastRenderedSharedCommittedVisuals = emptyList()
+            lastRenderedSharedPendingRect = null
+            return
+        }
+
+        val cardBottom = timelineCardBottom(cardHeight)
+        val pendingCard = sharedPlayer.pendingCard
+        if (pendingCard == null) {
+            val arrangement = timelineLayout.arrangement(sharedPlayer.timeline.cards.size)
+            lastRenderedSharedCommittedVisuals = sharedPlayer.timeline.cards.mapIndexed { index, card ->
+                val palette = DecadeCardPalettes.forYear(card.releaseYear)
+                TimelineCardVisual(
+                    id = card.id,
+                    rect = Rectangle(arrangement.cardLefts[index], cardBottom, arrangement.cardWidth, cardHeight),
+                    face = CardFace.Revealed,
+                    topColor = palette.topColor,
+                    bottomColor = palette.bottomColor,
+                    edgeColor = palette.edgeColor,
+                    primaryText = card.title,
+                    secondaryText = card.artist,
+                    tertiaryText = card.releaseYear.toString(),
+                )
+            }
+            lastRenderedSharedPendingRect = null
+            return
+        }
+
+        val arrangement = timelineLayout.pendingArrangement(
+            existingCardCount = sharedPlayer.timeline.cards.size,
+            pendingSlotIndex = pendingCard.proposedSlotIndex,
+        )
+        lastRenderedSharedCommittedVisuals = sharedPlayer.timeline.cards.mapIndexed { index, card ->
+            val palette = DecadeCardPalettes.forYear(card.releaseYear)
+            TimelineCardVisual(
+                id = card.id,
+                rect = Rectangle(arrangement.committedCardLefts[index], cardBottom, arrangement.cardWidth, cardHeight),
+                face = CardFace.Revealed,
+                topColor = palette.topColor,
+                bottomColor = palette.bottomColor,
+                edgeColor = palette.edgeColor,
+                primaryText = card.title,
+                secondaryText = card.artist,
+                tertiaryText = card.releaseYear.toString(),
+            )
+        }
+        lastRenderedSharedPendingRect = Rectangle(
+            arrangement.pendingCardLeft,
+            cardBottom,
+            arrangement.cardWidth,
+            cardHeight,
+        )
+    }
+
+    private fun resolutionOverlayVisual(presentation: ResolutionPresentation): TimelineCardVisual {
+        val entry = resolvedTrackEntry(presentation.cardId)
+        val releaseYear = entry?.releaseYear ?: presenter.state.lastResolution?.releaseYear ?: 0
+        val palette = DecadeCardPalettes.forYear(releaseYear)
+        return TimelineCardVisual(
+            id = presentation.cardId,
+            rect = Rectangle(presentation.overlayRect),
+            face = CardFace.Revealed,
+            topColor = palette.topColor,
+            bottomColor = palette.bottomColor,
+            edgeColor = palette.edgeColor,
+            primaryText = entry?.title ?: "REVEALED",
+            secondaryText = entry?.artist,
+            tertiaryText = releaseYear.takeIf { it > 0 }?.toString(),
+        )
     }
 
     private fun updateDoubtTimelineVisuals(delta: Float) {
@@ -1321,6 +1618,21 @@ class MatchScreen(
         return textLayout.width
     }
 
+    private fun buttonWidthFor(
+        label: String,
+        textScale: Float,
+        minWidth: Float,
+        maxWidth: Float,
+        horizontalPadding: Float,
+    ): Float {
+        if (!this::font.isInitialized) {
+            return minWidth
+        }
+        val renderedScale = max(textScale, minimumTextScale)
+        val paddedWidth = measureTextWidth(label, renderedScale) + horizontalPadding * 2f + MATCH_BUTTON_VISUAL_BUFFER
+        return clamp(paddedWidth, minWidth, max(minWidth, maxWidth))
+    }
+
     private fun fittedSingleLineTextScale(
         text: String,
         preferredScale: Float,
@@ -1386,7 +1698,7 @@ class MatchScreen(
 
     private fun drawMatch(includeOverlay: Boolean) {
         fillHero(heroRect)
-        if (showPlaybackToggleButton()) {
+        if (showHeroPlaybackButton()) {
             if (isPlaybackPaused()) {
                 fillButton(playbackButtonRect, 0xF5CB77FF, 0xD98B35FF, 0xFFF1C58D)
             } else {
@@ -1399,7 +1711,7 @@ class MatchScreen(
         if (headerDrawButtonLabel() != null) {
             fillButton(redrawButtonRect, 0xF4C870FF, 0xD47F20FF, 0xFFF0C38D)
         }
-        fillPanel(timelinePanelRect, 0x40221BFF, 0x1C0F13FF, 0x7E3A23FF, 0x5B221DFF, 0xFFD5A55C)
+        fillPanel(timelineHeaderRect, 0x40221BFF, 0x1C0F13FF, 0x7E3A23FF, 0x5B221DFF, 0xFFD5A55C)
         if (showActionWell()) {
             fillActionWell()
         }
@@ -1407,13 +1719,13 @@ class MatchScreen(
     }
 
     private fun drawMatchTextures() {
-        glassRenderer.draw(batch, heroRect, min(heroRect.height * 0.46f, 38f), HERO_GLASS_STYLE, overlayAnimationSeconds)
+        glassRenderer.draw(batch, heroRect, matchSurfaceRadius(heroRect), HERO_GLASS_STYLE, overlayAnimationSeconds)
         drawPanelTexture(heroRect, color(0xFFE3BE12))
-        if (showPlaybackToggleButton()) {
+        if (showHeroPlaybackButton()) {
             glassRenderer.draw(
                 batch,
                 playbackButtonRect,
-                min(playbackButtonRect.height * 0.44f, 40f),
+                matchSurfaceRadius(playbackButtonRect),
                 if (isPlaybackPaused()) PRIMARY_BUTTON_GLASS_STYLE else SECONDARY_BUTTON_GLASS_STYLE,
                 overlayAnimationSeconds,
                 pressed = if (isPlaybackPaused()) 0f else 0.18f,
@@ -1427,7 +1739,7 @@ class MatchScreen(
             glassRenderer.draw(
                 batch,
                 actionButtonRect,
-                min(actionButtonRect.height * 0.44f, 40f),
+                matchSurfaceRadius(actionButtonRect),
                 PRIMARY_BUTTON_GLASS_STYLE,
                 overlayAnimationSeconds,
             )
@@ -1437,14 +1749,14 @@ class MatchScreen(
             glassRenderer.draw(
                 batch,
                 redrawButtonRect,
-                min(redrawButtonRect.height * 0.44f, 40f),
+                matchSurfaceRadius(redrawButtonRect),
                 PRIMARY_BUTTON_GLASS_STYLE,
                 overlayAnimationSeconds,
             )
             drawPanelTexture(redrawButtonRect, color(0xFFF2D017))
         }
-        glassRenderer.draw(batch, timelinePanelRect, 56f, TIMELINE_GLASS_STYLE, overlayAnimationSeconds)
-        drawTimelinePanelTexture(timelinePanelRect, color(0xFFE3BE12))
+        glassRenderer.draw(batch, timelineHeaderRect, matchSurfaceRadius(timelineHeaderRect), TIMELINE_GLASS_STYLE, overlayAnimationSeconds)
+        drawTimelinePanelTexture(timelineHeaderRect, color(0xFFE3BE12))
         if (showActionWell()) {
             drawActionWellTexture()
         }
@@ -1481,10 +1793,15 @@ class MatchScreen(
     private fun drawMatchText(includeOverlay: Boolean) {
         val player = displayedTimelinePlayer()
         val toolbarStatus = toolbarStatusText()
+        val controlsLeft = when {
+            showHeroPlaybackButton() -> playbackButtonRect.x
+            showActionButton() -> actionButtonRect.x
+            else -> heroRect.x + heroRect.width - panelPadding
+        }
         val playerWidth = if (toolbarStatus == null) {
-            heroRect.width * 0.46f
+            min(heroRect.width * 0.46f, max(1f, controlsLeft - heroRect.x - panelPadding))
         } else {
-            clamp(heroRect.width * 0.25f, 230f, 360f)
+            min(clamp(heroRect.width * 0.25f, 230f, 360f), max(1f, controlsLeft - heroRect.x - panelPadding))
         }
 
         drawTextBlock(
@@ -1500,7 +1817,7 @@ class MatchScreen(
         )
         toolbarStatus?.let { text ->
             val messageX = heroRect.x + panelPadding + playerWidth + panelGap
-            val messageRight = if (showPlaybackToggleButton()) {
+            val messageRight = if (showHeroPlaybackButton()) {
                 playbackButtonRect.x - panelGap
             } else if (showActionButton()) {
                 actionButtonRect.x - panelGap
@@ -1529,7 +1846,7 @@ class MatchScreen(
                 enforceMinimumScale = false,
             )
         }
-        if (showPlaybackToggleButton()) {
+        if (showHeroPlaybackButton()) {
             drawTextBlock(
                 text = playbackToggleLabel(),
                 x = playbackButtonRect.x,
@@ -1573,12 +1890,12 @@ class MatchScreen(
             )
         }
         drawTextBlock(
-            text = "Score ${player?.score ?: 0}  Coins ${player?.coins ?: 0}",
-            x = timelineHeaderRect.x + timelineHeaderRect.width - 332f,
-            y = timelineHeaderRect.y,
-            width = 296f,
-            height = timelineHeaderRect.height,
-            scale = 0.86f,
+            text = timelineScoreSummaryText(),
+            x = timelineScoreRect.x,
+            y = timelineScoreRect.y,
+            width = timelineScoreRect.width,
+            height = timelineScoreRect.height,
+            scale = MATCH_SCORE_TEXT_SCALE,
             color = color(0xFFD88C4EFF),
             align = Align.right,
             verticalAlign = VerticalTextAlign.Center,
@@ -1622,6 +1939,14 @@ class MatchScreen(
         if (showCoinsShortcutButton()) {
             fillButton(hostCoinsButtonRect, 0xF2C468FF, 0xCE7E24FF, 0xFFF0C48D)
         }
+        if (showTimelineFocusButton()) {
+            fillButton(
+                timelineFocusButtonRect,
+                if (isShowingLocalTimeline()) 0xECD99DFF else 0xE9C878FF,
+                if (isShowingLocalTimeline()) 0xB08C42FF else 0xB56A22FF,
+                if (isShowingLocalTimeline()) 0xFFF8E5AB else 0xFFF2C795,
+            )
+        }
         if (showDoubtToggleButton()) {
             fillDoubtToggleButton(isDoubtToggleActive())
         }
@@ -1633,7 +1958,7 @@ class MatchScreen(
             glassRenderer.draw(
                 batch,
                 doubtButtonRect,
-                min(doubtButtonRect.height * 0.44f, 38f),
+                matchSurfaceRadius(doubtButtonRect),
                 if (isDoubtToggleActive()) ACTIVE_DOUBT_GLASS_STYLE else IDLE_DOUBT_GLASS_STYLE,
                 overlayAnimationSeconds,
                 pressed = if (isDoubtToggleActive()) 0.28f else 0f,
@@ -1647,11 +1972,25 @@ class MatchScreen(
             glassRenderer.draw(
                 batch,
                 hostCoinsButtonRect,
-                min(hostCoinsButtonRect.height * 0.44f, 32f),
+                matchSurfaceRadius(hostCoinsButtonRect),
                 PRIMARY_BUTTON_GLASS_STYLE,
                 overlayAnimationSeconds,
             )
             drawPanelTexture(hostCoinsButtonRect, color(0xFFE7B513))
+        }
+        if (showTimelineFocusButton()) {
+            glassRenderer.draw(
+                batch,
+                timelineFocusButtonRect,
+                matchSurfaceRadius(timelineFocusButtonRect),
+                if (isShowingLocalTimeline()) PRIMARY_BUTTON_GLASS_STYLE else SECONDARY_BUTTON_GLASS_STYLE,
+                overlayAnimationSeconds,
+                pressed = if (isShowingLocalTimeline()) 0.10f else 0f,
+            )
+            drawPanelTexture(
+                timelineFocusButtonRect,
+                if (isShowingLocalTimeline()) color(0xFFF0CE18) else color(0xFFE1A66B),
+            )
         }
     }
 
@@ -1703,6 +2042,20 @@ class MatchScreen(
                 shadowColor = color(0x45160FA2),
             )
         }
+        if (showTimelineFocusButton()) {
+            drawTextBlock(
+                text = timelineFocusButtonLabel(),
+                x = timelineFocusButtonRect.x,
+                y = timelineFocusButtonRect.y,
+                width = timelineFocusButtonRect.width,
+                height = timelineFocusButtonRect.height,
+                scale = MATCH_TIMELINE_TOGGLE_TEXT_SCALE,
+                color = color(0xFFF8EEE2),
+                align = Align.center,
+                verticalAlign = VerticalTextAlign.Center,
+                shadowColor = color(0x45160FA2),
+            )
+        }
     }
 
     private fun drawDoubtPopupShapes() {
@@ -1712,7 +2065,7 @@ class MatchScreen(
     }
 
     private fun drawDoubtPopupTextures() {
-        glassRenderer.draw(batch, doubtPopupRect, 40f, DOUBT_POPUP_GLASS_STYLE, overlayAnimationSeconds)
+        glassRenderer.draw(batch, doubtPopupRect, matchSurfaceRadius(doubtPopupRect), DOUBT_POPUP_GLASS_STYLE, overlayAnimationSeconds)
         drawPanelTexture(doubtPopupRect, color(0xC9EAFF12))
         drawRepeatedTexture(
             grainTexture,
@@ -1764,11 +2117,11 @@ class MatchScreen(
     }
 
     private fun drawCoinPanelTextures() {
-        glassRenderer.draw(batch, coinPanelRect, 40f, COIN_PANEL_GLASS_STYLE, overlayAnimationSeconds)
+        glassRenderer.draw(batch, coinPanelRect, matchSurfaceRadius(coinPanelRect), COIN_PANEL_GLASS_STYLE, overlayAnimationSeconds)
         glassRenderer.draw(
             batch,
             coinPanelCloseRect,
-            min(coinPanelCloseRect.height * 0.44f, 32f),
+            matchSurfaceRadius(coinPanelCloseRect),
             CLOSE_BUTTON_GLASS_STYLE,
             overlayAnimationSeconds,
             pressed = 0.1f,
@@ -1778,21 +2131,21 @@ class MatchScreen(
             glassRenderer.draw(
                 batch,
                 row.rowRect,
-                min(row.rowRect.height * 0.36f, 28f),
+                matchSurfaceRadius(row.rowRect),
                 COIN_ROW_GLASS_STYLE,
                 overlayAnimationSeconds,
             )
             glassRenderer.draw(
                 batch,
                 row.minusRect,
-                min(row.minusRect.height * 0.44f, 26f),
+                matchSurfaceRadius(row.minusRect),
                 PRIMARY_BUTTON_GLASS_STYLE,
                 overlayAnimationSeconds,
             )
             glassRenderer.draw(
                 batch,
                 row.plusRect,
-                min(row.plusRect.height * 0.44f, 26f),
+                matchSurfaceRadius(row.plusRect),
                 SECONDARY_BUTTON_GLASS_STYLE,
                 overlayAnimationSeconds,
             )
@@ -1801,15 +2154,17 @@ class MatchScreen(
     }
 
     private fun drawCoinPanelText() {
+        val headerGap = clamp(panelPadding * 0.86f, 22f, 30f)
+        val headerInset = clamp(panelPadding * 1.08f, 28f, 40f)
         drawTextBlock(
             text = "MANAGE COINS",
             x = coinPanelRect.x,
             y = coinPanelRect.y + coinPanelRect.height - panelHeaderHeight,
-            width = coinPanelRect.width * 0.72f,
+            width = coinPanelCloseRect.x - coinPanelRect.x - headerGap,
             height = panelHeaderHeight,
             scale = 0.98f,
             color = color(0xFFF2E6D7),
-            insetX = panelPadding,
+            insetX = headerInset,
             verticalAlign = VerticalTextAlign.Center,
         )
         drawTextBlock(
@@ -1825,23 +2180,27 @@ class MatchScreen(
         )
         coinPanelRows().forEach { row ->
             val player = presenter.state.requirePlayer(row.playerId) ?: return@forEach
+            val rowInnerInset = clamp(row.rowRect.height * 0.34f, 28f, 40f)
+            val controlsGap = clamp(row.rowRect.height * 0.20f, 16f, 24f)
+            val nameX = row.rowRect.x + rowInnerInset
+            val nameWidth = max(1f, row.minusRect.x - controlsGap - nameX)
             drawTextBlock(
                 text = player.displayName,
-                x = row.rowRect.x + 22f,
+                x = nameX,
                 y = row.rowRect.y,
-                width = row.rowRect.width * 0.42f,
+                width = nameWidth,
                 height = row.rowRect.height,
-                scale = 0.74f,
+                scale = 0.78f,
                 color = color(0xFFF0E4D7),
                 verticalAlign = VerticalTextAlign.Center,
             )
             drawTextBlock(
                 text = player.coins.toString(),
-                x = row.rowRect.x + row.rowRect.width * 0.48f,
+                x = row.valueRect.x,
                 y = row.rowRect.y,
-                width = row.rowRect.width * 0.12f,
+                width = row.valueRect.width,
                 height = row.rowRect.height,
-                scale = 0.86f,
+                scale = 0.92f,
                 color = color(0xF4CF79FF),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
@@ -1852,7 +2211,7 @@ class MatchScreen(
                 y = row.minusRect.y,
                 width = row.minusRect.width,
                 height = row.minusRect.height,
-                scale = 0.86f,
+                scale = 0.94f,
                 color = color(0x1A1308FF),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
@@ -1863,7 +2222,7 @@ class MatchScreen(
                 y = row.plusRect.y,
                 width = row.plusRect.width,
                 height = row.plusRect.height,
-                scale = 0.86f,
+                scale = 0.94f,
                 color = color(0x2A1209FF),
                 align = Align.center,
                 verticalAlign = VerticalTextAlign.Center,
@@ -2033,6 +2392,26 @@ class MatchScreen(
         drawRightTriangle(startX + triangleWidth + gap, centerY - triangleHeight / 2f, triangleWidth, triangleHeight)
     }
 
+    private fun drawHiddenCardPlaybackControl() {
+        val centerX = pendingCardPlaybackRect.x + pendingCardPlaybackRect.width / 2f
+        val centerY = pendingCardPlaybackRect.y + pendingCardPlaybackRect.height / 2f
+        val outerRadius = min(pendingCardPlaybackRect.width, pendingCardPlaybackRect.height) / 2f
+        drawCircularShadow(centerX, centerY, outerRadius * 0.92f, 11f, 0x19070658)
+        shapeRenderer.color = colorWithAlpha(0xFFF7EBD7, 0.18f)
+        shapeRenderer.circle(centerX, centerY, outerRadius * 1.06f, 56)
+        shapeRenderer.color = color(0xF8F3E8F2)
+        shapeRenderer.circle(centerX, centerY, outerRadius * 0.96f, 56)
+        shapeRenderer.color = color(0xE8D6B9CC)
+        shapeRenderer.circle(centerX, centerY - outerRadius * 0.05f, outerRadius * 0.76f, 56)
+        shapeRenderer.color = colorWithAlpha(0xFFFFFFFF, 0.24f)
+        shapeRenderer.circle(centerX - outerRadius * 0.10f, centerY + outerRadius * 0.24f, outerRadius * 0.36f, 40)
+        if (isPlaybackPaused()) {
+            drawPlayGlyph(pendingCardPlaybackRect, enabled = true)
+        } else {
+            drawPauseGlyph(pendingCardPlaybackRect, enabled = true)
+        }
+    }
+
     private fun drawRightTriangle(left: Float, bottom: Float, width: Float, height: Float) {
         shapeRenderer.triangle(
             left,
@@ -2044,6 +2423,46 @@ class MatchScreen(
         )
     }
 
+    private fun drawPlayGlyph(rect: Rectangle, enabled: Boolean) {
+        val shadowColor = if (enabled) color(0x6E390FA6) else color(0x4D29106C)
+        val glyphColor = if (enabled) color(0x2E180BFF) else color(0x513726FF)
+        val width = rect.width * 0.22f
+        val height = rect.height * 0.34f
+        val left = rect.x + (rect.width - width) / 2f + rect.width * 0.03f
+        val bottom = rect.y + (rect.height - height) / 2f
+        shapeRenderer.color = shadowColor
+        drawRightTriangle(left + 1.8f, bottom - 1.8f, width, height)
+        shapeRenderer.color = glyphColor
+        drawRightTriangle(left, bottom, width, height)
+    }
+
+    private fun drawPauseGlyph(rect: Rectangle, enabled: Boolean) {
+        val shadowColor = if (enabled) color(0x6E390FA6) else color(0x4D29106C)
+        val glyphColor = if (enabled) color(0x2E180BFF) else color(0x513726FF)
+        val barWidth = rect.width * 0.10f
+        val barHeight = rect.height * 0.34f
+        val gap = rect.width * 0.08f
+        val startX = rect.x + (rect.width - (barWidth * 2f + gap)) / 2f
+        val bottom = rect.y + (rect.height - barHeight) / 2f
+        shapeRenderer.color = shadowColor
+        shapeRenderer.rect(startX + 1.8f, bottom - 1.8f, barWidth, barHeight)
+        shapeRenderer.rect(startX + barWidth + gap + 1.8f, bottom - 1.8f, barWidth, barHeight)
+        shapeRenderer.color = glyphColor
+        shapeRenderer.rect(startX, bottom, barWidth, barHeight)
+        shapeRenderer.rect(startX + barWidth + gap, bottom, barWidth, barHeight)
+    }
+
+    private fun fillCapsule(rect: Rectangle, rgba: Long) {
+        val radius = rect.height / 2f
+        val innerWidth = max(0f, rect.width - rect.height)
+        shapeRenderer.color = color(rgba)
+        if (innerWidth > 0f) {
+            shapeRenderer.rect(rect.x + radius, rect.y, innerWidth, rect.height)
+        }
+        shapeRenderer.circle(rect.x + radius, rect.y + radius, radius, 40)
+        shapeRenderer.circle(rect.x + rect.width - radius, rect.y + radius, radius, 40)
+    }
+
     private fun fillPanel(rect: Rectangle, bodyTop: Long, bodyBottom: Long, headerTop: Long, headerBottom: Long, _edgeColor: Long) {
     }
 
@@ -2052,11 +2471,14 @@ class MatchScreen(
 
     private fun drawActionWellTexture() {
         val rect = actionWellRect()
-        glassRenderer.draw(batch, rect, min(rect.height * 0.48f, 38f), ACTION_WELL_GLASS_STYLE, overlayAnimationSeconds)
+        glassRenderer.draw(batch, rect, matchSurfaceRadius(rect), ACTION_WELL_GLASS_STYLE, overlayAnimationSeconds)
         drawPanelTexture(rect, color(0xFFDAB10A))
     }
 
-    private fun showActionWell(): Boolean = showDoubtToggleButton() || showCoinsShortcutButton()
+    private fun matchSurfaceRadius(rect: Rectangle): Float =
+        min(MATCH_SURFACE_RADIUS, min(rect.width, rect.height) / 2f)
+
+    private fun showActionWell(): Boolean = showDoubtToggleButton() && showCoinsShortcutButton()
 
     private fun actionWellRect(): Rectangle {
         val margin = clamp(panelPadding * 0.55f, 12f, 18f)
@@ -2105,6 +2527,7 @@ class MatchScreen(
         topColor: Long,
         bottomColor: Long,
         edgeColor: Long,
+        highlight: CardHighlight,
     ) {
         val shadowColor = if (face == CardFace.Revealed) 0x12080848L else 0x18080858L
         val shadowBlur = if (face == CardFace.Revealed) 10f else 13f
@@ -2138,6 +2561,16 @@ class MatchScreen(
             drawFrame(left + 4f, bottom + 4f, width - 8f, height - 8f, 0xF7E4A86A, 1f)
         }
         drawFrame(left, bottom, width, height, edgeColor, 2f)
+        if (highlight == CardHighlight.CorrectGuess) {
+            drawCorrectGuessHighlight(left, bottom, width, height)
+        }
+    }
+
+    private fun drawCorrectGuessHighlight(left: Float, bottom: Float, width: Float, height: Float) {
+        drawDropShadow(left, bottom, width, height, 18f, 0xF8F3D882)
+        drawFrame(left - 4f, bottom - 4f, width + 8f, height + 8f, 0xF4F7E58C, 2.4f)
+        drawFrame(left + 3f, bottom + 3f, width - 6f, height - 6f, 0xB6FFF7DA, 1.2f)
+        fillRect(left + 14f, bottom + height - 6f, width - 28f, 1.8f, 0xFFFDF1B8)
     }
 
     private fun drawPanelTexture(rect: Rectangle, tint: Color) {
@@ -2290,7 +2723,11 @@ class MatchScreen(
             topColor = visual.topColor,
             bottomColor = visual.bottomColor,
             edgeColor = visual.edgeColor,
+            highlight = visual.highlight,
         )
+        if (showPendingCardPlaybackControl(visual)) {
+            drawHiddenCardPlaybackControl()
+        }
     }
 
     private fun drawCardText(visual: TimelineCardVisual) {
@@ -2354,9 +2791,9 @@ class MatchScreen(
                     drawTextBlock(
                         text = hiddenLabel,
                         x = visual.rect.x,
-                        y = visual.rect.y + visual.rect.height * 0.16f,
+                        y = visual.rect.y + visual.rect.height * 0.24f,
                         width = visual.rect.width,
-                        height = visual.rect.height * 0.56f,
+                        height = visual.rect.height * 0.36f,
                         scale = 1.54f,
                         color = color(0x1A1308FF),
                         align = Align.center,
@@ -2368,9 +2805,9 @@ class MatchScreen(
                     drawTextBlock(
                         text = secondaryLabel,
                         x = visual.rect.x,
-                        y = visual.rect.y + visual.rect.height * 0.04f,
+                        y = visual.rect.y + visual.rect.height * 0.05f,
                         width = visual.rect.width,
-                        height = visual.rect.height * 0.22f,
+                        height = visual.rect.height * 0.20f,
                         scale = 0.80f,
                         color = color(0x1A1308FF),
                         align = Align.center,
@@ -2381,6 +2818,8 @@ class MatchScreen(
             }
         }
     }
+
+    private fun TimelineCardVisual.snapshot(): TimelineCardVisual = copy(rect = Rectangle(rect))
 
     private fun revealedCardUsesLightText(visual: TimelineCardVisual): Boolean {
         val topLuminance = rgbaLuminance(visual.topColor)
@@ -2449,38 +2888,131 @@ class MatchScreen(
     }
 
     private fun activeTurnToolbarColor(): Color {
-        return if (isLocalPlayersTurn()) {
-            color(0xFFD88A45)
+        return if (isLocalPlayersTurn() || isLocalDoubtPlacementPhase()) {
+            color(0xFFFFDE72)
         } else {
             color(0xFFF2E6D7)
         }
     }
 
     private fun activeTurnToolbarShadowColor(): Color {
-        return if (isLocalPlayersTurn()) {
-            color(0x533106A6)
+        return if (isLocalPlayersTurn() || isLocalDoubtPlacementPhase()) {
+            color(0x8C3B149E)
         } else {
             color(0x35150EA8)
         }
     }
 
     private fun shouldShowInactiveTurnFilter(): Boolean {
+        if (currentResolutionPresentation != null) {
+            return false
+        }
+        if (isShowingLocalTimeline()) {
+            return false
+        }
         return presenter.state.status == MatchStatus.ACTIVE &&
             !isLocalPlayersTurn() &&
             !isLocalDoubtPlacementPhase()
     }
 
+    private fun resolutionHighlightFor(cardId: String, playerId: PlayerId): CardHighlight {
+        val presentation = currentResolutionPresentation ?: return CardHighlight.None
+        if (presentation.isOverlayActive()) {
+            return CardHighlight.None
+        }
+        return if (presentation.highlightPlayerId == playerId && presentation.cardId == cardId) {
+            CardHighlight.CorrectGuess
+        } else {
+            CardHighlight.None
+        }
+    }
+
     private fun showActionButton(): Boolean = canEndTurn()
 
-    private fun showPlaybackToggleButton(): Boolean =
+    private fun isTimelineFocusForcedToCurrent(): Boolean = isLocalDoubtPlacementPhase()
+
+    private fun isShowingLocalTimeline(): Boolean =
+        timelineFocusMode == TimelineFocusMode.Local &&
+            !isTimelineFocusForcedToCurrent()
+
+    private fun showTimelineFocusButton(): Boolean {
+        return shouldShowTimelineFocusToggle(
+            currentTimelinePlayerId = currentTimelinePlayerId(),
+            localPlayerId = presenter.localPlayer?.id,
+            forcedCurrent = isTimelineFocusForcedToCurrent(),
+        )
+    }
+
+    private fun timelineFocusButtonLabel(): String {
+        return if (isShowingLocalTimeline()) {
+            MATCH_TIMELINE_CURRENT_LABEL
+        } else {
+            MATCH_TIMELINE_LOCAL_LABEL
+        }
+    }
+
+    private fun toggleTimelineFocus() {
+        if (!showTimelineFocusButton()) {
+            return
+        }
+        timelineFocusMode = if (isShowingLocalTimeline()) {
+            TimelineFocusMode.Current
+        } else {
+            TimelineFocusMode.Local
+        }
+    }
+
+    private fun canTogglePlayback(): Boolean =
         presenter.state.status == MatchStatus.ACTIVE &&
             isLocalPlayersTurn() &&
             (presenter.playbackSessionState is PlaybackSessionState.Playing ||
                 presenter.playbackSessionState is PlaybackSessionState.Paused)
 
+    private fun canShowPendingCardPlaybackControl(): Boolean =
+        presenter.state.status == MatchStatus.ACTIVE &&
+            isLocalPlayersTurn() &&
+            !isLocalDoubtPlacementPhase() &&
+            localPlayer()?.pendingCard != null &&
+            presenter.playbackSessionState != PlaybackSessionState.Disconnected &&
+            presenter.playbackSessionState != PlaybackSessionState.Connecting
+
+    private fun showHeroPlaybackButton(): Boolean = false
+
+    private fun showPendingCardPlaybackControl(): Boolean =
+        canShowPendingCardPlaybackControl()
+
+    private fun showPendingCardPlaybackControl(visual: TimelineCardVisual): Boolean =
+        showPendingCardPlaybackControl() &&
+            visual.face == CardFace.Hidden &&
+            visual.id == pendingCardVisual?.id
+
     private fun isPlaybackPaused(): Boolean = presenter.playbackSessionState is PlaybackSessionState.Paused
 
     private fun playbackToggleLabel(): String = if (isPlaybackPaused()) "RESUME" else "PAUSE"
+
+    private fun hiddenCardPlaybackControlRect(cardRect: Rectangle): Rectangle {
+        val controlSize = clamp(min(cardRect.width, cardRect.height) * 0.25f, 80f, 96f)
+        return Rectangle(
+            cardRect.x + (cardRect.width - controlSize) / 2f,
+            cardRect.y + cardRect.height - controlSize - cardRect.height * 0.05f,
+            controlSize,
+            controlSize,
+        )
+    }
+
+    private fun hiddenCardPlaybackHitContains(cardRect: Rectangle, x: Float, y: Float): Boolean {
+        return hiddenCardPlaybackTouchZoneContains(
+            cardRect = cardRect,
+            controlRect = hiddenCardPlaybackControlRect(cardRect),
+            x = x,
+            y = y,
+        )
+    }
+
+    private fun timelineScoreSummaryText(): String {
+        val player = localPlayer()
+        return "Score ${player?.score ?: 0}  Coins ${player?.coins ?: 0}"
+    }
 
     private fun showRedrawButton(): Boolean = canRedraw() && !isLocalDoubtPlacementPhase()
 
@@ -2506,8 +3038,7 @@ class MatchScreen(
         }
         return when {
             doubt == null -> {
-                turn.phase == TurnPhase.AWAITING_PLACEMENT ||
-                    turn.phase == TurnPhase.CARD_POSITIONED ||
+                isPendingPlacementPhase(turn.phase) ||
                     turn.phase == TurnPhase.AWAITING_DOUBT_WINDOW
             }
 
@@ -2567,13 +3098,32 @@ class MatchScreen(
     private fun localPlayer(): PlayerState? = presenter.localPlayer
 
     private fun displayedTimelinePlayer(): PlayerState? {
-        val activePlayerId = presenter.state.turn?.activePlayerId
-        return activePlayerId?.let { presenter.state.requirePlayer(it) } ?: presenter.localPlayer
+        if (isShowingLocalTimeline()) {
+            return presenter.localPlayer
+        }
+        val currentPlayerId = currentTimelinePlayerId()
+        return currentPlayerId?.let { presenter.state.requirePlayer(it) } ?: presenter.localPlayer
     }
 
     private fun localResolution() = presenter.state.lastResolution?.takeIf { it.playerId == presenter.localPlayerId }
 
     private fun isLocalPlayersTurn(): Boolean = presenter.state.turn?.activePlayerId == presenter.localPlayerId
+
+    private fun currentSharedTimelinePlayerId(): PlayerId? {
+        val doubt = presenter.state.doubt
+        val turn = presenter.state.turn
+        val phase = turn?.phase
+        return sharedTimelinePlayerIdForMatchSurface(
+            activePlayerId = turn?.activePlayerId,
+            resolutionPlayerId = presenter.state.lastResolution?.playerId,
+            doubtTargetPlayerId = doubt?.targetPlayerId,
+            phase = phase,
+            overlayPlayerId = currentResolutionPresentation?.overlayPlayerId,
+            overlayActive = currentResolutionPresentation?.isOverlayActive() == true,
+        ) ?: presenter.localPlayer?.id
+    }
+
+    private fun currentTimelinePlayerId(): PlayerId? = currentSharedTimelinePlayerId()
 
     private fun doubtWindowStatusText(): String? {
         val turn = presenter.state.turn ?: return null
@@ -2606,27 +3156,26 @@ class MatchScreen(
         if (!isLocalPlayersTurn() || player.pendingCard == null) {
             return false
         }
-        return phase == TurnPhase.AWAITING_PLACEMENT || phase == TurnPhase.CARD_POSITIONED
+        return isPendingPlacementPhase(phase)
     }
 
     private fun canEndTurn(): Boolean {
         val phase = presenter.state.turn?.phase ?: return false
         return when {
-            isLocalDoubtPlacementPhase() -> phase == TurnPhase.AWAITING_DOUBT_PLACEMENT || phase == TurnPhase.DOUBT_POSITIONED
-            isLocalPlayersTurn() -> phase == TurnPhase.CARD_POSITIONED
+            isLocalDoubtPlacementPhase() -> isDoubtPlacementPhase(phase)
+            isLocalPlayersTurn() -> isPendingPlacementPhase(phase)
             else -> false
         }
     }
 
     private fun canMoveMainPendingCard(): Boolean {
         val phase = presenter.state.turn?.phase ?: return false
-        return isLocalPlayersTurn() && (phase == TurnPhase.AWAITING_PLACEMENT || phase == TurnPhase.CARD_POSITIONED)
+        return isLocalPlayersTurn() && isPendingPlacementPhase(phase)
     }
 
     private fun canMoveDoubtCard(): Boolean {
         val phase = presenter.state.turn?.phase ?: return false
-        return isLocalDoubtPlacementPhase() &&
-            (phase == TurnPhase.AWAITING_DOUBT_PLACEMENT || phase == TurnPhase.DOUBT_POSITIONED)
+        return isLocalDoubtPlacementPhase() && isDoubtPlacementPhase(phase)
     }
 
     private fun requestedSlotIndexFor(x: Float): Int {
@@ -2770,27 +3319,43 @@ class MatchScreen(
         if (players.isEmpty()) {
             return emptyList()
         }
-        val rowHeight = clamp((coinPanelRect.height - panelHeaderHeight - 72f) / players.size, 64f, 82f)
-        val rowGap = 14f
-        val startY = coinPanelRect.y + coinPanelRect.height - panelHeaderHeight - rowHeight - 22f
+        val contentInsetX = clamp(panelPadding * 1.22f, 34f, 48f)
+        val contentTopInset = clamp(panelPadding * 1.02f, 28f, 40f)
+        val contentBottomInset = clamp(panelPadding * 1.12f, 32f, 44f)
+        val rowGap = clamp(panelPadding * 0.62f, 18f, 24f)
+        val availableHeight = max(
+            1f,
+            coinPanelRect.height - panelHeaderHeight - contentTopInset - contentBottomInset - rowGap * max(0, players.size - 1),
+        )
+        val rowHeight = clamp(availableHeight / players.size, 80f, 108f)
+        val startY = coinPanelRect.y + coinPanelRect.height - panelHeaderHeight - contentTopInset - rowHeight
         return players.mapIndexed { index, player ->
             val y = startY - index * (rowHeight + rowGap)
             val rowRect = Rectangle(
-                coinPanelRect.x + panelPadding,
+                coinPanelRect.x + contentInsetX,
                 y,
-                coinPanelRect.width - panelPadding * 2f,
+                coinPanelRect.width - contentInsetX * 2f,
                 rowHeight,
             )
-            val buttonSize = rowHeight - 18f
+            val buttonInset = clamp(rowHeight * 0.14f, 12f, 20f)
+            val buttonGap = clamp(rowHeight * 0.18f, 16f, 24f)
+            val buttonSize = clamp(rowHeight - buttonInset * 2f, 56f, 84f)
+            val valueWidth = clamp(rowHeight * 1.00f, 86f, 120f)
             val plusRect = Rectangle(
-                rowRect.x + rowRect.width - buttonSize - 16f,
+                rowRect.x + rowRect.width - buttonInset - buttonSize,
                 rowRect.y + (rowRect.height - buttonSize) / 2f,
                 buttonSize,
                 buttonSize,
             )
+            val valueRect = Rectangle(
+                plusRect.x - buttonGap - valueWidth,
+                rowRect.y,
+                valueWidth,
+                rowRect.height,
+            )
             val minusRect = Rectangle(
-                plusRect.x - buttonSize - 14f,
-                plusRect.y,
+                valueRect.x - buttonGap - buttonSize,
+                rowRect.y + (rowRect.height - buttonSize) / 2f,
                 buttonSize,
                 buttonSize,
             )
@@ -2798,6 +3363,7 @@ class MatchScreen(
                 playerId = player.id,
                 rowRect = rowRect,
                 minusRect = minusRect,
+                valueRect = valueRect,
                 plusRect = plusRect,
             )
         }
@@ -2948,6 +3514,21 @@ class MatchScreen(
         drawDropShadow(rect.x, rect.y, rect.width, rect.height, spread, rgba)
     }
 
+    private fun drawCircularShadow(centerX: Float, centerY: Float, radius: Float, spread: Float, rgba: Long) {
+        repeat(4) { layer ->
+            val expansion = spread * (layer + 1) / 4f
+            val alpha = when (layer) {
+                0 -> 0x24L
+                1 -> 0x18L
+                2 -> 0x10L
+                else -> 0x08L
+            }
+            val shadow = (rgba and 0xFFFFFF00) or alpha
+            shapeRenderer.color = color(shadow)
+            shapeRenderer.circle(centerX, centerY - expansion * 0.10f, radius + expansion, 56)
+        }
+    }
+
     private fun drawDropShadow(x: Float, y: Float, width: Float, height: Float, spread: Float, rgba: Long) {
         repeat(4) { layer ->
             val expansion = spread * (layer + 1) / 4f
@@ -3054,6 +3635,11 @@ class MatchScreen(
                 }
             }
 
+            if (showTimelineFocusButton() && timelineFocusButtonRect.contains(world.x, world.y)) {
+                toggleTimelineFocus()
+                return true
+            }
+
             if (presenter.state.status != MatchStatus.ACTIVE) {
                 return false
             }
@@ -3072,8 +3658,14 @@ class MatchScreen(
                 return true
             }
 
-            if (showPlaybackToggleButton() && playbackButtonRect.contains(world.x, world.y)) {
-                presenter.togglePlayback()
+            val currentPendingCard = pendingCardVisual
+            val touchesPendingCardPlaybackControl = currentPendingCard?.let { visual ->
+                hiddenCardPlaybackHitContains(visual.rect, world.x, world.y)
+            } == true
+            if (showPendingCardPlaybackControl() && touchesPendingCardPlaybackControl) {
+                if (canTogglePlayback()) {
+                    presenter.togglePlayback()
+                }
                 return true
             }
 
@@ -3082,8 +3674,11 @@ class MatchScreen(
                 return true
             }
 
-            val currentPendingCard = pendingCardVisual
-            if (canMoveDoubtCard() && currentPendingCard?.rect?.contains(world.x, world.y) == true) {
+            if (
+                canMoveDoubtCard() &&
+                currentPendingCard?.rect?.contains(world.x, world.y) == true &&
+                !touchesPendingCardPlaybackControl
+            ) {
                 draggingDoubtCard = true
                 worldTouch.set(world)
                 doubtPendingCardGrabOffsetX = world.x - currentPendingCard.rect.x
@@ -3095,7 +3690,11 @@ class MatchScreen(
                 return true
             }
 
-            if (canMoveMainPendingCard() && currentPendingCard?.rect?.contains(world.x, world.y) == true) {
+            if (
+                canMoveMainPendingCard() &&
+                currentPendingCard?.rect?.contains(world.x, world.y) == true &&
+                !touchesPendingCardPlaybackControl
+            ) {
                 draggingPendingCard = true
                 worldTouch.set(world)
                 pendingCardGrabOffsetX = world.x - currentPendingCard.rect.x
@@ -3197,7 +3796,22 @@ class MatchScreen(
         val primaryText: String? = null,
         val secondaryText: String? = null,
         val tertiaryText: String? = null,
+        val highlight: CardHighlight = CardHighlight.None,
     )
+
+    private data class ResolutionPresentation(
+        val cardId: String,
+        val overlayPlayerId: PlayerId,
+        val highlightPlayerId: PlayerId?,
+        val correct: Boolean,
+        val overlayRect: Rectangle,
+        val frozenCommittedVisuals: List<TimelineCardVisual>,
+        var elapsedSeconds: Float = 0f,
+    ) {
+        fun isOverlayActive(): Boolean = isResolutionRevealOverlayActive(elapsedSeconds)
+
+        fun showsOverlayFor(playerId: PlayerId): Boolean = isOverlayActive() && overlayPlayerId == playerId
+    }
 
     private data class FittedTextLine(
         val text: String,
@@ -3230,12 +3844,23 @@ class MatchScreen(
         val playerId: com.hitster.core.model.PlayerId,
         val rowRect: Rectangle,
         val minusRect: Rectangle,
+        val valueRect: Rectangle,
         val plusRect: Rectangle,
     )
 
     private enum class CardFace {
         Revealed,
         Hidden,
+    }
+
+    private enum class CardHighlight {
+        None,
+        CorrectGuess,
+    }
+
+    private enum class TimelineFocusMode {
+        Current,
+        Local,
     }
 
     private enum class VerticalTextAlign {
@@ -3251,6 +3876,19 @@ class MatchScreen(
         const val CONFETTI_GRAVITY = -520f
         const val CONFETTI_FILTER_BLEND_START_PROGRESS = 0.72f
         const val LOBBY_DRAG_START_DISTANCE = 20f
+        const val MATCH_PLAYBACK_BUTTON_TEXT_SCALE = 0.64f
+        const val MATCH_ACTION_BUTTON_TEXT_SCALE = 0.62f
+        const val MATCH_HEADER_BUTTON_TEXT_SCALE = 0.60f
+        const val MATCH_COINS_BUTTON_TEXT_SCALE = 0.64f
+        const val MATCH_DOUBT_BUTTON_TEXT_SCALE = 0.92f
+        const val MATCH_TIMELINE_TOGGLE_TEXT_SCALE = 0.56f
+        const val MATCH_SCORE_TEXT_SCALE = 0.86f
+        const val MATCH_BUTTON_VISUAL_BUFFER = 10f
+        const val MATCH_COINS_BUTTON_LABEL = "COINS"
+        const val MATCH_DOUBT_ACTIVE_BUTTON_LABEL = "DOUBTING"
+        const val MATCH_TIMELINE_LOCAL_LABEL = "MY TIMELINE"
+        const val MATCH_TIMELINE_CURRENT_LABEL = "CURRENT"
+        const val MATCH_SURFACE_RADIUS = 38f
         val HERO_GLASS_STYLE = LiquidGlassStyle(
             bodyTint = 0xE8D6CB72,
             edgeTint = 0xFFF1DDC9FF,
@@ -3387,6 +4025,118 @@ internal fun countdownSecondsRemaining(remainingMillis: Long): Int {
     return ((clampedRemainingMillis + 999L) / 1_000L).toInt()
 }
 
+internal fun isResolutionRevealOverlayActive(elapsedSeconds: Float): Boolean {
+    return elapsedSeconds < MATCH_RESOLUTION_REVEAL_DELAY_SECONDS
+}
+
+internal fun shouldCreateResolutionPresentation(
+    resolutionCardId: String?,
+    currentPresentationCardId: String?,
+    lastPresentedResolutionCardId: String?,
+): Boolean {
+    if (resolutionCardId == null) {
+        return false
+    }
+    if (currentPresentationCardId == resolutionCardId) {
+        return false
+    }
+    return lastPresentedResolutionCardId != resolutionCardId
+}
+
+internal fun shouldResetPendingCardAnimation(
+    previousTimelinePlayerId: PlayerId?,
+    currentTimelinePlayerId: PlayerId?,
+    previousPendingCardId: String?,
+    currentPendingCardId: String?,
+): Boolean {
+    return previousTimelinePlayerId != currentTimelinePlayerId ||
+        previousPendingCardId != currentPendingCardId
+}
+
+internal fun shouldShowTimelineFocusToggle(
+    currentTimelinePlayerId: PlayerId?,
+    localPlayerId: PlayerId?,
+    forcedCurrent: Boolean,
+): Boolean {
+    return !forcedCurrent &&
+        currentTimelinePlayerId != null &&
+        localPlayerId != null &&
+        currentTimelinePlayerId != localPlayerId
+}
+
+internal fun shouldFreezeResolutionBaseTimeline(
+    displayedTimelinePlayerId: PlayerId?,
+    overlayPlayerId: PlayerId?,
+    localPlayerId: PlayerId?,
+    showingLocalTimeline: Boolean,
+    overlayActive: Boolean,
+): Boolean {
+    if (!overlayActive || displayedTimelinePlayerId == null || overlayPlayerId == null) {
+        return false
+    }
+    if (displayedTimelinePlayerId != overlayPlayerId) {
+        return false
+    }
+    return !showingLocalTimeline || localPlayerId == overlayPlayerId
+}
+
+internal fun sharedTimelinePlayerIdForMatchSurface(
+    activePlayerId: PlayerId?,
+    resolutionPlayerId: PlayerId?,
+    doubtTargetPlayerId: PlayerId?,
+    phase: TurnPhase?,
+    overlayPlayerId: PlayerId? = null,
+    overlayActive: Boolean = false,
+): PlayerId? {
+    if (doubtTargetPlayerId != null && isDoubtPlacementPhase(phase)) {
+        return doubtTargetPlayerId
+    }
+    if (overlayActive && overlayPlayerId != null) {
+        return overlayPlayerId
+    }
+    if (phase == TurnPhase.WAITING_FOR_DRAW && resolutionPlayerId != null) {
+        return resolutionPlayerId
+    }
+    return activePlayerId
+}
+
+internal fun isPendingPlacementPhase(phase: TurnPhase?): Boolean {
+    return phase == TurnPhase.AWAITING_PLACEMENT || phase == TurnPhase.CARD_POSITIONED
+}
+
+internal fun isDoubtPlacementPhase(phase: TurnPhase?): Boolean {
+    return phase == TurnPhase.AWAITING_DOUBT_PLACEMENT || phase == TurnPhase.DOUBT_POSITIONED
+}
+
+internal fun hiddenCardPlaybackTouchZoneContains(
+    cardRect: Rectangle,
+    controlRect: Rectangle,
+    x: Float,
+    y: Float,
+): Boolean {
+    if (controlRect.width <= 0f || controlRect.height <= 0f) {
+        return false
+    }
+
+    val centerX = controlRect.x + controlRect.width / 2f
+    val centerY = controlRect.y + controlRect.height / 2f
+    val radius = min(controlRect.width, controlRect.height) / 2f + max(controlRect.width * 0.34f, 26f)
+    val dx = x - centerX
+    val dy = y - centerY
+    if (dx * dx + dy * dy <= radius * radius) {
+        return true
+    }
+
+    val laneWidth = min(cardRect.width, max(controlRect.width * 1.7f, controlRect.width + 44f))
+    val laneHeight = min(cardRect.height * 0.34f, max(controlRect.height * 1.5f, controlRect.height + 34f))
+    val laneLeft = cardRect.x + (cardRect.width - laneWidth) / 2f
+    val laneBottom = cardRect.y + cardRect.height - laneHeight - max(cardRect.height * 0.04f, 10f)
+    return x >= laneLeft &&
+        x <= laneLeft + laneWidth &&
+        y >= laneBottom &&
+        y <= laneBottom + laneHeight
+}
+
 private fun List<PlayerState>.moveLobbyPlayer(
     playerId: PlayerId,
     targetIndex: Int,
@@ -3400,3 +4150,5 @@ private fun List<PlayerState>.moveLobbyPlayer(
     reordered.add(targetIndex.coerceIn(0, reordered.size), player)
     return reordered.toList()
 }
+
+private const val MATCH_RESOLUTION_REVEAL_DELAY_SECONDS = 0.58f
